@@ -10,6 +10,7 @@
   "scripts": {
     "dev:web": "pnpm --filter @opsweave/web-console dev",
     "build:web": "pnpm --filter @opsweave/web-console build",
-    "typecheck:web": "pnpm --filter @opsweave/web-console typecheck"
+    "typecheck:web": "pnpm --filter @opsweave/web-console typecheck",
+    "test:web": "pnpm --filter @opsweave/web-console test:e2e"
   }
 }

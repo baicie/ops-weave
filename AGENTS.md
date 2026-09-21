@@ -1,6 +1,6 @@
 # OpsWeave 开发边界
 
-先读 `docs/architecture/v4-design.md`、`docs/IMPLEMENTATION-STATUS.md`、`docs/VALIDATION-REPORT.md`。只报告实际运行过的检查，不将编写测试等同测试通过。
+先读 `docs/architecture/v4-design.md`、`docs/ROADMAP.md`、`docs/IMPLEMENTATION-STATUS.md`、`docs/VALIDATION-REPORT.md`。只报告实际运行过的检查，不将编写测试等同测试通过。
 
 ## 语言与依赖
 

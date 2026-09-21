@@ -11,12 +11,18 @@ export function DiagnosePage() {
   const [error, setError] = createSignal('')
   const [result, setResult] = createSignal<DiagnoseResult | null>(null)
   let abort: AbortController | undefined
+  let disposed = false
+  let requestId = 0
 
-  onCleanup(() => abort?.abort())
+  onCleanup(() => {
+    disposed = true
+    abort?.abort()
+  })
 
   async function diagnose() {
     abort?.abort()
     abort = new AbortController()
+    const currentRequest = ++requestId
     const timeout = window.setTimeout(() => abort?.abort(), 35000)
     setBusy(true)
     setError('')
@@ -27,8 +33,10 @@ export function DiagnosePage() {
         question: question(),
         signal: abort.signal,
       })
+      if (disposed || currentRequest !== requestId) return
       setResult(value)
     } catch (cause) {
+      if (disposed || currentRequest !== requestId) return
       if (cause instanceof DOMException && cause.name === 'AbortError') {
         setError('诊断已取消或超时')
       } else {
@@ -36,7 +44,7 @@ export function DiagnosePage() {
       }
     } finally {
       window.clearTimeout(timeout)
-      setBusy(false)
+      if (!disposed && currentRequest === requestId) setBusy(false)
     }
   }
 
@@ -49,7 +57,7 @@ export function DiagnosePage() {
   }
 
   return (
-    <section class="panel">
+    <section class="panel" data-page="diagnose">
       <h2>只读诊断 Demo</h2>
       <p>使用固定的合成故障数据，不查询真实 Zabbix，也不执行生产动作。先在本机启动 Rust Demo。</p>
       <label>
@@ -98,7 +106,7 @@ function DiagnoseResultView(props: {
     <section aria-live="polite">
       <h2>{props.result.insight.summary}</h2>
       <p>
-        <code>{props.result.dataMode} / {props.result.modelProvider}</code>
+        <code>{`${props.result.dataMode} / ${props.result.modelProvider}`}</code>
       </p>
       <For each={props.result.insight.findings}>
         {row => <FindingView finding={forItem(row)} onEvidence={props.onEvidence} />}
@@ -111,7 +119,7 @@ function DiagnoseResultView(props: {
       <p>{props.result.insight.missingData.join('；')}</p>
       <h3>限制</h3>
       <p>{props.result.insight.limitations.join('；')}</p>
-      <small>Run: {props.result.runId} · {props.result.verification}</small>
+      <small>{`Run: ${props.result.runId} · ${props.result.verification}`}</small>
     </section>
   )
 }
@@ -147,7 +155,7 @@ function EvidenceRefButton(props: {
 function EvidenceView(props: { item: DiagnoseResult['context']['evidence'][number] }) {
   return (
     <details id={'evidence-' + props.item.id}>
-      <summary>{props.item.id} · {props.item.kind}</summary>
+      <summary>{`${props.item.id} · ${props.item.kind}`}</summary>
       <p>{props.item.summary}</p>
       <code>{props.item.sourceRef}</code>
     </details>

@@ -13,10 +13,19 @@ importers:
       '@zeus-js/zeus':
         specifier: 0.1.1-beta.2
         version: 0.1.1-beta.2
+      '@zeus-web/button':
+        specifier: 0.1.0-beta.4
+        version: 0.1.0-beta.4(@types/react@19.3.0)(@zeus-js/zeus@0.1.1-beta.2)(react@19.3.0)(rolldown@1.2.9)(vite@8.3.0)
+      '@zeus-web/input':
+        specifier: 0.1.0-beta.4
+        version: 0.1.0-beta.4(@types/react@19.3.0)(@zeus-js/zeus@0.1.1-beta.2)(react@19.3.0)(rolldown@1.2.9)(vite@8.3.0)
       '@zeus-web/ui':
         specifier: 0.1.0-beta.4
         version: 0.1.0-beta.4(@types/react@19.3.0)(@zeus-js/zeus@0.1.1-beta.2)(react@19.3.0)(rolldown@1.2.9)(vite@8.3.0)
     devDependencies:
+      '@playwright/test':
+        specifier: 1.55.1
+        version: 1.55.1
       '@zeus-js/vite-plugin':
         specifier: 0.0.4
         version: 0.0.4(vite@8.3.0)
@@ -131,6 +140,11 @@ packages:
 
   '@oxc-project/types@0.150.0':
     resolution: {integrity: sha512-rDS5/31E9HfPl/CIzGrn0DOlvBbXFseQ5URJ9sYMfstbKLD/c6Gm9vmRzRGDdAXyOIL4zmO37lc9RIwYqVruZw==}
+
+  '@playwright/test@1.55.1':
+    resolution: {integrity: sha512-IVAh/nOJaw6W9g+RJVlIQJ6gSiER+ae6mKQ5CX1bERzQgbC1VSeBlwdvczT7pxb0GWiyrxH4TGKbMfDb4Sq/ig==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@rolldown/binding-android-arm-eabi@1.2.9':
     resolution: {integrity: sha512-tNISae1QEf/vkb3xkRcjV5SEdzPE97We5IVaa2Z8jSszQPZ8U60B/YCYpw4QI7VidYsBtKavczXf+DyDs9WGxw==}
@@ -467,6 +481,11 @@ packages:
     resolution: {integrity: sha512-kWyh8ADvHBFz6ua5xYOPnUroZTT/bwWfrCeL0Wj1dzG4/YOmOcfJ99W8dOVyyynJN35rZ9aCOtHChqQovV7yog==}
     engines: {node: '>=6'}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -613,6 +632,16 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  playwright-core@1.55.1:
+    resolution: {integrity: sha512-Z6Mh9mkwX+zxSlHqdr5AOcJnfp+xUWLCt9uKV18fhzA8eyxUd8NUWzAjxUh55RZKSYwDGX0cfaySdhZJGMoJ+w==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.55.1:
+    resolution: {integrity: sha512-cJW4Xd/G3v5ovXtJJ52MAOclqeac9S/aGGgRzLabuF8TnIb6xHvMzKIa6JmrRzUkeXJgfL1MhukP0NK6l39h3A==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   postcss@8.5.28:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
@@ -839,6 +868,10 @@ snapshots:
       fastq: 1.20.3
 
   '@oxc-project/types@0.150.0': {}
+
+  '@playwright/test@1.55.1':
+    dependencies:
+      playwright: 1.55.1
 
   '@rolldown/binding-android-arm-eabi@1.2.9':
     optional: true
@@ -1123,6 +1156,9 @@ snapshots:
 
   flru@1.0.2: {}
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -1215,6 +1251,14 @@ snapshots:
   picomatch@2.3.2: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.55.1: {}
+
+  playwright@1.55.1:
+    dependencies:
+      playwright-core: 1.55.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   postcss@8.5.28:
     dependencies:

@@ -8,6 +8,9 @@ package-lock.json
 npm-shrinkwrap.json
 yarn.lock
 **/dist/
+playwright-report/
+test-results/
+blob-report/
 **/.venv/
 **/__pycache__/
 **/.pytest_cache/

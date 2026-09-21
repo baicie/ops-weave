@@ -1,25 +1,26 @@
 # 首轮研发任务清单
 
-## Bootstrap
+规划里程碑与 Issue 拆分见 [ROADMAP.md](ROADMAP.md)。本页只列**当前可启动**的工作，不把未验收能力写成已完成。
 
-生成可信的依赖锁与Wrapper，运行Rust默认/全部feature测试和Java/Web完整构建，修复真实编译差异并锁定工具链。保留合成演示与closed默认值，提交验证报告。
+## 当前：M0（Zeus 迁移验收）
 
-## 真实数据前置
+| ID | 状态 | 说明 |
+|---|---|---|
+| OW-R01 | 完成（本地） | 兼容性清单已写；去掉 `node_modules` 的工作树拷贝上 frozen 安装 / typecheck / build 已跑。不是干净 `git clone`，也未复跑 GitHub Actions |
+| OW-R02 | 完成（本地） | Playwright Chromium：注册 WC、输入、提交、401/503、取消、卸载、证据按文本渲染。7 passed。拦截 `/agent`，不需要 Rust Demo |
+| OW-R03 | 消费端已规避 | `@zeus-web/ui` JS 非 sideEffects、编译器相邻插值、`<For>` accessor 均在产品侧规避。未向上游提交最小复现 |
 
-在Java identity/application层定义主体、tenant与resource scope，接入OIDC验证，补允许/拒绝矩阵；为数据库创建非表主人的最小权限运行角色。不要把dev token升级成生产token。
+下一步是 M1 / OW-R04 身份契约（不依赖前端再迁一次）。中文 IME、完整键盘矩阵仍未测。
 
-## 首个Connector闭环
+## 已完成的 Bootstrap
 
-先做CMDB与Zabbix Host只读同步：source-instance作用域、分页、checkpoint、完整快照标志、Raw引用、字段映射、ExternalLink、Observation；来源失败不删除；重放只产生幂等数据更新。
+锁文件、Gradle Wrapper、Rust 1.98.1、pnpm workspace 与 Zeus 迁移提交见 `VALIDATION-REPORT.md` 第 5–7 节。不要再安排“从零替换 React”。
 
-## Incident与只读Tool
+## 其后（M1 起，按路线图）
 
-实现Incident聚合、MetricDefinition与查询摘要、版本化 `incident.get` / `metric.summary`。服务端再次授权并限制时间范围/基数。Rust以HTTP adapter替换fixture端口，配置必须显式选真实模式；错误不能回退合成数据。
-
-## 真实诊断链
-
-Provider接入按官方固定版本测试，保留输出schema、缺失披露与Evidence引用校验。将AIInsight作为平台业务资源入库；Context的历史asOf与实际访问过期判断同时生效。
-
-## 持久化和Skill发布
-
-由Java ai-control管理不可变Skill版本；Rust持久化AIRun/StepRun/checkpoint，不写平台实体表。补租约、fencing、重复投递、worker退出、恢复鉴权与动作幂等验收后，再启用长任务和自动化。
+1. 平台身份：OIDC/BFF 会话、租户与资源范围、允许/拒绝矩阵。不要把 Demo token 升级成生产认证。
+2. 一个来源的资产同步（默认 Zabbix Host），失败扫描不删除。
+3. 指标、外部告警、Incident 工作台。
+4. 真实只读诊断：Java Tool Gateway、Rust HTTP Port、AIInsight 持久化。
+5. 可恢复 AIRun 与 Agent 控制台（先协议后 UI）。
+6. 配置式 Skill 发布；受控试点。

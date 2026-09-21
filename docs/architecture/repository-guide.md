@@ -1,6 +1,6 @@
 # OpsWeave 仓库架构与初始化手册 · v4
 
-> 本手册配套 Java + Rust + TypeScript 模板。首先阅读 `docs/VALIDATION-REPORT.md`；它不是全功能产品安装手册。所有命令从仓库根目录执行，另有标注除外。
+> 本手册配套 Java + Rust + TypeScript 模板。首先阅读 `docs/VALIDATION-REPORT.md` 与 `docs/ROADMAP.md`；它不是全功能产品安装手册。所有命令从仓库根目录执行，另有标注除外。
 
 ## 1. 目录与所有权
 
@@ -114,6 +114,8 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 pnpm install --lockfile-only
 pnpm install --frozen-lockfile
 pnpm build:web
+pnpm --filter @opsweave/web-console exec playwright install chromium
+pnpm test:web
 ```
 
 首次审查实际依赖与安装脚本后提交根 `pnpm-lock.yaml`。后续统一 `pnpm install --frozen-lockfile`，不要在 CI 自动升级依赖。不要混用 npm 生成 `package-lock.json`。
@@ -258,6 +260,8 @@ cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 pnpm install --frozen-lockfile
 pnpm build:web
+pnpm --filter @opsweave/web-console exec playwright install chromium
+pnpm test:web
 ./gradlew :apps:platform-api:bootJar :apps:ingestion-worker:bootJar
 ```
 

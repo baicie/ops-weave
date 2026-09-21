@@ -108,4 +108,29 @@ Vite 插件 `@zeus-js/vite-plugin` 0.0.4 使用已发布的 `@zeus-js/compiler` 
 | 仓库结构 / 发布门禁 | `python scripts/check_repo.py`；`python scripts/check_release_inputs.py` | 43 个结构化文件；Bootstrap files exist | 不是安全审查 |
 | 本机诊断 UI | `bash scripts/demo.sh`（127.0.0.1:8090）+ `pnpm dev:web`（127.0.0.1:5173）；浏览器打开诊断页，内存中填写开发 Token 后点「运行只读诊断」 | 出现合成摘要、证据引用、缺失数据与限制；hash 切到资产/Agent 占位页 | 不是 OIDC、真实 Zabbix，也不是 chat/agent-console 联调 |
 
-**未接入、未宣称：** `@zeus-web/chat`、`@zeus-web/agent-console`、data-grid、生产 BFF。未测量长列表性能。未提交本次前端改动（等待显式提交请求）。
+**未接入、未宣称：** `@zeus-web/chat`、`@zeus-web/agent-console`、data-grid、生产 BFF。未测量长列表性能。该节对应的源码已提交为 `e5b5827`。
+
+## 8. 2026-09-21 路线图与兼容性清单（追加）
+
+将规划写入 `docs/ROADMAP.md`，将已验证前端组合写入 `docs/FRONTEND-COMPATIBILITY.md`。当时 M0 清单未勾选；第 9 节之后更新了本地验收项。
+
+| 检查 | 命令 | 结果 | 不代表什么 |
+|---|---|---|---|
+| frozen 安装与构建 | `pnpm install --frozen-lockfile`；`pnpm typecheck:web`；`pnpm build:web` | 工作树已有 `node_modules` 时通过；Vite 8.3.0，`index-nEEgEZ7B.js` 35.22 kB | 不是干净 clone；不是 CI Node 22 job |
+| 产品源码 React | 搜索 `apps/web-console/src` 与直接依赖 | 无 `react` / `react-dom` import | lock 仍含 Zeus UI 可选 React peer |
+
+## 9. 2026-09-21 M0 本地安装与诊断页 Playwright（追加）
+
+环境：macOS aarch64；Node v26.9.0；pnpm 10.34.3；Playwright 1.55.1 Chromium 140.0.7339.186（build v1193）。`ignore-scripts` 下浏览器需单独 `playwright install chromium`。本机 `http_proxy` 会使 Playwright 的 URL 探活误判，webServer 改为检查 TCP `4173`。
+
+`@zeus-web/ui` 的 JS 入口未列入 package `sideEffects`，生产包原先不含 `customElements.define`。控制台改为导入 `@zeus-web/button/wc/auto` 与 `@zeus-web/input/wc/auto`，CSS 仍来自 `@zeus-web/ui`。相邻 JSX 文本插值改为单个模板字符串。
+
+| 检查 | 命令 / 方法 | 结果 | 不代表什么 |
+|---|---|---|---|
+| 无 node_modules 拷贝 | `rsync` 排除 `node_modules`/`dist`/`target` 后 `pnpm install --frozen-lockfile`；`pnpm typecheck:web`；`pnpm build:web` | 通过。当时产物 `index-CUkaLau-.js` 35.32 kB（尚未含 WC 注册） | 不是 `git clone`；不是 CI runner |
+| 含 WC 注册的生产构建 | `pnpm build:web` | Vite 8.3.0；`index-DbhRecI-.js` 58.72 kB / gzip 20.55 kB；`zw-button`/`zw-input` 懒加载 chunk；CSS 7.61 kB | 不是包体积基线 |
+| 诊断页 E2E | `pnpm test:web`（`page.route` 拦截 `POST /agent/api/v1/diagnoses`） | **7 passed**（注册 WC、token 长度、提交与证据文本、401、503、取消、卸载后不写回） | 不需要本机 Rust Demo；不是 OIDC；未测 IME |
+| 仓库结构 / 发布门禁 | `python3 scripts/check_repo.py`；`python3 scripts/check_java_domain.py`；`python3 -m pytest tests/contracts -q`；`python3 scripts/check_release_inputs.py` | 44 个结构化文件；7 项 Java smoke；20 passed；Bootstrap files exist | 不是安全审查；本节未复跑 Rust / Gradle |
+
+**未宣称：** GitHub Actions 已绿、chat/agent-console 已接入、生产 BFF。未把 Playwright 的 JS unzip 卡死当作上游缺陷（本机用 `ditto` 解开已下载的 zip）。
+

@@ -14,8 +14,8 @@
 | MCP | rmcp =3.4.0，optional | 独立使用，不调用Rig的旧rmcp类型接口 |
 | jsonschema | =0.56.0 | 默认网络解析feature关闭，另禁止外部ref |
 | React | 已移除 | 控制台改为 Zeus，见 ADR-012 |
-| Zeus | 0.1.1-beta.2 | `@zeus-js/zeus`；Vite 插件 `0.0.4` |
-| Zeus UI | 0.1.0-beta.4 | 仅原生 `@zeus-web/ui/button` 与 `input` |
+| Zeus | 0.1.1-beta.2 | `@zeus-js/zeus`；Vite 插件 `0.0.4`；已验证组合见 `FRONTEND-COMPATIBILITY.md` |
+| Zeus UI | 0.1.0-beta.4 | 样式来自 `@zeus-web/ui` CSS；注册用 `@zeus-web/button` / `@zeus-web/input` 的 `wc/auto` |
 | Vite | ^8.0.0 | Node22.12+；包管理 pnpm 10.34.3 |
 | PG | 17开发镜像 | 生产固定patch/digest，独立应用账号 |
 

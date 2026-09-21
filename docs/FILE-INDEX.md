@@ -50,7 +50,10 @@ apps/platform-api/src/main/java/com/acme/opsweave/platform/SecurityConfiguration
 apps/platform-api/src/main/resources/application.yml
 apps/web-console/README.md
 apps/web-console/index.html
+apps/web-console/e2e/diagnose.spec.ts
+apps/web-console/e2e/helpers.ts
 apps/web-console/package.json
+apps/web-console/playwright.config.ts
 apps/web-console/src/adapters/agent-console/README.md
 apps/web-console/src/adapters/agent-console/types.ts
 apps/web-console/src/adapters/charts/README.md
@@ -113,8 +116,10 @@ deploy/helm/README.md
 deploy/profiles/lite.yaml
 deploy/profiles/standard.yaml
 docs/DEPENDENCIES.md
+docs/FRONTEND-COMPATIBILITY.md
 docs/IMPLEMENTATION-STATUS.md
 docs/NEXT-TASKS.md
+docs/ROADMAP.md
 docs/VALIDATION-REPORT.md
 docs/adr/001-modular-monorepo.md
 docs/adr/002-incident-and-identity.md

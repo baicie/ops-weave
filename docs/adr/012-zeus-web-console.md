@@ -14,8 +14,8 @@ Java 平台与 Rust Agent Runtime 边界不变。图表、拓扑、Agent Console
 - `@zeus-js/vite-plugin` `0.0.4`（已发布产物）
 - `@zeus-web/ui` `0.1.0-beta.4`
 
-CI 安装这些版本的 registry 产物，不以本机 `workspace:` 链接代替。
+CI 安装这些版本的 registry 产物，不以本机 `workspace:` 链接代替。已验证组合与 integrity 见 `docs/FRONTEND-COMPATIBILITY.md`。
 
 ## 代价与后续
 
-JSX 编译语义与 React 不同，属性和自定义事件必须经适配层绑定。当前发布的 `@zeus-js/compiler` 0.1.0 会把 `{props.children}` 和 `array.map(...)` 编成文本绑定，页面结构必须用 DOM 子节点、`<Show>` 和 `<For>` 插入。`<For>` 的运行时传入 accessor，适配层用 `forItem` 读取实际项。`@zeus-web/chat` 与 `@zeus-web/agent-console` 尚未在本仓库联调，不得标为已接入。
+JSX 编译语义与 React 不同，属性和自定义事件必须经适配层绑定。当前发布的 `@zeus-js/compiler` 0.1.0 会把 `{props.children}` 和 `array.map(...)` 编成文本绑定，页面结构必须用 DOM 子节点、`<Show>` 和 `<For>` 插入。`<For>` 的运行时传入 accessor，适配层用 `forItem` 读取实际项。`@zeus-web/ui` 的 JS 入口未列入 package `sideEffects`，生产构建改为导入 `@zeus-web/button/wc/auto` 与 `@zeus-web/input/wc/auto` 完成 `customElements.define`。`@zeus-web/chat` 与 `@zeus-web/agent-console` 尚未在本仓库联调，不得标为已接入。

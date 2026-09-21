@@ -2,15 +2,17 @@
 
 统一可观测与智能运维平台。**Java 平台 + Rust Agent Runtime + TypeScript 前端**。
 
-> 这是 v4 设计配套初始化模板，不是生产产品。Rust 源码与测试已编写，但本交付环境没有 Rust 工具链，尚未验证编译；完整 Java/pnpm 构建、真实模型和 Docker 也未验证。准确状态见 [验证报告](docs/VALIDATION-REPORT.md)。
+> 这是 v4 设计配套初始化仓库，不是生产产品。本地已用 Rust 1.98.1、JDK 21、pnpm 10.34 做过构建与 Demo 诊断；**CI 是否在 GitHub 上通过、干净 clone 是否可复现，以当时 job / 验证报告为准。** 准确状态见 [验证报告](docs/VALIDATION-REPORT.md) 与 [实现状态](docs/IMPLEMENTATION-STATUS.md)。
 
 ## 阅读入口
 
 | 文档 | 内容 |
 |---|---|
+| [路线图](docs/ROADMAP.md) | M0—M7 与三仓库职责；规划不是已完成 Tag |
 | [v4 设计](docs/architecture/v4-design.md) | 服务边界、统一模型、接入、AI、治理、安全、分布式 |
 | [初始化手册](docs/architecture/repository-guide.md) | Windows / Linux 启动与第一批研发任务 |
 | [实现状态](docs/IMPLEMENTATION-STATUS.md) | 有源码、已验证、未实现分别是什么 |
+| [前端兼容性](docs/FRONTEND-COMPATIBILITY.md) | Zeus / Zeus UI 已验证产物组合 |
 | [依赖基线](docs/DEPENDENCIES.md) | 版本、锁文件、特性开关与升级边界 |
 | [Agent 开发约束](AGENTS.md) | 供人和代码助手共同遵守 |
 
@@ -39,6 +41,8 @@ cargo check --workspace --all-targets --all-features --locked
 pnpm install --lockfile-only
 pnpm install --frozen-lockfile
 pnpm build:web
+pnpm --filter @opsweave/web-console exec playwright install chromium
+pnpm test:web
 
 # Python 在这里仅生成本地随机开发凭据，并不是 Agent 服务。
 python scripts/init_env.py
@@ -93,4 +97,4 @@ git commit -m "chore: initialize OpsWeave Java platform and Rust agent"
 
 不含 `.git`，不预设远程地址，不修改 Git 用户配置。发布前确定项目许可证；`com.acme.opsweave` 是待替换的组织命名空间，不代表域名归属。
 
-第一条真实业务链：**OIDC/租户授权 → CMDB/Zabbix Host → Entity/Observation → Metric/Alarm/Incident → 只读 Tool → Rust 诊断 → AIInsight**。
+第一条真实业务链见 [路线图](docs/ROADMAP.md)：**登录授权 → 只读 CMDB/Zabbix → Entity/Observation → 指标/告警/Incident → 只读 Tool → Rust 诊断 → AIInsight**。当前 Demo 仍是 loopback 合成数据。
