@@ -26,8 +26,17 @@ public final class FixtureZabbixHostConnector implements Connector {
             new RawRecord("10084", observedAt, host("10084", "zabbix-server", "Zabbix server", "0", "10.0.0.10")),
             new RawRecord("10085", observedAt, host("10085", "app-01", "app-01", "0", "10.0.0.11"))
         );
-        int size = Math.min(Math.max(limit, 1), records.size());
-        return new Page(records.subList(0, size), null, true);
+        int offset = 0;
+        if (cursor != null && !cursor.isBlank()) {
+            offset = Integer.parseInt(cursor);
+        }
+        int bounded = Math.min(Math.max(limit, 1), 500);
+        if (offset >= records.size()) {
+            return new Page(List.of(), null, true);
+        }
+        int end = Math.min(offset + bounded, records.size());
+        boolean complete = end >= records.size();
+        return new Page(List.copyOf(records.subList(offset, end)), complete ? null : Integer.toString(end), complete);
     }
 
     private static Map<String, Object> host(String hostId, String host, String name, String status, String ip) {

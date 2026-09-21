@@ -163,7 +163,23 @@ web job 含 Node 22.18、`pnpm install --frozen-lockfile`、typecheck、生产�
 | 身份行为 | 上述 Gradle 测试 | 无 token → 401；query `tenantId` → 400；缺 `entity.read` / `source.sync` → 403；OIDC 模式拒绝启动 | 不是 Keycloak |
 | Host 链 | 上述 Gradle 测试 + 领域 smoke | `labeled-fixture` 写入 2 个 host Entity；JSON-RPC 客户端打本机协议桩 | 不是厂商 `host.get` |
 
-**未接入、未宣称：** 生产 OIDC、PostgreSQL、Zabbix Item/Trigger、资产页 UI、Integration Copilot。CI java job 现包含 `:apps:platform-api:test`，本轮尚未等 GitHub Actions 结果。
+本节记录 `bb9a7e2`。PostgreSQL、分页对账和资产页见第 12 节。当时未宣称生产 OIDC、Item/Trigger 或 Integration Copilot。
+
+## 12. 2026-09-22 Host 分页同步与 PostgreSQL（追加）
+
+环境：macOS aarch64；Gradle 使用 Homebrew OpenJDK 21.0.12.1。本机 5432 上已有 PostgreSQL，角色 `opsweave_dev` 不存在，因此 JDBC 测试使用当前系统角色新建的库 `opsweave_host_sync`。未对厂商 Zabbix 发请求。
+
+| 检查 | 命令 | 结果 | 不代表什么 |
+|---|---|---|---|
+| Java 领域 smoke | `python3 scripts/check_java_domain.py` | 7 + 11 + 20 项通过。含两页 fixture、完整快照才 retire、第二页失败不 retire | 不是厂商 Zabbix |
+| 契约 | `python3 scripts/check_repo.py`；`python3 -m pytest tests/contracts -q` | 47 个结构化文件；22 passed | 不是安全审查 |
+| Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --offline`，环境变量指向本机 `opsweave_host_sync` | 11 tests，0 failures，0 skipped。其中 `PostgresHostSyncIT` 实际连上 PostgreSQL | 这次没有重跑 bootJar。更早一次未设 JDBC 时，该测试被跳过，两个 bootJar 已成功 |
+| PostgreSQL | 同上测试类 `PostgresHostSyncIT`，`OPSWEAVE_TEST_JDBC_URL` 指向本机 `opsweave_host_sync` | 1 test 通过：两页写入、缺席 Host 变为 INACTIVE、后续失败扫描不把已同步 Host 标失活 | 不是 Compose 里的 `opsweave_dev`，也不是厂商实例 |
+| 资产页 | `pnpm --filter @opsweave/web-console test:e2e` | 8 passed。库存用例：同步后显示 Host 字段，503 后表格仍在，请求不带 tenant。诊断页卸载后进入资产页能看到标题「资产」 | 浏览器请求被 Playwright 拦截，不是连着真实 platform-api |
+
+CI java job 增加了 `postgres:17` 服务，并设置 `OPSWEAVE_TEST_JDBC_URL`。本轮还没有新的 GitHub Actions 结果。
+
+
 
 
 

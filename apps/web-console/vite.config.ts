@@ -11,6 +11,9 @@ export default defineConfig({
         target: 'http://127.0.0.1:8090',
         rewrite: path => path.replace(/^\/agent/, ''),
       },
+      '/api': {
+        target: 'http://127.0.0.1:8080',
+      },
     },
   },
 })

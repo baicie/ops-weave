@@ -3,11 +3,18 @@ import com.acme.opsweave.identity.domain.Permission;
 import com.acme.opsweave.identity.domain.Principal;
 import com.acme.opsweave.identity.domain.ResourceScope;
 import com.acme.opsweave.identity.domain.SubjectId;
+import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.domain.PipelineDefinition;
+import com.acme.opsweave.integration.domain.SyncStatus;
 import com.acme.opsweave.integration.domain.ZabbixHostMapper;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
 import com.acme.opsweave.integration.infrastructure.InMemoryRawRecordStore;
+import com.acme.opsweave.integration.infrastructure.InMemorySyncRunStore;
+import com.acme.opsweave.inventory.domain.EntityIds;
+import com.acme.opsweave.inventory.domain.ExternalLink;
+import com.acme.opsweave.inventory.domain.ExternalObjectKey;
+import com.acme.opsweave.inventory.domain.Lifecycle;
 import com.acme.opsweave.inventory.infrastructure.InMemoryInventoryStore;
 import com.acme.opsweave.sharedkernel.TenantId;
 import java.time.Instant;
@@ -54,15 +61,20 @@ public final class ZabbixHostMappingSmoke {
         require(!first.entity().id().equals(otherTenant.entity().id()), "cross-tenant host identity");
 
         var inventory = new InMemoryInventoryStore();
-        var ingest = new IngestZabbixHostsUseCase(
-            new AuthorizeUseCase(),
-            new FixtureZabbixHostConnector(),
-            inventory,
-            new InMemoryRawRecordStore(),
-            pipeline,
-            "labeled-fixture",
-            "zabbix-1",
-            "env:OPSWEAVE_ZABBIX_TOKEN"
+        var runs = new InMemorySyncRunStore();
+        var staleKey = new ExternalObjectKey(tenant, "zabbix-1", "host", "999", "1");
+        var staleId = EntityIds.fromExternal(staleKey);
+        inventory.upsert(
+            new com.acme.opsweave.inventory.domain.Entity(
+                staleId, tenant, "host", "gone-host", Lifecycle.ACTIVE, 1,
+                Instant.parse("2026-09-20T00:00:00Z"), Map.of("hostId", "999")
+            ),
+            new com.acme.opsweave.inventory.domain.Observation(
+                "obs-stale", staleKey, staleId,
+                Instant.parse("2026-09-20T00:00:00Z"), Instant.parse("2026-09-20T00:00:01Z"),
+                Map.of("hostId", "999"), "raw-stale", 1
+            ),
+            new ExternalLink(staleId, staleKey)
         );
         var principal = new Principal(
             new SubjectId("user-demo"),
@@ -70,17 +82,85 @@ public final class ZabbixHostMappingSmoke {
             Set.of(Permission.SOURCE_SYNC, Permission.ENTITY_READ),
             ResourceScope.tenantWide()
         );
+        var ingest = ingest(new FixtureZabbixHostConnector(), inventory, runs, 1);
         var outcome = ingest.execute(principal, null);
         require(outcome.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, "fixture ingest completed");
+        require(outcome.pages() == 2, "two pages");
         require(outcome.accepted() == 2, "two hosts accepted");
+        require(outcome.retired() == 1, "absent host retired only after a complete snapshot");
+        require(outcome.snapshotComplete(), "snapshot complete");
         require("labeled-fixture".equals(outcome.dataMode()), "fixture remains labeled");
-        require(inventory.list(tenant).size() == 2, "entities written");
+        require(runs.find(tenant, outcome.syncRunId()).orElseThrow().status() == SyncStatus.SUCCEEDED, "sync run succeeded");
+        require("INACTIVE".equals(inventory.find(tenant, staleId).orElseThrow().lifecycle()), "stale host inactive");
         var denied = ingest.execute(
             new Principal(new SubjectId("user-demo"), tenant, Set.of(Permission.ENTITY_READ), ResourceScope.tenantWide()),
             null
         );
         require(denied.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.DENIED, "sync without permission denied");
-        System.out.println("Zabbix host mapping smoke: 12 checks passed");
+
+        var kept = new InMemoryInventoryStore();
+        var failedRuns = new InMemorySyncRunStore();
+        kept.upsert(
+            new com.acme.opsweave.inventory.domain.Entity(
+                staleId, tenant, "host", "gone-host", Lifecycle.ACTIVE, 1,
+                Instant.parse("2026-09-20T00:00:00Z"), Map.of("hostId", "999")
+            ),
+            new com.acme.opsweave.inventory.domain.Observation(
+                "obs-stale-2", staleKey, staleId,
+                Instant.parse("2026-09-20T00:00:00Z"), Instant.parse("2026-09-20T00:00:01Z"),
+                Map.of("hostId", "999"), "raw-stale-2", 1
+            ),
+            new ExternalLink(staleId, staleKey)
+        );
+        var failed = ingest(new FailingSecondPageConnector(), kept, failedRuns, 1).execute(principal, null);
+        require(failed.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.UNAVAILABLE, "mid-scan failure is unavailable");
+        require(!failed.snapshotComplete(), "failed scan is not a complete snapshot");
+        require("ACTIVE".equals(kept.find(tenant, staleId).orElseThrow().lifecycle()), "failed scan does not retire");
+        System.out.println("Zabbix host mapping smoke: 20 checks passed");
+    }
+
+    private static IngestZabbixHostsUseCase ingest(
+        Connector connector,
+        InMemoryInventoryStore inventory,
+        InMemorySyncRunStore runs,
+        int pageSize
+    ) {
+        return new IngestZabbixHostsUseCase(
+            new AuthorizeUseCase(),
+            connector,
+            inventory,
+            new InMemoryRawRecordStore(),
+            runs,
+            PipelineDefinition.zabbixHostV1(),
+            "labeled-fixture",
+            "memory",
+            "zabbix-1",
+            "env:OPSWEAVE_ZABBIX_TOKEN",
+            pageSize
+        );
+    }
+
+    private static final class FailingSecondPageConnector implements Connector {
+        private int calls;
+
+        @Override
+        public String type() {
+            return "zabbix";
+        }
+
+        @Override
+        public ProbeResult probe(SourceContext source) {
+            return new ProbeResult(false, "test");
+        }
+
+        @Override
+        public Page fetch(SourceContext source, String cursor, int limit) {
+            calls++;
+            if (calls > 1) {
+                throw new IllegalStateException("page failed");
+            }
+            return new FixtureZabbixHostConnector().fetch(source, cursor, limit);
+        }
     }
 
     private static void require(boolean ok, String reason) {

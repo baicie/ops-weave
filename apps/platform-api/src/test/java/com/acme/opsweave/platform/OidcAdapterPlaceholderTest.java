@@ -21,7 +21,8 @@ class OidcAdapterPlaceholderTest {
                     ""
                 )
             ),
-            new OpsweaveProperties.Zabbix("closed", "", "env:OPSWEAVE_ZABBIX_TOKEN", "zabbix-1")
+            new OpsweaveProperties.Zabbix("closed", "", "env:OPSWEAVE_ZABBIX_TOKEN", "zabbix-1", 100),
+            new OpsweaveProperties.Inventory("memory", "", "", "")
         );
         var thrown = assertThrows(IllegalStateException.class, () -> new PlatformConfiguration().principalResolver(properties));
         assertTrue(thrown.getMessage().contains("OIDC"));

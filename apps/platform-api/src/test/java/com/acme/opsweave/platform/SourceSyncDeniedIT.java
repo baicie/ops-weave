@@ -20,7 +20,8 @@ import org.springframework.test.context.TestPropertySource;
     "opsweave.auth.dev.tenant=tenant-demo",
     "opsweave.auth.dev.permissions=entity.read",
     "opsweave.zabbix.mode=fixture",
-    "opsweave.zabbix.source-instance-id=zabbix-1"
+    "opsweave.zabbix.source-instance-id=zabbix-1",
+    "opsweave.inventory.store=memory"
 })
 class SourceSyncDeniedIT {
     @LocalServerPort

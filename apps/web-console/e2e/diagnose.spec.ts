@@ -108,7 +108,7 @@ test.describe('diagnose page', () => {
     await runDiagnose(page)
     await expect(page.getByRole('button', { name: '正在诊断…' })).toBeVisible()
     await page.getByRole('link', { name: '资产' }).click()
-    await expect(page.getByRole('heading', { name: '资产列表' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '资产', exact: true })).toBeVisible()
     fulfill({ status: 200, json: diagnosePayload({ insight: { ...(diagnosePayload().insight), summary: '迟到结果不得出现' } }) })
     await page.waitForTimeout(300)
     await expect(page.getByText('迟到结果不得出现')).toHaveCount(0)

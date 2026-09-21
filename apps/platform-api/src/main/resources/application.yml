@@ -23,8 +23,14 @@ opsweave:
       tenant: ${OPSWEAVE_DEV_TENANT:tenant-demo}
       permissions: ${OPSWEAVE_DEV_PERMISSIONS:entity.read,source.sync}
       entity-ids: ${OPSWEAVE_DEV_ENTITY_IDS:}
+  inventory:
+    store: ${OPSWEAVE_INVENTORY_STORE:postgres}
+    jdbc-url: ${OPSWEAVE_JDBC_URL:}
+    jdbc-user: ${OPSWEAVE_JDBC_USER:}
+    jdbc-password: ${OPSWEAVE_JDBC_PASSWORD:}
   zabbix:
     mode: ${OPSWEAVE_ZABBIX_MODE:closed}
     url: ${OPSWEAVE_ZABBIX_URL:}
     secret-ref: ${OPSWEAVE_ZABBIX_SECRET_REF:env:OPSWEAVE_ZABBIX_TOKEN}
     source-instance-id: ${OPSWEAVE_ZABBIX_SOURCE:zabbix-1}
+    page-size: ${OPSWEAVE_ZABBIX_PAGE_SIZE:100}

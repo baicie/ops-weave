@@ -78,4 +78,8 @@ textarea {
 }
 
 code { font-size: 14px; overflow-wrap: anywhere; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #dfe6ec; vertical-align: top; }
+th { font-size: 12px; letter-spacing: .04em; color: #526273; }
 footer { margin-top: 32px; color: #6d7b89; font-size: 13px; }

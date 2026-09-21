@@ -43,5 +43,23 @@ jobs:
         with: {distribution: temurin, java-version: '21'}
       - run: test -f gradlew || (echo 'Generate and commit the Gradle wrapper first'; exit 1)
       - run: chmod +x gradlew && ./gradlew :apps:platform-api:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: opsweave
+          POSTGRES_USER: opsweave_dev
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opsweave_dev -d opsweave"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      OPSWEAVE_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/opsweave
+      OPSWEAVE_TEST_JDBC_USER: opsweave_dev
+      OPSWEAVE_TEST_JDBC_PASSWORD: ci-only-not-a-secret
 # First CI deliberately fails when real lockfiles/wrapper are missing; it never fabricates them.
 # Pin actions to reviewed commit SHAs and add dependency verification before production use.

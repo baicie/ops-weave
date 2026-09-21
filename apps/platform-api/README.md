@@ -11,6 +11,6 @@ OPSWEAVE_ZABBIX_MODE=fixture \
 gradle :apps:platform-api:bootRun
 ```
 
-`POST /api/v1/integrations/zabbix/hosts/sync` 与 `GET /api/v1/entities` 走授权。fixture 模式会在响应里标记 `dataMode=labeled-fixture`。`OPSWEAVE_ZABBIX_MODE=jsonrpc` 需要 URL 与 `env:` 密钥引用；失败返回 503，不回退 fixture，也不删除已有资产。
+`POST /api/v1/integrations/zabbix/hosts/sync` 按页拉取，直到快照完整才把未见 Host 标为 `INACTIVE`。中途失败返回 503，不回退 fixture，也不对账删除。
 
-OIDC、PostgreSQL、Item/Metric/Incident 均未实现。健康检查不等于业务可用。
+默认 `OPSWEAVE_INVENTORY_STORE=postgres`，需要 `OPSWEAVE_JDBC_URL` 与用户名。`memory` 只用于显式测试。OIDC、Item/Metric/Incident、对象存储均未实现。健康检查不等于业务可用。

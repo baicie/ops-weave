@@ -521,7 +521,7 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-M0 已关闭。OW-R04 本机身份切片与 Zabbix Host 确定性流水线已写入代码。下一步是可达 Zabbix 的真实 `host.get` 与库存持久化，而不是 Integration Copilot、Skill 或再扩前端。
+M0 已关闭。Host 同步已按页写入 PostgreSQL，完整快照才对账。下一步是可达 Zabbix 的 `host.get`，然后 Item → MetricDefinition。不要先做 Integration Copilot。
 
 ---
 

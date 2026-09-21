@@ -38,8 +38,14 @@ public class ZabbixHostSyncController {
         body.put("fetched", outcome.fetched());
         body.put("accepted", outcome.accepted());
         body.put("rejected", outcome.rejected());
+        body.put("retired", outcome.retired());
+        body.put("pages", outcome.pages());
         body.put("snapshotComplete", outcome.snapshotComplete());
         body.put("dataMode", outcome.dataMode());
+        body.put("inventoryStore", outcome.inventoryStore());
+        if (outcome.syncRunId() != null) {
+            body.put("syncRunId", outcome.syncRunId().toString());
+        }
         return body;
     }
 }

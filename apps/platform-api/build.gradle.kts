@@ -1,9 +1,13 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins { java; id("org.springframework.boot") }
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.0.8"))
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     implementation(project(":modules:identity"))
     implementation(project(":modules:catalog"))
@@ -15,4 +19,10 @@ dependencies {
     implementation(project(":modules:ai-control"))
     implementation(project(":modules:automation"))
     implementation(project(":modules:audit"))
+}
+
+tasks.named<ProcessResources>("processResources") {
+    from(rootProject.file("db/migrations/platform/V002__host_sync.sql")) {
+        into("db/migration")
+    }
 }

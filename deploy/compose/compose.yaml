@@ -22,6 +22,11 @@ services:
       dockerfile: deploy/docker/java.Dockerfile
       args:
         APP_NAME: platform-api
+    environment:
+      OPSWEAVE_INVENTORY_STORE: postgres
+      OPSWEAVE_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-opsweave}
+      OPSWEAVE_JDBC_USER: ${POSTGRES_USER:-opsweave_dev}
+      OPSWEAVE_JDBC_PASSWORD: ${POSTGRES_PASSWORD:?Run python scripts/init_env.py first}
     ports:
       - "127.0.0.1:8080:8080"
   ingestion-worker:
@@ -49,5 +54,5 @@ services:
       - "127.0.0.1:8088:80"
 volumes:
   pgdata:
-# Development composition only. API/AI do not yet connect to PostgreSQL.
+# Development composition only. platform-api uses PostgreSQL when the apps profile is started.
 # Production must pin image digests and add separate identities, policies, resource limits and backups.

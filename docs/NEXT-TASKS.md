@@ -18,22 +18,21 @@
 
 `Principal` / `TenantId` / `ResourceScope` / `Permission` / `authorize()` allow-deny 已有领域测试。`platform-api` 从 Bearer 构造 Principal，拒绝 query/header 覆盖 tenant。Dev adapter 显式开启；OIDC 占位拒绝 mock 回退。**不要把 Demo token 升级成生产认证，也不要继续做组织树/ABAC/SSO 后台。**
 
-## 当前：Zabbix Host 链加深，而不是 Copilot
+## 当前：Host 链已经能分页落库，下一刀仍不是 Copilot
 
 | 顺序 | ID | 工作 |
 |---|---|---|
-| 1 | OW-R07 真实端口 | 对可达的 Zabbix JSON-RPC 跑 `host.get`；失败不得回退 fixture，也不得当成空快照删资产 |
-| 2 | OW-R06 | 把 Entity/Observation/ExternalLink 从标注内存存储迁到租户隔离持久化 |
-| 3 | OW-R11 余量 | Preview/Replay/不可变 PipelineVersion；仍无画布、无 Copilot |
-| 4 | 下一对象 | 只接 Zabbix Item → MetricDefinition / Metric，不要一次铺 Trigger/History/Template |
+| 1 | 真实 `host.get` | 对可达 Zabbix 跑完整分页；失败仍不得回退 fixture，也不得对账 |
+| 2 | Zabbix Item | 只接 Item → MetricDefinition。不存 History 点，不接 Trigger/Template |
+| 3 | OW-R11 | PipelineVersion、Preview、Replay。仍无画布、无 Copilot |
 
-OW-R05（前端会话清理）和 OW-R08（资产页）可以跟在真实 Host 数据之后，不要先扩前端框架。
+资产页已能用开发 Token 显示 Host 字段。OIDC、组织树、ABAC 继续不做。
 
-OW-R12 Integration Copilot **暂缓**：必须等 R11/R07 可运行，且只生成定义 diff。
+OW-R12 Integration Copilot **暂缓**。
 
 ## 已完成的 Bootstrap
 
-锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。
+锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。分页同步与 PostgreSQL 见第 12 节。
 
 ## 更后（M3 起）
 

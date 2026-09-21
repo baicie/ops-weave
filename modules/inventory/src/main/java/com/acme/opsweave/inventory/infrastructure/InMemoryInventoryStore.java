@@ -5,13 +5,16 @@ import com.acme.opsweave.inventory.api.InventoryWritePort;
 import com.acme.opsweave.inventory.domain.Entity;
 import com.acme.opsweave.inventory.domain.ExternalLink;
 import com.acme.opsweave.inventory.domain.ExternalObjectKey;
+import com.acme.opsweave.inventory.domain.Lifecycle;
 import com.acme.opsweave.inventory.domain.Observation;
 import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Labeled in-memory inventory. Not a production store and not a silent fixture for live sources. */
@@ -56,6 +59,37 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
         });
         observations.put(observation.id(), observation);
         links.put(link.key(), link);
+    }
+
+    @Override
+    public int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> seenExternalIds) {
+        Set<String> seen = Set.copyOf(seenExternalIds);
+        Set<EntityId> retired = new HashSet<>();
+        for (ExternalLink link : List.copyOf(links.values())) {
+            ExternalObjectKey key = link.key();
+            if (!key.tenantId().equals(tenantId) || !key.sourceInstanceId().equals(sourceInstanceId)) {
+                continue;
+            }
+            if (!key.externalType().equals(externalType) || seen.contains(key.externalId())) {
+                continue;
+            }
+            StoreKey storeKey = new StoreKey(tenantId, link.entityId());
+            Entity entity = entities.get(storeKey);
+            if (entity == null || entity.lifecycle() == Lifecycle.INACTIVE || !retired.add(entity.id())) {
+                continue;
+            }
+            entities.put(storeKey, new Entity(
+                entity.id(),
+                entity.tenantId(),
+                entity.entityType(),
+                entity.name(),
+                Lifecycle.INACTIVE,
+                entity.version() + 1,
+                entity.lastSeen(),
+                entity.attributes()
+            ));
+        }
+        return retired.size();
     }
 
     public Optional<ExternalLink> linkOf(ExternalObjectKey key) {

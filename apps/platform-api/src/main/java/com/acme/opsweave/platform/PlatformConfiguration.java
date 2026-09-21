@@ -14,12 +14,13 @@ import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.domain.PipelineDefinition;
 import com.acme.opsweave.integration.infrastructure.ClosedZabbixConnector;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
-import com.acme.opsweave.integration.infrastructure.InMemoryRawRecordStore;
 import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcConnector;
+import com.acme.opsweave.inventory.api.InventoryQuery;
+import com.acme.opsweave.inventory.api.InventoryWritePort;
 import com.acme.opsweave.inventory.application.GetEntityUseCase;
-import com.acme.opsweave.inventory.infrastructure.InMemoryInventoryStore;
 import com.acme.opsweave.platform.integration.EnvSecretSource;
 import com.acme.opsweave.platform.integration.JacksonZabbixTransport;
+import com.acme.opsweave.platform.persistence.InventoryWiring;
 import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
 import java.net.URI;
@@ -66,20 +67,53 @@ public class PlatformConfiguration {
     }
 
     @Bean
-    InMemoryInventoryStore inventoryStore() {
-        return new InMemoryInventoryStore();
+    InventoryWiring inventoryWiring(OpsweaveProperties properties) {
+        return InventoryWiring.open(properties);
     }
 
     @Bean
-    GetEntityUseCase getEntityUseCase(AuthorizationService authorization, InMemoryInventoryStore inventory) {
+    InventoryQuery inventoryQuery(InventoryWiring wiring) {
+        return wiring.query();
+    }
+
+    @Bean
+    InventoryWritePort inventoryWritePort(InventoryWiring wiring) {
+        return wiring.writer();
+    }
+
+    @Bean
+    GetEntityUseCase getEntityUseCase(AuthorizationService authorization, InventoryQuery inventory) {
         return new GetEntityUseCase(authorization, inventory);
     }
 
     @Bean
-    InMemoryRawRecordStore rawRecordStore() {
-        return new InMemoryRawRecordStore();
+    IngestZabbixHostsUseCase ingestZabbixHostsUseCase(
+        AuthorizationService authorization,
+        Connector connector,
+        InventoryWiring wiring,
+        OpsweaveProperties properties
+    ) {
+        String mode = normalize(properties.zabbix().mode());
+        String dataMode = switch (mode) {
+            case "fixture" -> "labeled-fixture";
+            case "jsonrpc", "real" -> "zabbix-jsonrpc";
+            default -> "closed";
+        };
+        int pageSize = properties.zabbix().pageSize() == 0 ? 100 : properties.zabbix().pageSize();
+        return new IngestZabbixHostsUseCase(
+            authorization,
+            connector,
+            wiring.writer(),
+            wiring.rawRecords(),
+            wiring.syncRuns(),
+            PipelineDefinition.zabbixHostV1(),
+            dataMode,
+            wiring.label(),
+            properties.zabbix().sourceInstanceId(),
+            properties.zabbix().secretRef(),
+            pageSize
+        );
     }
-
     @Bean
     Connector zabbixConnector(OpsweaveProperties properties, JacksonZabbixTransport transport, EnvSecretSource secrets) {
         String mode = normalize(properties.zabbix().mode());
@@ -94,32 +128,6 @@ public class PlatformConfiguration {
             return new ZabbixJsonRpcConnector(URI.create(url), transport, secrets);
         }
         return new ClosedZabbixConnector();
-    }
-
-    @Bean
-    IngestZabbixHostsUseCase ingestZabbixHostsUseCase(
-        AuthorizationService authorization,
-        Connector connector,
-        InMemoryInventoryStore inventory,
-        InMemoryRawRecordStore rawRecords,
-        OpsweaveProperties properties
-    ) {
-        String mode = normalize(properties.zabbix().mode());
-        String dataMode = switch (mode) {
-            case "fixture" -> "labeled-fixture";
-            case "jsonrpc", "real" -> "zabbix-jsonrpc";
-            default -> "closed";
-        };
-        return new IngestZabbixHostsUseCase(
-            authorization,
-            connector,
-            inventory,
-            rawRecords,
-            PipelineDefinition.zabbixHostV1(),
-            dataMode,
-            properties.zabbix().sourceInstanceId(),
-            properties.zabbix().secretRef()
-        );
     }
 
     private static ResourceScope scope(OpsweaveProperties.Auth.Dev dev, TenantId tenantId) {

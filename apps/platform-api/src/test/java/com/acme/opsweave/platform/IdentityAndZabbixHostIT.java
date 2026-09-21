@@ -24,7 +24,9 @@ import tools.jackson.databind.json.JsonMapper;
     "opsweave.auth.dev.tenant=tenant-demo",
     "opsweave.auth.dev.permissions=entity.read,source.sync",
     "opsweave.zabbix.mode=fixture",
-    "opsweave.zabbix.source-instance-id=zabbix-1"
+    "opsweave.zabbix.source-instance-id=zabbix-1",
+    "opsweave.zabbix.page-size=1",
+    "opsweave.inventory.store=memory"
 })
 class IdentityAndZabbixHostIT {
     private static final String TOKEN = "test-dev-token-please-do-not-use-elsewhere";
