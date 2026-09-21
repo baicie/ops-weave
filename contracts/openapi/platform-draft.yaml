@@ -1,9 +1,63 @@
 openapi: 3.1.0
 info:
-  title: AIOps planned business API
+  title: OpsWeave platform API
   version: 0.1.0-draft
-  description: Contract draft only. These business endpoints are NOT implemented by the starter.
+  description: >
+    Identity-scoped business endpoints. Tenant and permissions are taken from the
+    trusted principal, never from query or body. OIDC is not implemented.
+    Zabbix Host ingest is available only when an explicit source mode is configured.
 paths:
+  /api/v1/entities:
+    get:
+      operationId: listEntities
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Entities visible to the trusted principal in its tenant
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/entities/{entityId}:
+    get:
+      operationId: getEntity
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: entityId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Authorized Entity
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/entity.schema.json
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found in the principal tenant
+  /api/v1/integrations/zabbix/hosts/sync:
+    post:
+      operationId: syncZabbixHosts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Host page ingested through the published PipelineDefinition
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+        '503':
+          description: Source is closed or the live fetch failed; inventory is not reconciled
   /api/v1/incidents/{incidentId}:
     get:
       operationId: getIncident

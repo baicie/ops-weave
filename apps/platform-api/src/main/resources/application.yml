@@ -13,3 +13,18 @@ management:
       probes:
         enabled: true
       show-details: never
+opsweave:
+  auth:
+    mode: ${OPSWEAVE_AUTH_MODE:closed}
+    bind-loopback-only: true
+    dev:
+      token: ${OPSWEAVE_DEV_TOKEN:}
+      subject: ${OPSWEAVE_DEV_SUBJECT:user-demo}
+      tenant: ${OPSWEAVE_DEV_TENANT:tenant-demo}
+      permissions: ${OPSWEAVE_DEV_PERMISSIONS:entity.read,source.sync}
+      entity-ids: ${OPSWEAVE_DEV_ENTITY_IDS:}
+  zabbix:
+    mode: ${OPSWEAVE_ZABBIX_MODE:closed}
+    url: ${OPSWEAVE_ZABBIX_URL:}
+    secret-ref: ${OPSWEAVE_ZABBIX_SECRET_REF:env:OPSWEAVE_ZABBIX_TOKEN}
+    source-instance-id: ${OPSWEAVE_ZABBIX_SOURCE:zabbix-1}

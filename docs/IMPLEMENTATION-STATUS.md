@@ -1,12 +1,12 @@
 # 实现状态 · v4
 
-日期2026-09-21。**“源码已提供”不等于“编译/集成已通过”。**验证范围以VALIDATION-REPORT为准。
+日期2026-09-22。**“源码已提供”不等于“编译/集成已通过”。**验证范围以VALIDATION-REPORT为准。
 
 ## 当前源码
 
 | 部分 | 已提供 | 未提供 |
 |---|---|---|
-| Java平台 | 多项目、纯领域值对象、Connector SPI、默认拒绝的Spring组装 | 真实业务HTTP/持久化/OIDC/Connector |
+| Java平台 | 多项目、Principal/授权、Zabbix Host Pipeline、内存库存、受保护的 Entity/同步 HTTP | PostgreSQL 持久化、生产 OIDC、Item/Metric/Incident、可视化编辑器 |
 | Rust Runtime | Axum接口、本机身份、固定只读流程、共享预算、并行fixture、Context/Evidence、版本化Skill加载、Schema输出验证 | 持久RunStore/租约/恢复/取消API/生产鉴权 |
 | Rig | optional适配器、显式模型出网、单次model步骤 | 真实调用测试、多provider/原生strict output/费用采集 |
 | MCP | optional官方SDK本机Probe源码 | Agent内动态调用、OAuth、生产server准入 |
@@ -19,7 +19,7 @@
 
 交付包阶段：Python契约/样例测试、纯Java领域编译与smoke、结构/架构静态检查。
 
-2026-09-21 本地初始化追加：生成并审查锁文件与 Gradle Wrapper；`cargo fmt --all`；25 项 Rust 测试通过；`--all-features` 的 `cargo check` / `clippy -D warnings` 通过；随后将前端改为 pnpm 并完成 frozen 安装与 Vite 生产构建；`:apps:platform-api:bootJar` 与 `:apps:ingestion-worker:bootJar` 通过。同日将 Web Console 从 React 迁到 Zeus + Zeus UI 原生组件。`b5404a8` 补诊断页 Playwright 与 `wc/auto` 注册；GitHub Actions 四 job 通过，见 `VALIDATION-REPORT.md` 第 5–10 节。
+2026-09-22 追加：identity 领域 allow/deny、Dev Principal Filter、Zabbix Host 确定性流水线与内存 Entity。`python3 scripts/check_java_domain.py` 三个 smoke 通过；`./gradlew :apps:platform-api:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar` 10 tests / 0 failures。未联调厂商 Zabbix，未接 Keycloak。详见 `VALIDATION-REPORT.md` 第 11 节。
 
 ## 写了测试但交付包当时未执行
 
@@ -27,6 +27,6 @@ Rust `runtime_tests.rs` 中的测试检查租户/incident范围、时间窗口�
 
 ## 下一步优先级
 
-下一步按 `docs/ROADMAP.md`：M0 已关闭。接着 OW-R04 身份与资源范围，再做 PipelineDefinition 与 Zabbix Host 纵向切片。不要跳过授权去接真实来源，不要先做 Integration Copilot，也不要把 chat/agent-console 目录当成已接入。
+下一步按 `docs/ROADMAP.md`：M0 已关闭。OW-R04 本机 Principal/授权已落地，不要继续做深 IAM。接着不要做 Copilot：需要真实 Zabbix JSON-RPC（有 URL/密钥时）、Entity 持久化，以及 Item/Alarm，而不是再扩前端。也不要把 chat/agent-console 目录当成已接入。
 
 当前`RunState`枚举不是持久化执行引擎；同步诊断遇到进程退出会中断。Mock输出不是AI；引用校验不是事实/因果验证；前端模块卡片不是已实现模块。

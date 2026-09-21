@@ -20,7 +20,7 @@
 
 | 目录 | 语言 | 当前内容 |
 |---|---|---|
-| `apps/platform-api` | Java 21 / Spring Boot | 模块装配、健康端点、其他业务默认拒绝 |
+| `apps/platform-api` | Java 21 / Spring Boot | 健康检查；Dev Principal 保护的 Entity 查询与 Zabbix Host 同步；默认 closed，无生产 OIDC |
 | `apps/ingestion-worker` | Java 21 / Spring Boot | 启动骨架；真实 Connector 待实现 |
 | `apps/agent-runtime` | Rust / Tokio / Axum | 只读固定流程、动态 Skill 包、合成证据、Mock、可选 Rig 适配源码 |
 | `apps/web-console` | Zeus / TypeScript / Vite | 诊断表单、开发代理、证据与缺失数据展示、其他模块占位 |
@@ -67,7 +67,7 @@ pnpm dev:web
 
 未设置 `OPSWEAVE_MODE=demo` 时为 `closed`：`/healthz` 可用，`/readyz` 和业务请求拒绝。Demo 只能监听 loopback，固定映射至 `tenant-demo/inc-demo`，不接受请求体覆盖 tenant/user/权限/模型/工具。
 
-真实平台 API 适配、OIDC 和多租户授权未实现；**不能通过把 demo 监听地址改成公网来部署生产**。目录中有 MCP 探测示例，不代表已开放动态 MCP 执行。默认没有 shell、SQL、任意 HTTP 或动作 Tool。
+真实平台 API 已有本机 Dev Principal 与资源授权切片，**生产 OIDC 仍未实现**；不能把 demo token 或 loopback 服务改成公网部署。目录中有 MCP 探测示例，不代表已开放动态 MCP 执行。默认没有 shell、SQL、任意 HTTP 或动作 Tool。
 
 ## 其他检查与 Java 初始化
 

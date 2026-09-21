@@ -1,0 +1,24 @@
+{
+  "label": "synthetic-fixture",
+  "description": "Labeled Zabbix host.get shape for mapping tests. Not a live Zabbix export.",
+  "result": [
+    {
+      "hostid": "10084",
+      "host": "zabbix-server",
+      "name": "Zabbix server",
+      "status": "0",
+      "interfaces": [
+        { "ip": "10.0.0.10", "main": "1", "type": "1" }
+      ]
+    },
+    {
+      "hostid": "10085",
+      "host": "app-01",
+      "name": "app-01",
+      "status": "0",
+      "interfaces": [
+        { "ip": "10.0.0.11", "main": "1", "type": "1" }
+      ]
+    }
+  ]
+}

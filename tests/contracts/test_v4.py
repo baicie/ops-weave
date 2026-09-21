@@ -25,3 +25,9 @@ def test_model_output_cannot_add_privileged_fields(field):
 def test_agent_is_rust_not_python_service():
     assert (ROOT/'apps/agent-runtime/Cargo.toml').is_file()
     assert not list((ROOT/'apps/agent-runtime').rglob('*.py'))
+
+def test_zabbix_host_pipeline_has_required_nodes():
+    pipeline = json.loads((ROOT/'contracts/examples/pipeline-definition.json').read_text())
+    types = [node['type'] for node in pipeline['nodes']]
+    assert types == ['Source', 'Parse', 'Map', 'Validate', 'EntityResolve', 'WriteObservation']
+    assert pipeline['source'] == {'type': 'zabbix', 'objectType': 'host'}

@@ -1,6 +1,6 @@
 # 安全说明
 
-这是开发模板，没有生产OIDC/RBAC/ABAC、真实数据库隔离或动作执行实现。Java业务默认拒绝；Rust默认closed。Demo只能本机访问，随机token映射固定演示身份，不可转作公网认证。
+这是开发模板。Java `platform-api` 默认 `OPSWEAVE_AUTH_MODE=closed`；本地可显式打开 Dev Principal（loopback + 随机 token），不是生产 OIDC/RBAC。Rust 默认 closed。Demo 只能本机访问，不可转作公网认证。
 
 不要把凭据、客户日志、Prompt或证据写入普通日志、Issue或Git。`.env`本地生成且忽略；组织应指定真实安全联系渠道，再公开项目。
 

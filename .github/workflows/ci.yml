@@ -42,6 +42,6 @@ jobs:
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '21'}
       - run: test -f gradlew || (echo 'Generate and commit the Gradle wrapper first'; exit 1)
-      - run: chmod +x gradlew && ./gradlew :apps:platform-api:bootJar :apps:ingestion-worker:bootJar
+      - run: chmod +x gradlew && ./gradlew :apps:platform-api:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar
 # First CI deliberately fails when real lockfiles/wrapper are missing; it never fabricates them.
 # Pin actions to reviewed commit SHAs and add dependency verification before production use.

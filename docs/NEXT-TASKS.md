@@ -14,23 +14,27 @@
 
 残留：中文 IME / 完整键盘矩阵未测。chat / agent-console / data-grid 未接入。
 
-## 当前：M1 身份，然后 M2 确定性流水线
+## 本机已落地：OW-R04 切片（不是生产 IAM）
 
-按这个顺序推进，不要先做 Copilot：
+`Principal` / `TenantId` / `ResourceScope` / `Permission` / `authorize()` allow-deny 已有领域测试。`platform-api` 从 Bearer 构造 Principal，拒绝 query/header 覆盖 tenant。Dev adapter 显式开启；OIDC 占位拒绝 mock 回退。**不要把 Demo token 升级成生产认证，也不要继续做组织树/ABAC/SSO 后台。**
+
+## 当前：Zabbix Host 链加深，而不是 Copilot
 
 | 顺序 | ID | 工作 |
 |---|---|---|
-| 1 | OW-R04 | 已验证主体、租户、资源范围、允许/拒绝矩阵。不要把 Demo token 升级成生产认证 |
-| 2 | OW-R05 | 统一 API 生命周期与会话清理 |
-| 3 | OW-R11 | `PipelineDefinition` / RawRecord / 节点 Catalog / 不可变版本。尚无 AI |
-| 4 | OW-R06 + OW-R07 | Entity/Observation 持久化；Zabbix Host → Raw → Mapping → Observation → Entity |
+| 1 | OW-R07 真实端口 | 对可达的 Zabbix JSON-RPC 跑 `host.get`；失败不得回退 fixture，也不得当成空快照删资产 |
+| 2 | OW-R06 | 把 Entity/Observation/ExternalLink 从标注内存存储迁到租户隔离持久化 |
+| 3 | OW-R11 余量 | Preview/Replay/不可变 PipelineVersion；仍无画布、无 Copilot |
+| 4 | 下一对象 | 只接 Zabbix Item → MetricDefinition / Metric，不要一次铺 Trigger/History/Template |
+
+OW-R05（前端会话清理）和 OW-R08（资产页）可以跟在真实 Host 数据之后，不要先扩前端框架。
 
 OW-R12 Integration Copilot **暂缓**：必须等 R11/R07 可运行，且只生成定义 diff。
 
 ## 已完成的 Bootstrap
 
-锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。
+锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。
 
 ## 更后（M3 起）
 
-指标、外部告警、Incident；Java Tool Gateway 与 Rust 真实读取；可恢复 AIRun；配置式 Skill；受控试点。
+外部告警、Incident；Java Tool Gateway 与 Rust 真实读取；可恢复 AIRun；配置式 Skill；受控试点。

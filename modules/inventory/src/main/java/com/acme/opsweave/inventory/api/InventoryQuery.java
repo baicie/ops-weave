@@ -2,10 +2,23 @@ package com.acme.opsweave.inventory.api;
 
 import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-/** Authorization is enforced by the application boundary, not by caller-supplied tenant JSON. */
+/** Lookup is always scoped by the trusted tenant, never by a client-supplied tenant field. */
 public interface InventoryQuery {
     Optional<EntityView> find(TenantId tenantId, EntityId entityId);
-    record EntityView(EntityId id, String type, String name, long version) {}
+
+    List<EntityView> list(TenantId tenantId);
+
+    record EntityView(
+        EntityId id,
+        TenantId tenantId,
+        String type,
+        String name,
+        String lifecycle,
+        long version,
+        Map<String, Object> attributes
+    ) {}
 }

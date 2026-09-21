@@ -150,4 +150,20 @@ Head：`b5404a817e832cfa13c9b52a005477a453ef031d`。conclusion = **success**。
 
 web job 含 Node 22.18、`pnpm install --frozen-lockfile`、typecheck、生产构建、Playwright Chromium 与 `pnpm test:web`。这证明 ubuntu checkout 可按锁文件安装并跑通诊断页 E2E，不等于生产 OIDC、真实 Zabbix 或 chat/agent-console 已接入。
 
+## 11. 2026-09-22 M1 身份与 Zabbix Host 切片（追加）
+
+环境：macOS aarch64；JDK Homebrew OpenJDK 21.0.12.1（Gradle daemon）；`javac` 默认仍可能是本机 Temurin 25，领域检查使用 `--release 21`。未对厂商 Zabbix 或 Keycloak 发请求。
+
+| 检查 | 命令 | 结果 | 不代表什么 |
+|---|---|---|---|
+| 仓库结构与契约 | `python3 scripts/check_repo.py` | 47 个结构化文件；3 个只读 Tool 定义 | 不是生产认证 |
+| Java 领域 smoke | `python3 scripts/check_java_domain.py` | `DomainSmoke` 7；`IdentityAuthorizationSmoke` 11；`ZabbixHostMappingSmoke` 12 | 不是可达 Zabbix |
+| Python 契约 | `python3 -m pytest tests/contracts -q` | 22 passed | 不是 E2E 接入 |
+| Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar` | **10 tests, 0 failures**；两个 bootJar 成功 | 未跑 Rust / pnpm / Playwright；内存库存不是 PostgreSQL |
+| 身份行为 | 上述 Gradle 测试 | 无 token → 401；query `tenantId` → 400；缺 `entity.read` / `source.sync` → 403；OIDC 模式拒绝启动 | 不是 Keycloak |
+| Host 链 | 上述 Gradle 测试 + 领域 smoke | `labeled-fixture` 写入 2 个 host Entity；JSON-RPC 客户端打本机协议桩 | 不是厂商 `host.get` |
+
+**未接入、未宣称：** 生产 OIDC、PostgreSQL、Zabbix Item/Trigger、资产页 UI、Integration Copilot。CI java job 现包含 `:apps:platform-api:test`，本轮尚未等 GitHub Actions 结果。
+
+
 

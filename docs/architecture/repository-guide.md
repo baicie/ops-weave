@@ -276,9 +276,9 @@ pnpm test:web
 | 顺序 | 任务 | 验收 |
 |---|---|---|
 | 0 | 构建/锁文件/CI（已完成于 `b5404a8`） | Mock 及可选适配能编译；Actions 四 job 通过 |
-| 1 | OIDC与平台资源授权（OW-R04） | 跨租户/对象越权负例；不信任客户端 tenant |
-| 2 | PipelineDefinition 与 Catalog（OW-R11） | 版本化定义、Preview；尚无 Copilot |
-| 3 | Zabbix Host 经已发布流水线（OW-R07） | Host → Raw → Observation → Entity；失败不误删 |
+| 1 | OIDC与平台资源授权（OW-R04） | 本机 Dev Principal + allow/deny 已落地；生产 OIDC 未接 |
+| 2 | PipelineDefinition 与 Catalog（OW-R11） | Host 线性定义已有；Preview/发布指针仍缺；尚无 Copilot |
+| 3 | Zabbix Host 经已发布流水线（OW-R07） | fixture 链可写入 Entity；JSON-RPC 客户端已有；未对厂商实例取数 |
 | 4 | Metric/Alarm/Incident持久化 | 数据类型与单位正确、外部恢复事件闭环 |
 | 5 | Java Tool Gateway + Rust HTTP Port | 按资源授权、超时、预算、无 Fixture 回退 |
 | 6 | Insight入库与证据浏览 | 真实来源、过期重查、假设与事实分开 |

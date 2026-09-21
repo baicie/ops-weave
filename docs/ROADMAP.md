@@ -455,17 +455,17 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | OW-R01 | `chore(web): record Zeus compatibility and clean-install baseline` | ops-weave | 完成 | 无 | `b5404a8` 锁文件安装、typecheck、生产构建；GitHub Actions web job 通过 |
 | OW-R02 | `test(web): cover diagnose page and Web Component interop` | ops-weave | 完成 | R01 | Playwright 7 passed；CI web job 含 `pnpm test:web` |
 | OW-R03 | `fix(interop): upstream reproducible Zeus / Zeus UI defects` | 实际责任仓库 | 消费端已规避 | R02 | `wc/auto` 注册已在 OpsWeave 落地；上游最小复现可另开，不阻塞 M1 |
-| OW-R04 | `feat(identity): define verified principal and resource scopes` | ops-weave | P0，下一步 | 无 | 身份契约、验证链和允许/拒绝矩阵；不以 UI 隐藏替代鉴权 |
+| OW-R04 | `feat(identity): define verified principal and resource scopes` | ops-weave | 本机切片 | 无 | Dev Principal、资源范围、允许/拒绝矩阵已落地；生产 OIDC/Keycloak 未接 |
 | OW-R05 | `feat(web): centralize API lifecycle and session cleanup` | ops-weave | P0 | R04 | 取消、超时、旧响应、退出/换租户清理；会话方案一致 |
-| OW-R11 | `feat(integration): define PipelineDefinition and versioned catalog` | ops-weave | P0 | R04 | DataSource、RawRecord、节点 Catalog、不可变 PipelineVersion；尚无 Copilot |
-| OW-R06 | `feat(inventory): persist entities, observations and external links` | ops-weave | P0 | R04 | 领域迁移、租户隔离、来源唯一键、冲突和幂等测试 |
-| OW-R07 | `feat(integration): synchronize Zabbix hosts via published pipeline` | ops-weave | P0 | R11/R06 | Host → Raw → Mapping → Observation → Entity；失败扫描不删除 |
+| OW-R11 | `feat(integration): define PipelineDefinition and versioned catalog` | ops-weave | P0，进行中 | R04 | 已有 Host 线性定义与 JSON Schema；Preview/不可变发布指针仍缺；尚无 Copilot |
+| OW-R06 | `feat(inventory): persist entities, observations and external links` | ops-weave | P0 | R04 | 内存库存已能写入 Host Entity；尚无 PostgreSQL |
+| OW-R07 | `feat(integration): synchronize Zabbix hosts via published pipeline` | ops-weave | P0，进行中 | R11/R06 | fixture 与 JSON-RPC 客户端已通；尚未对厂商 Zabbix 发 `host.get` |
 | OW-R08 | `feat(web): deliver authorized inventory list and detail` | ops-weave | P1 | R05/R06 | 真 API、服务端筛选分页、来源、新鲜度、拒绝/空/错误态 |
 | OW-R09 | `feat(integration): add CMDB mapping and cross-source reconciliation` | ops-weave | P1 | R07、CMDB 契约 | 二来源匹配/冲突/权威字段、成功快照对账、重放无副作用 |
 | OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | P1 | R06/R07 | 实体关联、指标语义、告警幂等/恢复、Incident API与页面 |
 | OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-当前启动顺序：R04 → R05 / R11 → R06 → R07。不要先做 R12，也不要再迁前端框架。R06 之后不要求先完成全部 Zeus UI 高级组件。M4—M7 的大项在前一里程碑验收时拆成具体 Issue。
+当前启动顺序：不要加深 IAM。下一步是可达 Zabbix 的 Host JSON-RPC，然后持久化与 Item。不要先做 R12，也不要再迁前端框架。
 
 ### Issue 描述模板
 
@@ -521,7 +521,7 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-M0 已关闭。最近的里程碑是可信身份，随后是版本化数据接入流水线与第一条 Zabbix Host 链。Integration Copilot、可恢复 Agent、Skill 创建、自动化和专家团分层推进。
+M0 已关闭。OW-R04 本机身份切片与 Zabbix Host 确定性流水线已写入代码。下一步是可达 Zabbix 的真实 `host.get` 与库存持久化，而不是 Integration Copilot、Skill 或再扩前端。
 
 ---
 
