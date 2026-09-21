@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0",
+  "id": "739b2a6b-eb78-40d8-b8ec-3c2ef618a219",
+  "tenantId": "tenant-demo",
+  "title": "示例故障，不来自真实环境",
+  "status": "OPEN",
+  "severity": 2,
+  "version": 1,
+  "createdAt": "2026-09-21T07:00:00Z"
+}

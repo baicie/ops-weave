@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IncidentSummaryInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "incidentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contextId": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "incidentId",
+    "contextId"
+  ]
+}

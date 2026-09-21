@@ -1,0 +1,11 @@
+schemaVersion: '1.0'
+profile: lite
+status: planned
+bus: postgres-durable-queue
+storage:
+  metadata: postgresql
+  raw: local-development-only
+capabilities:
+  inventory: {installed: true, enabled: false, reason: notImplemented}
+  telemetry: {installed: false, enabled: false, reason: notInstalled}
+  ai: {installed: false, enabled: false, reason: notInstalled}

@@ -1,0 +1,20 @@
+schemaVersion: '1.0'
+id: zabbix-cpu-user
+version: 1.0.0
+status: draft
+source:
+  connector: zabbix
+  itemKeyExact: system.cpu.util[,user]
+target:
+  metric: system.cpu.utilization
+  kind: gauge
+  unit: '1'
+  dimensions:
+    mode: user
+transform:
+  operation: multiply
+  factor: 0.01
+validation:
+  min: 0
+  max: 1
+# Only maps this exact key; do not treat all CPU modes as total utilization.

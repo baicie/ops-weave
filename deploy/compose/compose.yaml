@@ -1,0 +1,53 @@
+name: opsweave-dev
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opsweave}
+      POSTGRES_USER: ${POSTGRES_USER:-opsweave_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run python scripts/init_env.py first}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  platform-api:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/java.Dockerfile
+      args:
+        APP_NAME: platform-api
+    ports:
+      - "127.0.0.1:8080:8080"
+  ingestion-worker:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/java.Dockerfile
+      args:
+        APP_NAME: ingestion-worker
+    ports:
+      - "127.0.0.1:8081:8081"
+  agent-runtime:
+    profiles: [agent]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/agent.Dockerfile
+    ports:
+      - "127.0.0.1:8090:8090"
+  web-console:
+    profiles: [web]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/web.Dockerfile
+    ports:
+      - "127.0.0.1:8088:80"
+volumes:
+  pgdata:
+# Development composition only. API/AI do not yet connect to PostgreSQL.
+# Production must pin image digests and add separate identities, policies, resource limits and backups.

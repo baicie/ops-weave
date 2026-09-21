@@ -1,0 +1,10 @@
+{
+  "id": "ev-001",
+  "tenantId": "tenant-demo",
+  "kind": "metric",
+  "summary": "Synthetic fixture: CPU user utilization rose from 0.3 to 0.8.",
+  "observedAt": "2026-09-21T06:59:00Z",
+  "expiresAt": "2026-09-28T07:00:00Z",
+  "sourceRef": "fixture://metric-001",
+  "trust": "untrusted_data"
+}

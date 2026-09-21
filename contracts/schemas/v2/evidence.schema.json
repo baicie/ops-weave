@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trust": {
+      "const": "untrusted_data"
+    },
+    "incidentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "availableAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "tenantId",
+    "kind",
+    "summary",
+    "observedAt",
+    "expiresAt",
+    "sourceRef",
+    "trust",
+    "incidentId",
+    "availableAt"
+  ]
+}

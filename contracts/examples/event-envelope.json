@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "eventId": "006557c8-2546-462f-af25-0e63b275d889",
+  "eventType": "incident.opened",
+  "tenantId": "tenant-demo",
+  "sourceInstanceId": "platform",
+  "occurredAt": "2026-09-21T07:00:00Z",
+  "observedAt": "2026-09-21T07:00:01Z",
+  "ingestedAt": "2026-09-21T07:00:02Z",
+  "aggregateVersion": 1,
+  "replay": false,
+  "data": {
+    "incidentId": "739b2a6b-eb78-40d8-b8ec-3c2ef618a219"
+  }
+}

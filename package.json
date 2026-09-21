@@ -1,0 +1,15 @@
+{
+  "name": "opsweave-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.3",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.34.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @opsweave/web-console dev",
+    "build:web": "pnpm --filter @opsweave/web-console build",
+    "typecheck:web": "pnpm --filter @opsweave/web-console typecheck"
+  }
+}

@@ -1,0 +1,10 @@
+schemaVersion: '1.0'
+profile: standard
+status: planned
+bus: kafka
+storage:
+  metadata: postgresql
+  metrics: victoriametrics-tenant-routed
+  raw: s3
+  logs: clickhouse-optional
+# This is a target profile, not a functional deployment definition.

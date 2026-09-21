@@ -1,0 +1,103 @@
+{
+  "id": "metric.summary",
+  "version": "1.0.0",
+  "description": "查询已聚合的指标摘要，保留单位、缺口与时间口径。",
+  "effect": "read",
+  "requiredPermissions": [
+    "metric.read"
+  ],
+  "requiredCapabilities": [
+    "metric"
+  ],
+  "timeoutMs": 3000,
+  "maxResultBytes": 32768,
+  "executor": "native",
+  "implementationStatus": "notImplemented",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "metric.summaryInput",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "metric": {
+        "type": "string",
+        "minLength": 1
+      },
+      "timeRange": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "TimeRange",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "maxPoints": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 500
+      }
+    },
+    "required": [
+      "entityId",
+      "metric",
+      "timeRange"
+    ]
+  },
+  "outputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "metric.summaryResult",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "status": {
+        "enum": [
+          "ok",
+          "partial",
+          "unavailable",
+          "notFound"
+        ]
+      },
+      "data": {
+        "type": "object"
+      },
+      "evidenceRefs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "status",
+      "data",
+      "evidenceRefs",
+      "warnings",
+      "truncated"
+    ]
+  }
+}

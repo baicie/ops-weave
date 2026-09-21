@@ -1,0 +1,72 @@
+{
+  "id": "evidence.get",
+  "version": "1.0.0",
+  "description": "读取证据引用，读取时重新校验权限和过期状态。",
+  "effect": "read",
+  "requiredPermissions": [
+    "evidence.read"
+  ],
+  "requiredCapabilities": [
+    "evidence"
+  ],
+  "timeoutMs": 3000,
+  "maxResultBytes": 32768,
+  "executor": "native",
+  "implementationStatus": "notImplemented",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "evidence.getInput",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "evidenceId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "evidenceId"
+    ]
+  },
+  "outputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "evidence.getResult",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "status": {
+        "enum": [
+          "ok",
+          "partial",
+          "unavailable",
+          "notFound"
+        ]
+      },
+      "data": {
+        "type": "object"
+      },
+      "evidenceRefs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "status",
+      "data",
+      "evidenceRefs",
+      "warnings",
+      "truncated"
+    ]
+  }
+}

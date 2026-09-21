@@ -1,0 +1,14 @@
+schemaVersion: '1.0'
+standard:
+  maxToolCalls: 10
+  maxModelCalls: 2
+  maxConcurrentQueries: 4
+  maxInputTokens: 8000
+  deadlineMs: 30000
+deep:
+  maxToolCalls: 30
+  maxModelCalls: 6
+  maxConcurrentQueries: 6
+  maxInputTokens: 24000
+  deadlineMs: 120000
+# Initial safety budgets, not measured service-level objectives.

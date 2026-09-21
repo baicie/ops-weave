@@ -1,0 +1,4 @@
+# Optional repository checks only. No deployed service requires Python.
+pytest>=8,<10
+jsonschema>=4.23,<5
+PyYAML>=6.0.2,<7

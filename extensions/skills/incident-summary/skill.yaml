@@ -1,0 +1,25 @@
+schemaVersion: '1.0'
+id: incident.summary
+version: 1.0.0
+status: draft
+executionTemplate: context-then-summary
+inputSchema: input.schema.json
+outputSchema: output.schema.json
+prompt: prompt.md
+allowedTools:
+  - incident.get@1.0.0
+  - evidence.get@1.0.0
+requiredPermissions:
+  - incident.read
+  - evidence.read
+contextPolicy:
+  required: [incident]
+  optional: [metric, log, change]
+  missingDataBehavior: explicit
+modelPolicyRef: reasoning-structured-readonly
+budget:
+  maxToolCalls: 6
+  maxModelCalls: 1
+  maxInputTokens: 8000
+  deadlineMs: 30000
+sideEffects: forbidden

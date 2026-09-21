@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "contextId": "ctx-001",
+  "runId": "run-001",
+  "tenantId": "tenant-demo",
+  "task": {
+    "type": "incident.diagnose",
+    "incidentId": "inc-001"
+  },
+  "timeRange": {
+    "from": "2026-09-21T06:30:00Z",
+    "to": "2026-09-21T07:00:00Z"
+  },
+  "asOf": "2026-09-21T07:00:04Z",
+  "evidenceRefs": [
+    "ev-001"
+  ],
+  "missing": [
+    {
+      "kind": "log",
+      "reason": "capability_not_installed"
+    }
+  ],
+  "constraints": {
+    "readOnly": true,
+    "maxAdditionalToolCalls": 4
+  },
+  "builtAt": "2026-09-21T07:00:04Z"
+}

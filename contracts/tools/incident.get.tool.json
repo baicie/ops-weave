@@ -1,0 +1,72 @@
+{
+  "id": "incident.get",
+  "version": "1.0.0",
+  "description": "读取授权范围内的一次 Incident；不修改状态。",
+  "effect": "read",
+  "requiredPermissions": [
+    "incident.read"
+  ],
+  "requiredCapabilities": [
+    "incident"
+  ],
+  "timeoutMs": 3000,
+  "maxResultBytes": 32768,
+  "executor": "native",
+  "implementationStatus": "notImplemented",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "incident.getInput",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "incidentId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "incidentId"
+    ]
+  },
+  "outputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "incident.getResult",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "status": {
+        "enum": [
+          "ok",
+          "partial",
+          "unavailable",
+          "notFound"
+        ]
+      },
+      "data": {
+        "type": "object"
+      },
+      "evidenceRefs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "status",
+      "data",
+      "evidenceRefs",
+      "warnings",
+      "truncated"
+    ]
+  }
+}

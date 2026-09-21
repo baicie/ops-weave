@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "id": "d72a8c09-458b-4098-b9d5-89e2d58a7d4f",
+  "tenantId": "tenant-demo",
+  "entityType": "host",
+  "name": "demo-host-01",
+  "lifecycle": "ACTIVE",
+  "version": 1,
+  "attributes": {
+    "environment": "demo"
+  }
+}

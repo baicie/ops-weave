@@ -1,0 +1,16 @@
+{
+  "id": "incident.diagnose",
+  "version": "1.0.0",
+  "executionTemplate": "readonly-incident-diagnosis-v1",
+  "prompt": "prompt.md",
+  "outputSchema": "output.schema.json",
+  "allowedTools": [
+    "incident.get@1.0.0",
+    "metric.summary@1.0.0"
+  ],
+  "sideEffects": "forbidden",
+  "maxToolCalls": 2,
+  "maxEvidence": 16,
+  "maxContextBytes": 16000,
+  "deadlineMs": 30000
+}

@@ -1,0 +1,7 @@
+schemaVersion: '1.0'
+id: cmdb
+version: 0.1.0
+status: scaffold
+implementation: notImplemented
+executionMode: worker
+credentials: secretRefOnly

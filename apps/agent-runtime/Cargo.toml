@@ -1,0 +1,37 @@
+[package]
+name = "opsweave-agent-runtime"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+rig-provider = ["dep:rig"]
+# MCP is a separate, administrator-run adapter spike, not advertised to the Agent.
+mcp-client = ["dep:rmcp"]
+
+[dependencies]
+axum = { version = "=0.8.9", features = ["json"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+async-trait = "0.1"
+subtle = "2.6"
+sha2 = "0.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+jsonschema = { version = "=0.56.0", default-features = false }
+# 0.42 uses the root facade `rig`, not the legacy rig-core-as-rig alias.
+rig = { version = "=0.42.0", default-features = false, features = ["agent", "rustls"], optional = true }
+rmcp = { version = "=3.4.0", default-features = false, features = ["client", "transport-streamable-http-client-reqwest", "reqwest"], optional = true }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[[example]]
+name = "mcp_probe"
+required-features = ["mcp-client"]

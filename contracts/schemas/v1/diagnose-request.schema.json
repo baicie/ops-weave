@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DiagnoseRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "incidentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "timeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "to": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ]
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "incidentId",
+    "question",
+    "timeRange",
+    "asOf"
+  ]
+}

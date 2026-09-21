@@ -1,0 +1,18 @@
+{
+  "summary": "合成数据表明延迟升高，尚不能确认根因。",
+  "findings": [
+    {
+      "kind": "observation",
+      "statement": "合成延迟指标升高。",
+      "evidenceRefs": [
+        "ev-001"
+      ]
+    }
+  ],
+  "missingData": [
+    "缺少日志和变更记录"
+  ],
+  "limitations": [
+    "演示数据，不是生产分析"
+  ]
+}
