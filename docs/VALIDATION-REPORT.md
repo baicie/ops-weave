@@ -132,5 +132,22 @@ Vite 插件 `@zeus-js/vite-plugin` 0.0.4 使用已发布的 `@zeus-js/compiler` 
 | 诊断页 E2E | `pnpm test:web`（`page.route` 拦截 `POST /agent/api/v1/diagnoses`） | **7 passed**（注册 WC、token 长度、提交与证据文本、401、503、取消、卸载后不写回） | 不需要本机 Rust Demo；不是 OIDC；未测 IME |
 | 仓库结构 / 发布门禁 | `python3 scripts/check_repo.py`；`python3 scripts/check_java_domain.py`；`python3 -m pytest tests/contracts -q`；`python3 scripts/check_release_inputs.py` | 44 个结构化文件；7 项 Java smoke；20 passed；Bootstrap files exist | 不是安全审查；本节未复跑 Rust / Gradle |
 
-**未宣称：** GitHub Actions 已绿、chat/agent-console 已接入、生产 BFF。未把 Playwright 的 JS unzip 卡死当作上游缺陷（本机用 `ditto` 解开已下载的 zip）。
+**未接入、未宣称：** chat/agent-console 已接入、生产 BFF。未把 Playwright 的 JS unzip 卡死当作上游缺陷（本机用 `ditto` 解开已下载的 zip）。GitHub Actions 当时尚未作为本节证据。
+
+## 10. 2026-09-21 GitHub Actions（`b5404a8`）
+
+查阅命令：`gh run list --branch main`；`gh run view 35600475743`。
+
+Run：https://github.com/baicie/ops-weave/actions/runs/35600475743  
+Head：`b5404a817e832cfa13c9b52a005477a453ef031d`。conclusion = **success**。
+
+| Job | 结果 |
+|---|---|
+| contracts | success |
+| rust | success |
+| java | success |
+| web | success |
+
+web job 含 Node 22.18、`pnpm install --frozen-lockfile`、typecheck、生产构建、Playwright Chromium 与 `pnpm test:web`。这证明 ubuntu checkout 可按锁文件安装并跑通诊断页 E2E，不等于生产 OIDC、真实 Zabbix 或 chat/agent-console 已接入。
+
 

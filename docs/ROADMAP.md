@@ -1,26 +1,26 @@
 # OpsWeave（观织）产品与 Zeus 生态协同路线图
 
-> 版本：Roadmap 1.0 · 日期：2026-09-21  
+> 版本：Roadmap 1.1 · 日期：2026-09-21  
 > 适用仓库：`baicie/ops-weave`、`baicie/zeus`、`baicie/zeus-ui`  
 > 技术方向：Java 平台业务 + Rust Agent Runtime + Zeus / Zeus UI 前端。  
 > 范围：从当前初始化工程，推进到真实只读诊断 MVP、可恢复 Agent、配置式 Skill 和受控试点。  
 > 本文是实施建议，不表示功能已经完成。M0—M7 为规划里程碑，不是已有 Git Tag；未获取团队人数、投入强度和生产规模，因此不指定完成日期。  
-> 落点：本文保存在 `docs/ROADMAP.md`。兼容性基线见 `docs/FRONTEND-COMPATIBILITY.md`。M0 本地安装与诊断页 Playwright 已在验证报告第 9 节记录；未复跑 GitHub Actions，未测 IME/完整键盘矩阵。
+> 落点：本文保存在 `docs/ROADMAP.md`。兼容性基线见 `docs/FRONTEND-COMPATIBILITY.md`。默认分支 `b5404a8`：M0 前端迁移验收关闭（本地 Playwright + GitHub Actions `opsweave-template` 四 job 通过）。中文 IME / 完整键盘矩阵仍未测，不阻塞进入 M1。不再安排一次 React→Zeus 迁移。
 
 ## 1. 当前起点：不要重复建设已经提交的迁移
 
-本次核对了三个仓库默认分支的相关配置、入口源码和说明文档，没有执行构建、浏览器联调或生产验证。
+当前默认分支 `b5404a8`。Web Console 已用 Zeus `render` 作为运行时，页面骨架在 `app/pages/api/state/adapters/styles`；资产/指标/Skill/Agent 页仍是未实现占位，诊断页是唯一已验收交互。
 
-| 观察项 | 本次能确认的事实 | 路线图中的处理 |
+| 观察项 | 当前能确认的事实 | 路线图中的处理 |
 |---|---|---|
-| OpsWeave 前端依赖 | `package.json` 已声明 `@zeus-js/zeus=0.1.1-beta.2`、`@zeus-web/ui=0.1.0-beta.4`、`@zeus-js/vite-plugin=0.0.4`。[S1] | 这些是仓库当前声明，不是本路线图推荐的最新版本；M0 验证锁文件、实际产物与兼容性 |
-| 前端入口 | `main.tsx` 已使用 Zeus `render`，并导入 Zeus UI 注册适配层。[S2] | 不再安排一次“从零替换 React”，改为迁移验收 |
-| 页面组织 | `App.tsx` 已连接资产、指标、Skill、Agent 与诊断页面入口及 hash 路由。[S3] | 有入口不代表对应业务完成；逐页验收真实功能 |
-| 平台状态说明 | README 仍将诊断描述为合成数据、同步本地示例，真实平台授权与持久任务不在已完成范围内。[S4] | 第一条产品主线应是真实授权、真实数据和只读诊断，而不是更多 Demo |
-| Zeus 定位 | 框架提供 signal、编译 JSX、DOM 更新及 Web Components 能力。[S5] | 框架工作以兼容性、生命周期与必要缺陷修复为主 |
-| Zeus UI 定位 | 原生 Web Components 与 headless 高级组件是明确路线；高级组件完整产品样式不能直接视为已就绪。[S6][S7] | 按实际场景检查可用产物；允许产品薄适配与临时简单 UI |
+| 前端运行时 | `main.tsx` 调用 `@zeus-js/zeus` 的 `render`；生产包经 `@zeus-web/button/wc/auto` 与 `@zeus-web/input/wc/auto` 注册原生组件。[S2] | 不再迁移框架。Zeus UI 的 JS 入口非 `sideEffects` 已在消费端规避，上游复现记 OW-R03，不阻塞产品 |
+| 前端依赖 | `@zeus-js/zeus=0.1.1-beta.2`、`@zeus-web/ui=0.1.0-beta.4`、`@zeus-js/vite-plugin=0.0.4`。[S1] | 升级走兼容性清单，不以 `link:` 代替 registry |
+| 页面组织 | `App.tsx` 连接 Diagnose / Inventory / Metrics / Skills / Agent 与 hash 路由。[S3] | 有入口不代表对应业务完成 |
+| 平台状态 | 诊断仍是合成数据与本机 Demo token；真实授权与持久任务未实现。[S4] | 下一里程碑是身份与第一条真实数据链 |
+| GitHub Actions | `b5404a8` 的 `opsweave-template`：contracts / rust / java / web 均为 success | 见 `VALIDATION-REPORT.md` 第 10 节 |
+| Zeus / Zeus UI | 框架与原生 WC 路线未变。[S5][S6][S7] | 只修产品验收暴露的缺陷 |
 
-已有初始化、构建和 CI 的历史结果可以保留，但不能自动证明新迁移提交的运行行为。M0 需记录当前验收提交与结果，更新仍残留的模板说明。
+不要再开一轮前端框架迁移。M1 起做身份和真实接入。
 
 ## 2. 总目标与首版边界
 
@@ -80,7 +80,7 @@ Java Platform / Rust Agent Runtime
 |---|---|---|---|
 | **M0** | Zeus 迁移验收与依赖基线 | 三仓库，OpsWeave 主导 | 发布/打包产物安装可复现，诊断 Demo 的交互与负例通过 |
 | **M1** | 平台基础、登录、权限与前端请求层 | OpsWeave | 服务端身份与资源授权贯通，退出后无跨会话数据残留 |
-| **M2** | 真实资产接入与来源治理 | OpsWeave；Zeus UI 按需补表格 | 至少一条源接入端到端完成，再完成第二来源融合验证 |
+| **M2** | 数据接入：Connector、原始数据、版本化流水线，再考虑 Copilot | OpsWeave；Zeus UI 按需补表格 | 一条已授权来源经 PipelineDefinition 落到 Entity；Copilot 不是本阶段退出条件 |
 | **M3** | 指标、外部告警与 Incident 工作台 | OpsWeave | 实体、指标、告警和 Incident 可真实关联并追溯 |
 | **M4** | 真实只读 AI 诊断 MVP | OpsWeave | 经授权的真实数据进入 Rust，结构化结果与证据可持久查询 |
 | **M5** | 可恢复运行与 Agent 控制台 | OpsWeave + Zeus UI | 刷新、断线、重复请求、Worker 重启具有明确语义与测试 |
@@ -94,7 +94,7 @@ Java Platform / Rust Agent Runtime
 M0 → M1 → M2 → M3 → M4 → M5 → M6 → M7
 ```
 
-M0 的浏览器验收与 M1 的后端身份设计可以并行。M3 的页面可以先使用明确标注的契约 fixture，但 M2/M3 的真实数据验收不可用 fixture 代替。M5 的 UI 原型可以提前做，必须等运行协议和持久状态完成后才宣布可恢复。
+M1 必须在真实来源同步之前完成服务端身份。M2 先交付确定性流水线，再考虑 Integration Copilot。M3 的页面可以先使用明确标注的契约 fixture，但 M2/M3 的真实数据验收不可用 fixture 代替。M5 的 UI 原型可以提前做，必须等运行协议和持久状态完成后才宣布可恢复。
 
 **版本候选命名建议**：M4 为 `v0.1.0-alpha` 只读 MVP；M5—M6 为 `v0.2.0-beta`；M7 为试点候选版本。正式版本号以仓库现有版本策略为准，不自动创建 Tag。
 
@@ -119,7 +119,7 @@ Zeus / Zeus UI 只修复验收暴露的问题。验证对象/数组作为 proper
 - [x] 无效凭据被拒绝；真实模式失败不会自动回退 fixture。
 - [x] 路由切换不残留旧请求、监听器或订阅；卸载后完成的请求不覆盖新页面状态。
 - [x] Evidence 和日志等外部文字不能注入可执行 HTML；原始 HTML 默认不开放。
-- [ ] 当前 README / 验证报告能区分“源代码已有”“CI 已通过”“浏览器已验收”（CI job 日志尚未复跑）。
+- [x] 当前 README / 验证报告能区分“源代码已有”“CI 已通过”“浏览器已验收”。`b5404a8` 的 GitHub Actions 四 job 已通过；IME / 完整键盘矩阵仍未测，不阻塞 M1。
 
 建议使用 Playwright 对原生页面做端到端验收，按角色、标签或稳定测试标识定位。其定位支持开放的 Shadow DOM，但不支持穿透 closed shadow roots，不能据此声称任意封装内部均可直接测试。[S9]
 
@@ -153,33 +153,100 @@ Java identity/application 定义主体、租户、资源范围与权限决策。
 
 按实际缺口完善输入、选择、按钮、提示、弹窗、Tabs 等通用交互。产品导航、租户切换和权限空状态留在 OpsWeave。无需一次完成所有组件样式。
 
-## 7. M2：先打通一个来源，再做多源资产融合
+## 7. M2：数据接入流水线，而不是直接上 AI 解析
 
 ### 目标
 
-资产页展示来自外部系统的真实对象，并能解释数据从哪里来。
+资产页展示来自外部系统的真实对象，并能解释数据从哪里来。接入必须先有可版本化、可预览、可重放的确定性流水线；**Integration Copilot 写进本阶段规划，但不作为本阶段开工项，更不是退出条件。**
 
-### 顺序
+仓库里目前没有 `PipelineDefinition`、`integration.pipeline.*` 或 Copilot 实现。不要把 Connector SPI 骨架当成流水线已完成。
 
-先选择可访问且已有明确契约的一个来源完成纵向接入，默认优先 Zabbix Host；若 CMDB 只读接口更易获得，可交换顺序。第二个来源再验证融合，而不是同时开发多个半成品 Connector。
+### 顺序（必须遵守）
 
-若 CMDB 尚无接口契约，建立显式标注的导入适配与 fixture 合同测试，但不要把文件导入宣称为真实 CMDB API 已接通。
+```text
+M2.1 Connector          声明来源、认证引用、分页/游标、连接测试
+M2.2 Raw Data           原始记录有界保留，可追溯到一次扫描
+M2.3 PipelineDefinition 节点 Catalog + 版本化定义（本阶段的修改目标）
+M2.4 Mapping / Transform / Validate   确定性映射、校验、权威字段
+M2.5 Preview / Replay / Version       预览、重放、草稿/发布，失败不删除
+M2.6 Integration Copilot              仅在 2.1–2.5 可运行之后；生成/修改/解释定义
+```
 
-### 数据与接入交付
+先选择可访问且已有明确契约的一个来源完成纵向接入，默认优先 Zabbix Host：
 
-实现 DataSource 配置、连接测试、分页、同步游标、完整快照标志、幂等写入、原始数据引用与有限保留。通过 ExternalLink / Observation 记录原始字段，再按字段权威规则产生 Entity 当前视图。
+```text
+Zabbix Host → RawRecord → Mapping → Observation → Entity
+```
 
-身份键包含租户、来源实例与外部对象类型；跨来源合并仅对合格稳定标识自动进行。同名、同 IP 或占位序列号不作为充分合并依据。冲突进入人工确认，保留历史与撤销路径。
+该路径必须绑定一个已发布的 `PipelineDefinition` 版本，而不是 Worker 里写死的隐式转换。第二个来源再验证融合。若 CMDB 尚无接口契约，建立显式标注的导入适配与 fixture 合同测试，但不要把文件导入宣称为真实 CMDB API 已接通。
 
-只有来源扫描完整且成功才进行对账；来源故障、权限变化或分页失败不能被解释为大量资产删除。重放默认仅修复数据，不发通知或触发动作。
+### M2.1 Connector
+
+DataSource 配置、连接测试、分页、同步游标、完整快照标志。凭据只保存受控引用。每个 Connector 声明支持的对象类型与失败语义。来源故障、权限变化或分页失败不能被解释为大量资产删除。
+
+### M2.2 Raw Data
+
+原始记录（或等价的不可变引用）按租户与来源实例隔离，有保留上限。后续映射必须能指回 Raw，禁止“映射成功就丢掉无法复核的原文”。
+
+### M2.3 PipelineDefinition
+
+这是接入配置的唯一修改目标。定义包含：来源、对象类型、节点图或有序列表、字段映射、校验、权威规则、输出到 Observation/Entity 的契约版本。节点来自平台 Catalog，不是任意脚本。
+
+发布产生不可变 `PipelineVersion`（内容摘要固定）。运行绑定版本，不跟随 `latest` 漂移。草稿不能驱动生产同步。
+
+第一版编辑器可以是表单与 JSON Schema；不把完整拖拽画布当作 Zabbix Host 纵向切片的前置。
+
+### M2.4 Mapping / Transform / Validate
+
+身份键包含租户、来源实例与外部对象类型。通过 ExternalLink / Observation 记录原始字段，再按字段权威规则产生 Entity 当前视图。跨来源合并仅对合格稳定标识自动进行。同名、同 IP 或占位序列号不作为充分合并依据。冲突进入人工确认，保留历史与撤销路径。
+
+确定性转换必须有测试：重复同步不新增重复 Entity；非法/缺失字段进入校验失败而非猜测补全。
+
+### M2.5 Preview / Replay / Version
+
+发布前可对样本 Raw 做 Preview，展示将写入的 Observation/Entity 而不落库（或写入明确标注的预览隔离）。Replay 默认只修复数据，不发通知、不触发动作。只有来源扫描完整且成功才进行对账。
+
+### M2.6 Integration Copilot（规划保留，本阶段不开发）
+
+等 2.1–2.5 可运行后，Copilot 才能针对 **已发布或草稿中的 `PipelineDefinition`** 工作：生成、修改、解释、根据 Preview/校验失败提出修补。它不能直连 Zabbix、不能改生产发布指针、不能授予新权限、不能输出任意代码节点。模型建议必须变成定义上的 diff，经 Validate / Preview 后仍走 Draft → Publish。
+
+不要在没有定义对象时先做“AI 帮我解析数据”。
+
+远期 Integration Studio（表单、可选拖拽、Copilot）都只是同一套定义的编辑面：
+
+```text
+                    Integration Studio
+
+       ┌──────────────┼───────────────┐
+       ↓              ↓               ↓
+    拖拽编辑        表单配置        AI Copilot
+       │              │               │
+       └──────────────┼───────────────┘
+                      ↓
+              PipelineDefinition
+                      ↓
+          Validate / Preview / Test
+                      ↓
+                    Draft
+                      ↓
+                   Publish
+                      ↓
+              Ingestion Worker
+```
+
+拖拽画布与 Copilot 都不是第一条 Zabbix 链的阻塞项。Skill DAG（M6）是 Agent 能力编排，与本阶段数据接入流水线分开，不要合成一个“万能工作流引擎”。
 
 ### 前端交付
 
-资产列表、服务端分页/筛选、详情、来源字段、冲突提示、同步任务和数据新鲜度。先使用简单表格也可以；高级 Data Grid 尚未验收时不阻塞。
+资产列表、服务端分页/筛选、详情、来源字段、冲突提示、同步任务、数据新鲜度和流水线版本/预览结果。先使用简单表格也可以；高级 Data Grid 尚未验收时不阻塞。
 
-### 验收
+### 验收（M2 退出，不含 Copilot）
 
-重复同步不新增重复 Entity；失败扫描不误删除；同 IP 的不同租户不合并；字段冲突可以追溯来源、映射版本和观测时间；重放不产生重复副作用。
+- [ ] 一条已声明支持版本的来源（默认 Zabbix Host）经已发布 PipelineVersion 完成分页、游标、完整快照。
+- [ ] 重复同步不新增重复 Entity；失败扫描不误删除。
+- [ ] 同 IP 的不同租户不合并；字段冲突可追溯来源、映射版本和观测时间。
+- [ ] Preview / Replay 不产生通知或动作副作用。
+- [ ] 未实现 Copilot 时页面不假装已有 AI 接入助手。
 
 ## 8. M3：完成指标、外部告警与 Incident
 
@@ -326,7 +393,8 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | RAG | 有经过授权、版本化、可维护的手册和历史案例 | 小规模检索评估、引用与文档撤权处理 |
 | 异常检测 / 预测 | 指标语义、缺失率、基线与历史长度已达到算法需求 | 先确定性基线，再与模型比较；不先建完整 Feature 平台 |
 | 分布式扩容 | 单节点基准、积压和恢复数据证明确有瓶颈 | 单独扩容瓶颈 Worker，验证重复消息、分区和租户公平性 |
-| 可视化 Pipeline / Skill DAG | 多个稳定模板已无法覆盖真实用户需求 | 受限节点、契约校验、版本化及可恢复执行 |
+| 接入流水线拖拽画布 | 表单/JSON 已无法覆盖真实映射，且 Catalog 节点已稳定 | 仍只编辑 PipelineDefinition，不引入任意代码节点 |
+| Skill DAG（与接入流水线分开） | 多个稳定 Skill 模板已无法覆盖真实用户需求 | 受限节点、契约校验、版本化及可恢复执行 |
 | MCP 扩展 | 出现明确外部工具接入需求 | 审查一个 Server，工具准入、授权、限流和审计 |
 | 自动化动作 | 只读诊断经评估，具备执行权限与恢复手册 | ActionProposal → Policy → Approval → 执行前重验 → 验证；仅白名单低风险动作 |
 | 多 Agent 专家协作 | 单 Agent 的可测质量瓶颈已明确 | 与单 Agent 做质量、成本和延迟对照试验 |
@@ -352,7 +420,8 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | A | 输入、按钮、错误状态、键盘、焦点与最小主题 | 诊断表单与平台壳层 |
 | B | 表格/分页/选择/筛选；实际需要时增加虚拟化 | 资产、告警和 Incident 列表 |
 | C | Chat、Tool 卡片、步骤状态、有限窗口、增量更新 | Agent 控制台 |
-| D | 版本差异、Schema 表单等可复用编辑行为 | Skill Builder |
+| D | 版本差异、Schema 表单等可复用编辑行为 | Skill Builder；接入流水线表单可复用同一类行为 |
+| 暂缓 | 完整拖拽 Pipeline 画布 | 不阻塞 Zabbix Host 纵向切片 |
 
 组件代码、打包产物、原生示例和 OpsWeave 消费测试分别计完成度。headless 行为与产品视觉分离；组件库不得依赖 OpsWeave 业务包。
 
@@ -377,24 +446,26 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 
 安全限额从第一天可配置：单租户并发、单来源同步速率、查询扫描量、Tool 返回量、Context/输出大小、LLM 轮次、时间和费用。超限应有可解释失败或降级，不无限排队。
 
-## 16. 首批 Issue：先建 10 个，不铺几十个大而空的任务
+## 16. 首批 Issue：M0 已关闭，先身份和流水线定义
 
 以下为建议 Issue 标题和验收范围，尚未在 GitHub 创建。OW-Rxx 是本文规划 ID，不是已有 Issue 编号。
 
 | ID | 建议标题 | 仓库 | 优先级 | 依赖 | 最小完成定义 |
 |---|---|---|---|---|---|
-| OW-R01 | `chore(web): record Zeus compatibility and clean-install baseline` | ops-weave | P0 | 无 | 记录精确产物/工具链，锁文件安装与构建通过，更新模板状态 |
-| OW-R02 | `test(web): cover diagnose page and Web Component interop` | ops-weave | P0 | R01 | 浏览器覆盖输入、事件、失败、取消、重复提交、卸载、证据展示 |
-| OW-R03 | `fix(interop): upstream reproducible Zeus / Zeus UI defects` | 实际责任仓库 | P0，仅有缺陷时 | R02 | 最小复现、失败测试、修复与消费者回归；无缺陷则关闭，不虚构功能 |
-| OW-R04 | `feat(identity): define verified principal and resource scopes` | ops-weave | P0 | 可与 R01 并行 | 身份契约、验证链和允许/拒绝矩阵；不以 UI 隐藏替代鉴权 |
-| OW-R05 | `feat(web): centralize API lifecycle and session cleanup` | ops-weave | P0 | R02/R04 | 取消、超时、旧响应、退出/换租户清理；会话方案一致 |
+| OW-R01 | `chore(web): record Zeus compatibility and clean-install baseline` | ops-weave | 完成 | 无 | `b5404a8` 锁文件安装、typecheck、生产构建；GitHub Actions web job 通过 |
+| OW-R02 | `test(web): cover diagnose page and Web Component interop` | ops-weave | 完成 | R01 | Playwright 7 passed；CI web job 含 `pnpm test:web` |
+| OW-R03 | `fix(interop): upstream reproducible Zeus / Zeus UI defects` | 实际责任仓库 | 消费端已规避 | R02 | `wc/auto` 注册已在 OpsWeave 落地；上游最小复现可另开，不阻塞 M1 |
+| OW-R04 | `feat(identity): define verified principal and resource scopes` | ops-weave | P0，下一步 | 无 | 身份契约、验证链和允许/拒绝矩阵；不以 UI 隐藏替代鉴权 |
+| OW-R05 | `feat(web): centralize API lifecycle and session cleanup` | ops-weave | P0 | R04 | 取消、超时、旧响应、退出/换租户清理；会话方案一致 |
+| OW-R11 | `feat(integration): define PipelineDefinition and versioned catalog` | ops-weave | P0 | R04 | DataSource、RawRecord、节点 Catalog、不可变 PipelineVersion；尚无 Copilot |
 | OW-R06 | `feat(inventory): persist entities, observations and external links` | ops-weave | P0 | R04 | 领域迁移、租户隔离、来源唯一键、冲突和幂等测试 |
-| OW-R07 | `feat(integration): synchronize Zabbix hosts safely` | ops-weave | P0 | R06 | 一个已声明支持版本的来源完成分页、游标、完整快照与失败不删除 |
+| OW-R07 | `feat(integration): synchronize Zabbix hosts via published pipeline` | ops-weave | P0 | R11/R06 | Host → Raw → Mapping → Observation → Entity；失败扫描不删除 |
 | OW-R08 | `feat(web): deliver authorized inventory list and detail` | ops-weave | P1 | R05/R06 | 真 API、服务端筛选分页、来源、新鲜度、拒绝/空/错误态 |
 | OW-R09 | `feat(integration): add CMDB mapping and cross-source reconciliation` | ops-weave | P1 | R07、CMDB 契约 | 二来源匹配/冲突/权威字段、成功快照对账、重放无副作用 |
 | OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | P1 | R06/R07 | 实体关联、指标语义、告警幂等/恢复、Incident API与页面 |
+| OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-R01—R05 是马上可以启动的工作。R06 之后不要求先完成全部 Zeus UI 高级组件。M4—M7 的大项在前一里程碑验收时拆成具体 Issue，避免过早冻结细节。
+当前启动顺序：R04 → R05 / R11 → R06 → R07。不要先做 R12，也不要再迁前端框架。R06 之后不要求先完成全部 Zeus UI 高级组件。M4—M7 的大项在前一里程碑验收时拆成具体 Issue。
 
 ### Issue 描述模板
 
@@ -436,7 +507,7 @@ docs/adr/                              # 身份、依赖、运行事件等决策
 docs/runbooks/                         # 同步、恢复、升级与故障处置
 ```
 
-已落入本仓库的是 `docs/ROADMAP.md` 与 `docs/FRONTEND-COMPATIBILITY.md`。M0 本地浏览器项已勾选；CI job 与 IME 仍未验收。
+已落入本仓库的是 `docs/ROADMAP.md` 与 `docs/FRONTEND-COMPATIBILITY.md`。M0 在 `b5404a8` 关闭（含 GitHub Actions）；IME 未测。下一里程碑是 M1 身份，然后是不含 Copilot 的 M2 流水线。
 
 ### 每阶段必须守住的退出条件
 
@@ -450,13 +521,13 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-最近的里程碑是迁移验收与可信请求基础。第一个有业务价值的版本是资产、指标、Incident 和只读诊断；可恢复 Agent、Skill 创建、自动化和专家团分层推进。
+M0 已关闭。最近的里程碑是可信身份，随后是版本化数据接入流水线与第一条 Zabbix Host 链。Integration Copilot、可恢复 Agent、Skill 创建、自动化和专家团分层推进。
 
 ---
 
 ## 资料与核对依据
 
-仓库来源为 2026-09-21 读取默认分支的文件快照，OpsWeave 侧与提交 `e5b5827e02b8b53a5e945635596184561d43f696` 一致。`blob SHA` 是文件内容标识，不是仓库提交 SHA；后续实施应在兼容性清单中补充整仓提交或发布版本。
+仓库实施基线为 2026-09-21 默认分支 `b5404a817e832cfa13c9b52a005477a453ef031d`。下表 blob SHA 来自路线图 1.0 起草时的文件快照，不是当前提交；以仓库 HEAD 与 `FRONTEND-COMPATIBILITY.md` 为准。
 
 | 编号 | 来源 | 本次读取的 blob SHA / 用途 |
 |---|---|---|

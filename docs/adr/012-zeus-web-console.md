@@ -14,7 +14,7 @@ Java 平台与 Rust Agent Runtime 边界不变。图表、拓扑、Agent Console
 - `@zeus-js/vite-plugin` `0.0.4`（已发布产物）
 - `@zeus-web/ui` `0.1.0-beta.4`
 
-CI 安装这些版本的 registry 产物，不以本机 `workspace:` 链接代替。已验证组合与 integrity 见 `docs/FRONTEND-COMPATIBILITY.md`。
+CI 安装这些版本的 registry 产物，不以本机 `workspace:` 链接代替。`b5404a8` 的 GitHub Actions web job 已验证该组合。已验证细节见 `docs/FRONTEND-COMPATIBILITY.md`。
 
 ## 代价与后续
 

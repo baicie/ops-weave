@@ -2,7 +2,7 @@
 
 统一可观测与智能运维平台。**Java 平台 + Rust Agent Runtime + TypeScript 前端**。
 
-> 这是 v4 设计配套初始化仓库，不是生产产品。本地已用 Rust 1.98.1、JDK 21、pnpm 10.34 做过构建与 Demo 诊断；**CI 是否在 GitHub 上通过、干净 clone 是否可复现，以当时 job / 验证报告为准。** 准确状态见 [验证报告](docs/VALIDATION-REPORT.md) 与 [实现状态](docs/IMPLEMENTATION-STATUS.md)。
+> 这是 v4 设计配套初始化仓库，不是生产产品。本地已用 Rust 1.98.1、JDK 21、pnpm 10.34 做过构建与 Demo 诊断。提交 `b5404a8` 的 GitHub Actions `opsweave-template`（contracts / rust / java / web）已通过。准确状态见 [验证报告](docs/VALIDATION-REPORT.md) 与 [实现状态](docs/IMPLEMENTATION-STATUS.md)。
 
 ## 阅读入口
 

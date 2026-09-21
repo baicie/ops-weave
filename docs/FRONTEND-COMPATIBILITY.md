@@ -1,6 +1,8 @@
 # 前端兼容性基线
 
-日期 2026-09-21。记录 **OpsWeave Web Console 已经用过的发布产物组合**，不是 Zeus / Zeus UI 的最新版本承诺，也不是 M0 全部退出。
+日期 2026-09-21。记录 **OpsWeave Web Console 已经用过的发布产物组合**，不是 Zeus / Zeus UI 的最新版本承诺。
+
+M0 前端迁移验收在提交 `b5404a817e832cfa13c9b52a005477a453ef031d` 关闭：本地 Playwright 7 passed，GitHub Actions `opsweave-template` 四 job 通过。中文 IME / 完整键盘矩阵仍未测，不阻塞 M1。
 
 升级时：先在本清单写目标版本与原因 → 用锁文件安装 → typecheck / 生产构建 → 诊断页手工或 Playwright 回归 → 再提交 `pnpm-lock.yaml`。CI 不以本机 `link:` 或 `workspace:` 目录代替 registry 产物。
 
@@ -19,9 +21,9 @@
 | Vite | `8.3.0` | lock 解析 | 见 `pnpm-lock.yaml` |
 | pnpm | `10.34.3` | `packageManager` | 不随前端包 integrity 记录 |
 | Node（本地验证） | `v26.9.0` | 开发机 | 满足 vite-plugin `^22.18.0 \|\| >=24.11.0` |
-| Node（CI 声明） | `22.18` | `.github/workflows/ci.yml` | 未在本清单复跑 GitHub Actions job |
+| Node（CI 声明） | `22.18` | `.github/workflows/ci.yml` | `b5404a8` 的 web job 已用该版本跑通 typecheck / build / Playwright |
 
-验证提交：`e5b5827e02b8b53a5e945635596184561d43f696`（Zeus 迁移）。2026-09-21 在无 `node_modules` 的拷贝上 `pnpm install --frozen-lockfile`、`pnpm typecheck:web`、`pnpm build:web` 通过；同日 Playwright Chromium 诊断页 7 项通过。浏览器步骤见 `VALIDATION-REPORT.md` 第 7–9 节。
+验证提交：`b5404a817e832cfa13c9b52a005477a453ef031d`（诊断页 E2E + `wc/auto` 注册）。前置 Zeus 迁移为 `e5b5827e02b8b53a5e945635596184561d43f696`。GitHub Actions：https://github.com/baicie/ops-weave/actions/runs/35600475743 （contracts / rust / java / web 均为 success）。本地步骤见 `VALIDATION-REPORT.md` 第 7–10 节。
 
 命令（仓库根目录）：
 
@@ -63,12 +65,11 @@ pnpm test:web
 - `@zeus-web/chat`、`@zeus-web/agent-console`、data-grid
 - 本机 `link:` / `workspace:` Zeus 源码
 - 中文输入法组合输入、完整键盘/焦点矩阵
-- 干净 `git clone`（本次是去掉 `node_modules` 的工作树拷贝）
-- CI ubuntu + Node 22.18 的实际 job 日志
+- 干净 `git clone`（本地基线是去掉 `node_modules` 的工作树拷贝；CI checkout 已在 ubuntu 上跑通）
 
 ## 升级记录
 
 | 日期 | 提交 | 变更 | 结果 |
 |---|---|---|---|
-| 2026-09-21 | `e5b5827` | React → Zeus 0.1.1-beta.2 + Zeus UI 0.1.0-beta.4 | 本地 typecheck/build 与诊断 Demo 手工路径通过 |
-| 2026-09-21 | 本工作树（R01/R02） | Playwright 诊断页；`wc/auto` 注册；无 node_modules 拷贝 frozen 安装 | typecheck/build 与 Chromium 7 passed；未复跑 GitHub Actions |
+| 2026-09-21 | `e5b5827` | React → Zeus 0.1.1-beta.2 + Zeus UI 0.1.0-beta.4 | 本地 typecheck/build 与诊断 Demo 手工路径通过；Actions run 35594155351 success |
+| 2026-09-21 | `b5404a8` | Playwright 诊断页；`wc/auto` 注册 | 本地 7 passed；Actions run 35600475743：contracts/rust/java/web success |

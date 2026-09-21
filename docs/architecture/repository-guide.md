@@ -271,15 +271,18 @@ pnpm test:web
 
 ## 13. 第一批开发任务
 
+顺序与 ID 以 `docs/ROADMAP.md` / `docs/NEXT-TASKS.md` 为准。M0 已关闭。不要先做 Integration Copilot 或再迁前端。
+
 | 顺序 | 任务 | 验收 |
 |---|---|---|
-| 0 | 构建/锁文件/所有Rust feature | Mock及可选适配均能编译，检查全部绿 |
-| 1 | OIDC与平台资源授权 | 跨租户/对象越权负例；不信任客户端tenant |
-| 2 | CMDB/Zabbix Host Connector | 完整快照、失败不误删、ID映射、重放幂等 |
-| 3 | Metric/Alarm/Incident持久化 | 数据类型与单位正确、外部恢复事件闭环 |
-| 4 | Java Tool Gateway + Rust HTTP Port | 按资源授权、超时、预算、无Fixture回退 |
-| 5 | Insight入库与证据浏览 | 真实来源、过期重查、假设与事实分开 |
-| 6 | Skill配置UI与不可变发布 | draft/test/publish、撤销与run固定版本 |
-| 7 | AIRun持久执行 | 租约/失效/恢复/取消/重放与授权再检查 |
+| 0 | 构建/锁文件/CI（已完成于 `b5404a8`） | Mock 及可选适配能编译；Actions 四 job 通过 |
+| 1 | OIDC与平台资源授权（OW-R04） | 跨租户/对象越权负例；不信任客户端 tenant |
+| 2 | PipelineDefinition 与 Catalog（OW-R11） | 版本化定义、Preview；尚无 Copilot |
+| 3 | Zabbix Host 经已发布流水线（OW-R07） | Host → Raw → Observation → Entity；失败不误删 |
+| 4 | Metric/Alarm/Incident持久化 | 数据类型与单位正确、外部恢复事件闭环 |
+| 5 | Java Tool Gateway + Rust HTTP Port | 按资源授权、超时、预算、无 Fixture 回退 |
+| 6 | Insight入库与证据浏览 | 真实来源、过期重查、假设与事实分开 |
+| 7 | Skill配置UI与不可变发布 | draft/test/publish、撤销与 run 固定版本 |
+| 8 | AIRun持久执行 | 租约/失效/恢复/取消/重放与授权再检查 |
 
-不要先开发专家团、Shell沙箱或通用可视化编程平台。
+不要先开发专家团、Shell 沙箱、接入 Copilot 或通用可视化编程平台。
