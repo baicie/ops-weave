@@ -1,0 +1,81 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: hsl(var(--zw-foreground, 210 24% 16%));
+  background: hsl(var(--zw-background, 210 20% 97%));
+}
+
+body { margin: 0; }
+
+.app-shell {
+  max-width: 1080px;
+  margin: 48px auto;
+  padding: 0 24px 48px;
+}
+
+.app-header h1 { font-size: 36px; margin: 14px 0; }
+.app-header p, .panel p { line-height: 1.8; color: #526273; }
+.eyebrow { letter-spacing: .15em; font-size: 12px; font-weight: 700; }
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
+}
+
+.app-nav a {
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #dfe6ec;
+  background: white;
+}
+
+.app-nav a.is-active {
+  background: #17324d;
+  color: white;
+  border-color: #17324d;
+}
+
+.panel, article {
+  background: white;
+  border: 1px solid #dfe6ec;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+}
+
+.badge {
+  font-size: 10px;
+  letter-spacing: .05em;
+  background: #edf1f5;
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+
+label { display: block; margin: 16px 0; }
+zw-input, textarea { display: block; width: 100%; margin-top: 8px; }
+textarea {
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid #c8d1dc;
+  border-radius: 8px;
+  background: white;
+  font: inherit;
+}
+
+.actions { display: flex; gap: 12px; align-items: center; margin: 16px 0; }
+.linkish {
+  margin-right: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #1d4f91;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+code { font-size: 14px; overflow-wrap: anywhere; }
+footer { margin-top: 32px; color: #6d7b89; font-size: 13px; }

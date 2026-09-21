@@ -25,7 +25,7 @@ opsweave/
 │   │   │   └── adapters/              # Fixture / Mock / 可选 Rig
 │   │   ├── examples/mcp_probe.rs      # 独立本机 MCP 探测，不挂入 Agent
 │   │   └── tests/runtime_tests.rs
-│   └── web-console/                   # React 诊断表单与模块占位
+│   └── web-console/                   # Zeus 诊断表单与模块占位
 ├── modules/
 │   ├── shared-kernel/                 # 极少量跨领域值类型
 │   ├── identity/                      # 权限/租户，生产实现待补
@@ -118,7 +118,7 @@ pnpm build:web
 
 首次审查实际依赖与安装脚本后提交根 `pnpm-lock.yaml`。后续统一 `pnpm install --frozen-lockfile`，不要在 CI 自动升级依赖。不要混用 npm 生成 `package-lock.json`。
 
-Vite8 与 plugin-react6 为本模板选择；React19.3。具体版本通过 lockfile 固定，不把 `^` 范围当作发布版本清单。前端尚未接入生产 OIDC 或 Java 真实业务 API。
+Vite8 与 Zeus Vite 插件为本模板选择。具体版本通过 lockfile 固定。前端尚未接入生产 OIDC 或 Java 真实业务 API。不引入 React。
 
 ## 6. 本地演示（Mock，不调用模型）
 

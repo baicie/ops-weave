@@ -13,8 +13,10 @@
 | Rig | =0.42.0，optional | 使用root `rig` facade，features agent/rustls |
 | MCP | rmcp =3.4.0，optional | 独立使用，不调用Rig的旧rmcp类型接口 |
 | jsonschema | =0.56.0 | 默认网络解析feature关闭，另禁止外部ref |
-| React | ^19.3.0 | 根 pnpm-lock.yaml 固定 |
-| Vite | ^8.0.0 + plugin-react ^6.0.0 | Node22.12+；包管理 pnpm 10.34.3 |
+| React | 已移除 | 控制台改为 Zeus，见 ADR-012 |
+| Zeus | 0.1.1-beta.2 | `@zeus-js/zeus`；Vite 插件 `0.0.4` |
+| Zeus UI | 0.1.0-beta.4 | 仅原生 `@zeus-web/ui/button` 与 `input` |
+| Vite | ^8.0.0 | Node22.12+；包管理 pnpm 10.34.3 |
 | PG | 17开发镜像 | 生产固定patch/digest，独立应用账号 |
 
 Rig0.42 root facade重导出core和agent；不要误用旧教程`rig-core`重命名后期望获得全部runtime接口。当前适配器只依赖ModelPort；领域层不泄漏Rig类型。`default_max_turns(1)`按固定版本API文档表示总模型调用预算，包含首次调用。模型用量/费用计费仍须补充集成测试。

@@ -21,7 +21,7 @@
 | `apps/platform-api` | Java 21 / Spring Boot | 模块装配、健康端点、其他业务默认拒绝 |
 | `apps/ingestion-worker` | Java 21 / Spring Boot | 启动骨架；真实 Connector 待实现 |
 | `apps/agent-runtime` | Rust / Tokio / Axum | 只读固定流程、动态 Skill 包、合成证据、Mock、可选 Rig 适配源码 |
-| `apps/web-console` | React / TypeScript / Vite | 诊断表单、开发代理、证据与缺失数据展示、其他模块占位 |
+| `apps/web-console` | Zeus / TypeScript / Vite | 诊断表单、开发代理、证据与缺失数据展示、其他模块占位 |
 
 `modules/` 是 Java 领域模块；`contracts/` 是跨语言契约源；`extensions/skills/` 是配置，不是任意可执行代码。
 

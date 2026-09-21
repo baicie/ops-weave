@@ -94,3 +94,18 @@ pnpm build:web
 | frozen 安装与构建 | `pnpm install --frozen-lockfile`；`pnpm typecheck:web`；`pnpm build:web` | 通过；Vite 8.3.0 生产构建成功 | 未接生产 OIDC/BFF |
 | 发布前置项 | `python scripts/check_release_inputs.py` | 要求 `pnpm-lock.yaml` 与 `pnpm-workspace.yaml`；通过 | 仍需安全审查 |
 | 仓库结构 | `python scripts/check_repo.py` | 43 个结构化文件 | 计数含 pnpm YAML 锁 |
+
+## 7. 2026-09-21 Web Console 改为 Zeus + Zeus UI（追加）
+
+将 `apps/web-console` 从 React 换为 Zeus 0.1.1-beta.2 + Zeus UI 0.1.0-beta.4 原生 Web Components（`@zeus-web/ui/button`、`@zeus-web/ui/input`）。未加入 `@zeus-web/chat` / `@zeus-web/agent-console`。Java 与 Rust 源码未改。资产/指标/Skill/Agent 页仍为未实现占位。
+
+Vite 插件 `@zeus-js/vite-plugin` 0.0.4 使用已发布的 `@zeus-js/compiler` 0.1.0。该编译器会把 `{props.children}` 和 `array.map(...)` 编成文本绑定，且 `<For>` 运行时传入 accessor；控制台用 DOM 子节点、`<Show>`/`<For>` 和 `forItem` 适配，不把这当成 Zeus 源码仓库已修好。
+
+| 检查 | 命令 / 方法 | 结果 | 不代表什么 |
+|---|---|---|---|
+| 依赖安装 | `pnpm install` | 解析 `@zeus-js/zeus` 0.1.1-beta.2、`@zeus-web/ui` 0.1.0-beta.4、`@zeus-js/vite-plugin` 0.0.4、Vite 8.3.0、TypeScript 5.9.3 | lock 仍记录 Zeus UI 包的可选 React peer；不是把 React 当控制台运行时 |
+| typecheck / 生产构建 | `pnpm typecheck:web`；`pnpm build:web` | 通过。产物约 35 kB JS / gzip 13.6 kB | 未做包体积基线或性能对比 |
+| 仓库结构 / 发布门禁 | `python scripts/check_repo.py`；`python scripts/check_release_inputs.py` | 43 个结构化文件；Bootstrap files exist | 不是安全审查 |
+| 本机诊断 UI | `bash scripts/demo.sh`（127.0.0.1:8090）+ `pnpm dev:web`（127.0.0.1:5173）；浏览器打开诊断页，内存中填写开发 Token 后点「运行只读诊断」 | 出现合成摘要、证据引用、缺失数据与限制；hash 切到资产/Agent 占位页 | 不是 OIDC、真实 Zabbix，也不是 chat/agent-console 联调 |
+
+**未接入、未宣称：** `@zeus-web/chat`、`@zeus-web/agent-console`、data-grid、生产 BFF。未测量长列表性能。未提交本次前端改动（等待显式提交请求）。

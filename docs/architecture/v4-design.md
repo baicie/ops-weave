@@ -77,8 +77,8 @@ Java 的 `ai-control` 拥有 Skill 定义、发布版本、模型策略、预算
 | Rust 契约 | Serde / serde_json / jsonschema 0.56.0 | JSON Schema 运行时校验；禁用远程 schema 引用，防止隐式外连 [S6] |
 | Rust 平台 HTTP 客户端 | reqwest，正式接入时增加 | 当前仅定义 `PlatformReadPort`，避免假实现一个成功返回的 HTTP 客户端 |
 | Rust 持久化 | SQLx + PostgreSQL，后续任务 | 当前没有实现 RunStore；不能把 async 函数当成持久任务引擎 |
-| 前端 | React 19.3 系列 + TypeScript 5.9 系列 + Vite 8 系列 | pnpm workspace；manifest 提供兼容范围，初始化后审查并提交 pnpm lock [S7][S8] |
-| 图表/拓扑/流程编辑 | ECharts / Cytoscape.js / React Flow | 产品层选型，按功能需要再引入依赖，不是模板已实现功能 |
+| 前端 | Zeus 0.1.1-beta.2 + Zeus UI 0.1.0-beta.4 + TypeScript 5.9 + Vite 8 | 原生 Web Components；pnpm-lock 固定。不走 React/Vue 包装 [S7][S8] |
+| 图表/拓扑/流程编辑 | 按页面经适配层引入；默认不捆绑 React 组件库 | 产品层选型，逐项验收。ECharts / Cytoscape 等不是模板已实现功能 |
 | 元数据 | PostgreSQL | 配置、身份、实体、关系、故障、Skill、执行元数据 |
 | 指标 | VictoriaMetrics | 用 Metric API 隔离具体存储；小规模单节点，大规模评估 Cluster [S9] |
 | 日志/分析 | ClickHouse，按需部署 | 不同时默认部署多套日志引擎 |
@@ -108,7 +108,7 @@ opsweave/
 │   ├── platform-api/             # Java 启动装配
 │   ├── ingestion-worker/         # Java 采集进程
 │   ├── agent-runtime/            # Rust 单 crate，内部按职责分层
-│   └── web-console/              # React / TypeScript
+│   └── web-console/              # Zeus / TypeScript
 ├── modules/                      # Java 领域模块
 │   ├── shared-kernel/
 │   ├── identity/
@@ -377,7 +377,7 @@ AIRun 记录输入摘要、租户/用户、Skill digest、模型策略、截止�
 
 | 模式 | 建议组件 | 启用条件 |
 |---|---|---|
-| 本机模板 | Rust Demo；可选 React 页面 | 验证流程与契约；不需要数据库和模型 Key |
+| 本机模板 | Rust Demo；可选 Zeus 页面 | 验证流程与契约；不需要数据库和模型 Key |
 | Lite 产品目标 | Platform、Ingestion、可选 Runtime、PG、按需指标库 | 完成真实领域接口与持久任务后 |
 | Standard | 多副本 API/Worker、持久队列、缓存、日志 | 有明确负载/故障隔离需求 |
 | Large | 分区 Worker、Kafka、各存储 HA、区域/租户隔离 | 经过容量与故障演练，而不是简单增加 Pod 数量 |
@@ -450,7 +450,7 @@ Capability 表示模块安装/依赖是否满足；Feature Flag 表示租户/用
 
 AI 工作台应展示：目标与时间窗口、步骤状态、证据可点击回查、候选原因、明确缺失数据、模型/Skill 版本、耗时/费用、取消与人工反馈。Skill 编辑界面再增加版本 diff、测试输入、失败记录与发布；不在第一版做万能编程 IDE。
 
-模板只提供本机诊断表单和未实现模块提示；连接的是 Vite dev proxy → 本机 Rust Demo。静态 Nginx 镜像不自动建立生产 API 代理。
+模板只提供本机诊断表单和未实现模块提示；连接的是 Vite dev proxy → 本机 Rust Demo。静态 Nginx 镜像不自动建立生产 API 代理。控制台实现为 Zeus + Zeus UI 原生组件，见 ADR-012。
 
 ## 16. 数据保留、灾备与升级
 

@@ -12,14 +12,14 @@
 | MCP | optional官方SDK本机Probe源码 | Agent内动态调用、OAuth、生产server准入 |
 | Tool | 3个正式只读契约、2个fixture端口实现 | Java真实ToolGateway与Rust HTTPPort |
 | Skill | 可加载JSON+Prompt+Schema，内容digest，预算与模板限制 | UI创建、测试集发布、签名、热更新、多模板DAG |
-| Web | 诊断表单、开发代理、摘要/引用/缺失数据展示 | 生产BFF/OIDC、资产/指标/Skill管理完整UI |
+| Web | 诊断表单（Zeus + Zeus UI 原生组件）、开发代理、摘要/引用/缺失数据展示 | 生产BFF/OIDC、资产/指标/Skill/Agent Console 完整 UI |
 | 存储/运维 | SQL原型、Docker/Compose、CI门禁 | 已部署的PG/VM/日志/RAG/Kafka、生产Helm/HA/备份验证 |
 
 ## 已实际检查
 
 交付包阶段：Python契约/样例测试、纯Java领域编译与smoke、结构/架构静态检查。
 
-2026-09-21 本地初始化追加：生成并审查锁文件与 Gradle Wrapper；`cargo fmt --all`；25 项 Rust 测试通过；`--all-features` 的 `cargo check` / `clippy -D warnings` 通过；随后将前端改为 pnpm 并完成 frozen 安装与 Vite 生产构建；`:apps:platform-api:bootJar` 与 `:apps:ingestion-worker:bootJar` 通过。命令、环境和原始结论见 `VALIDATION-REPORT.md` 第 5–6 节。
+2026-09-21 本地初始化追加：生成并审查锁文件与 Gradle Wrapper；`cargo fmt --all`；25 项 Rust 测试通过；`--all-features` 的 `cargo check` / `clippy -D warnings` 通过；随后将前端改为 pnpm 并完成 frozen 安装与 Vite 生产构建；`:apps:platform-api:bootJar` 与 `:apps:ingestion-worker:bootJar` 通过。同日将 Web Console 从 React 迁到 Zeus + Zeus UI 原生组件，`pnpm typecheck:web` 与 `pnpm build:web` 通过。命令、环境和原始结论见 `VALIDATION-REPORT.md` 第 5–7 节。
 
 ## 写了测试但交付包当时未执行
 
@@ -27,6 +27,6 @@ Rust `runtime_tests.rs` 中的测试检查租户/incident范围、时间窗口�
 
 ## 下一步优先级
 
-先完成锁文件与所有语言构建，再做OIDC/资源授权、真实CMDB/Zabbix读取与持久化、Java Tool Gateway、Rust HTTP adapter、真实AIInsight保存，最后补可靠任务与Skill UI。
+下一步做OIDC/资源授权、真实CMDB/Zabbix读取与持久化、Java Tool Gateway、Rust HTTP adapter、真实AIInsight保存，以及资产列表/Agent Console 的逐项 UI 验收。
 
 当前`RunState`枚举不是持久化执行引擎；同步诊断遇到进程退出会中断。Mock输出不是AI；引用校验不是事实/因果验证；前端模块卡片不是已实现模块。
