@@ -27,6 +27,6 @@ Rust `runtime_tests.rs` 中的测试检查租户/incident范围、时间窗口�
 
 ## 下一步优先级
 
-下一步不要加深 IAM，也不要做 Copilot。指标语义和来源绑定已经分开，映射从 `extensions/mappings` 加载。接着才是 Zabbix History 增量读取，点写入 VictoriaMetrics，不进 PostgreSQL。Pipeline 下一刀是 Preview/Replay，不是画布。
+下一步不要加深 IAM，也不要做 Copilot。指标语义和来源绑定已经分开，映射从 `extensions/mappings` 加载。`main` 上的 CI 通过后，会把四个启动单元的镜像部署到已配置的一台主机，端口只绑定 `127.0.0.1`。History 仍是增量读取，点写入 VictoriaMetrics，不进 PostgreSQL。
 
 当前`RunState`枚举不是持久化执行引擎；同步诊断遇到进程退出会中断。Mock输出不是AI；引用校验不是事实/因果验证；前端模块卡片不是已实现模块。

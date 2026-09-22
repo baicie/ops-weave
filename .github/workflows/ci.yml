@@ -61,5 +61,35 @@ jobs:
       OPSWEAVE_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/opsweave
       OPSWEAVE_TEST_JDBC_USER: opsweave_dev
       OPSWEAVE_TEST_JDBC_PASSWORD: ci-only-not-a-secret
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [contracts, rust, web, java]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: opsweave-remote-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runtime images
+        run: |
+          tag="${GITHUB_SHA}"
+          docker build -f deploy/docker/java.Dockerfile --build-arg APP_NAME=platform-api -t "opsweave-platform-api:${tag}" .
+          docker build -f deploy/docker/java.Dockerfile --build-arg APP_NAME=ingestion-worker -t "opsweave-ingestion-worker:${tag}" .
+          docker build -f deploy/docker/agent.Dockerfile -t "opsweave-agent-runtime:${tag}" .
+          docker build -f deploy/docker/web.Dockerfile -t "opsweave-web-console:${tag}" .
+      - name: Install SSH tools
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+      - name: Deploy on the selected host
+        env:
+          SSHPASS: ${{ secrets.OPSWEAVE_DEPLOY_SSH_PASSWORD }}
+          OPSWEAVE_DEPLOY_HOST: ${{ vars.OPSWEAVE_DEPLOY_HOST }}
+          OPSWEAVE_DEPLOY_PORT: ${{ vars.OPSWEAVE_DEPLOY_PORT }}
+          OPSWEAVE_DEPLOY_USER: ${{ vars.OPSWEAVE_DEPLOY_USER }}
+          OPSWEAVE_DEPLOY_PATH: ${{ vars.OPSWEAVE_DEPLOY_PATH }}
+          OPSWEAVE_DEPLOY_SSH_HOSTKEY: ${{ vars.OPSWEAVE_DEPLOY_SSH_HOSTKEY }}
+          OPSWEAVE_DEPLOY_POSTGRES_PASSWORD: ${{ secrets.OPSWEAVE_DEPLOY_POSTGRES_PASSWORD }}
+          OPSWEAVE_IMAGE_TAG: ${{ github.sha }}
+        run: bash scripts/deploy_over_ssh.sh
 # First CI deliberately fails when real lockfiles/wrapper are missing; it never fabricates them.
 # Pin actions to reviewed commit SHAs and add dependency verification before production use.

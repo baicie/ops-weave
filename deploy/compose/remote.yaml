@@ -1,0 +1,78 @@
+# Runtime stack for one selected host. Images are loaded by CI; this file does not build them.
+# Host ports stay on 127.0.0.1. 8080, 8081 and 8088 are already used on that machine,
+# and this demo is not a public endpoint.
+name: opsweave
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opsweave}
+      POSTGRES_USER: ${POSTGRES_USER:-opsweave_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=30"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  platform-api:
+    image: opsweave-platform-api:${OPSWEAVE_IMAGE_TAG:?set OPSWEAVE_IMAGE_TAG}
+    environment:
+      OPSWEAVE_AUTH_MODE: closed
+      OPSWEAVE_INVENTORY_STORE: postgres
+      OPSWEAVE_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-opsweave}
+      OPSWEAVE_JDBC_USER: ${POSTGRES_USER:-opsweave_dev}
+      OPSWEAVE_JDBC_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      OPSWEAVE_ZABBIX_MODE: closed
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+    ports:
+      - "127.0.0.1:18080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+  ingestion-worker:
+    image: opsweave-ingestion-worker:${OPSWEAVE_IMAGE_TAG:?set OPSWEAVE_IMAGE_TAG}
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+    ports:
+      - "127.0.0.1:18081:8081"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+  agent-runtime:
+    image: opsweave-agent-runtime:${OPSWEAVE_IMAGE_TAG:?set OPSWEAVE_IMAGE_TAG}
+    environment:
+      OPSWEAVE_MODE: closed
+      OPSWEAVE_LISTEN: 0.0.0.0:8090
+    ports:
+      - "127.0.0.1:18090:8090"
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    restart: unless-stopped
+  web-console:
+    image: opsweave-web-console:${OPSWEAVE_IMAGE_TAG:?set OPSWEAVE_IMAGE_TAG}
+    ports:
+      - "127.0.0.1:18088:80"
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+    restart: unless-stopped
+volumes:
+  pgdata:

@@ -142,6 +142,7 @@ db/migrations/platform/V002__host_sync.sql
 db/migrations/platform/V003__metric_definition.sql
 db/migrations/platform/V004__metric_catalog.sql
 deploy/compose/compose.yaml
+deploy/compose/remote.yaml
 deploy/docker/agent.Dockerfile
 deploy/docker/java.Dockerfile
 deploy/docker/web.Dockerfile
@@ -332,6 +333,7 @@ scripts/check_release_inputs.py
 scripts/check_repo.py
 scripts/demo.ps1
 scripts/demo.sh
+scripts/deploy_over_ssh.sh
 scripts/init_env.py
 settings.gradle.kts
 tests/architecture/README.md
