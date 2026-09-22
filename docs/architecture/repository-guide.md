@@ -278,8 +278,8 @@ pnpm test:web
 | 0 | 构建/锁文件/CI（已完成于 `b5404a8`） | Mock 及可选适配能编译；Actions 四 job 通过 |
 | 1 | OIDC与平台资源授权（OW-R04） | 本机 Dev Principal + allow/deny 已落地；生产 OIDC 未接 |
 | 2 | PipelineDefinition 与 Catalog（OW-R11） | Host 线性定义已有；Preview/发布指针仍缺；尚无 Copilot |
-| 3 | Zabbix Host 经已发布流水线（OW-R07） | 分页写入 PostgreSQL；完整快照才标 INACTIVE。JSON-RPC 客户端已有；未对厂商实例取数 |
-| 4 | Metric/Alarm/Incident持久化 | 数据类型与单位正确、外部恢复事件闭环 |
+| 3 | Zabbix Host 经已发布流水线（OW-R07） | 分页写入 PostgreSQL；presence 与映射成功分开；完成态是 offset 扫描尝试。未对厂商实例取数 |
+| 4 | MetricDefinition | `system.cpu.util[,user]` → `host.cpu.usage.user`。History 与 VictoriaMetrics 未做 |
 | 5 | Java Tool Gateway + Rust HTTP Port | 按资源授权、超时、预算、无 Fixture 回退 |
 | 6 | Insight入库与证据浏览 | 真实来源、过期重查、假设与事实分开 |
 | 7 | Skill配置UI与不可变发布 | draft/test/publish、撤销与 run 固定版本 |

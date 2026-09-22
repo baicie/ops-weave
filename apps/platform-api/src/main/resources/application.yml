@@ -21,7 +21,7 @@ opsweave:
       token: ${OPSWEAVE_DEV_TOKEN:}
       subject: ${OPSWEAVE_DEV_SUBJECT:user-demo}
       tenant: ${OPSWEAVE_DEV_TENANT:tenant-demo}
-      permissions: ${OPSWEAVE_DEV_PERMISSIONS:entity.read,source.sync}
+      permissions: ${OPSWEAVE_DEV_PERMISSIONS:entity.read,metric.read,source.sync}
       entity-ids: ${OPSWEAVE_DEV_ENTITY_IDS:}
   inventory:
     store: ${OPSWEAVE_INVENTORY_STORE:postgres}

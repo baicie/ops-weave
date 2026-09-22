@@ -9,18 +9,19 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Zabbix JSON-RPC host.get client. Transport is injected so this module stays free of HTTP JSON libraries.
- * Pages use limit/offset sorted by hostid, because an unsorted offset is not a stable cursor.
- * The cursor advances by the API result size. A shorter page, including an empty page, ends the scan attempt.
- * Hosts added or removed during the walk can still shift later pages. This is not a consistent snapshot.
- * Transport failures propagate and are not a complete scan.
+ * Zabbix item.get client. Pages are an offset scan attempt sorted by itemid.
+ * The result array is item metadata only. History values are not requested.
  */
-public final class ZabbixJsonRpcConnector implements Connector {
+public final class ZabbixJsonRpcItemConnector implements Connector {
     private final URI endpoint;
-    private final Transport transport;
-    private final SecretSource secrets;
+    private final ZabbixJsonRpcConnector.Transport transport;
+    private final ZabbixJsonRpcConnector.SecretSource secrets;
 
-    public ZabbixJsonRpcConnector(URI endpoint, Transport transport, SecretSource secrets) {
+    public ZabbixJsonRpcItemConnector(
+        URI endpoint,
+        ZabbixJsonRpcConnector.Transport transport,
+        ZabbixJsonRpcConnector.SecretSource secrets
+    ) {
         this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
         this.transport = Objects.requireNonNull(transport, "transport");
         this.secrets = Objects.requireNonNull(secrets, "secrets");
@@ -51,37 +52,26 @@ public final class ZabbixJsonRpcConnector implements Connector {
         if (cursor != null && !cursor.isBlank()) {
             offset = Integer.parseInt(cursor);
         }
-        String body = "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{"
-            + "\"output\":[\"hostid\",\"host\",\"name\",\"status\"],"
-            + "\"selectInterfaces\":[\"ip\",\"main\",\"type\"],"
-            + "\"sortfield\":\"hostid\","
+        String body = "{\"jsonrpc\":\"2.0\",\"method\":\"item.get\",\"params\":{"
+            + "\"output\":[\"itemid\",\"key_\",\"name\",\"value_type\",\"units\",\"hostid\"],"
+            + "\"sortfield\":\"itemid\","
             + "\"sortorder\":\"ASC\","
             + "\"limit\":" + bounded + ","
             + "\"offset\":" + offset
             + "},\"id\":1}";
         String response = transport.exchange(endpoint, body, token);
-        List<Map<String, Object>> hosts = transport.readHostArray(response);
+        List<Map<String, Object>> items = transport.readHostArray(response);
         Instant observedAt = Instant.now();
         List<RawRecord> records = new ArrayList<>();
-        for (Map<String, Object> host : hosts) {
-            Object hostId = host.get("hostid");
-            if (hostId == null) {
+        for (Map<String, Object> item : items) {
+            Object itemId = item.get("itemid");
+            if (itemId == null || String.valueOf(itemId).isBlank()) {
                 continue;
             }
-            records.add(new RawRecord(String.valueOf(hostId), observedAt, host));
+            records.add(new RawRecord(String.valueOf(itemId), observedAt, item));
         }
-        boolean complete = hosts.size() < bounded;
-        String next = complete ? null : Integer.toString(offset + hosts.size());
+        boolean complete = items.size() < bounded;
+        String next = complete ? null : Integer.toString(offset + items.size());
         return new Page(List.copyOf(records), next, complete);
-    }
-
-    public interface Transport {
-        String exchange(URI endpoint, String jsonBody, String bearerToken);
-
-        List<Map<String, Object>> readHostArray(String responseJson);
-    }
-
-    public interface SecretSource {
-        String resolve(String secretRef);
     }
 }

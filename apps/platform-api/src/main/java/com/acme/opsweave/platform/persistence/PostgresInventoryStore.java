@@ -140,10 +140,10 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
     }
 
     @Override
-    public int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> seenExternalIds) {
+    public int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> observedExternalIds) {
         int[] updated = {0};
         Transactions.run(dataSource, connection -> {
-            Array seen = connection.createArrayOf("varchar", seenExternalIds.toArray(String[]::new));
+            Array observed = connection.createArrayOf("varchar", observedExternalIds.toArray(String[]::new));
             try (PreparedStatement statement = connection.prepareStatement("""
                 UPDATE inventory.entity AS entity
                    SET lifecycle = 'INACTIVE', version = entity.version + 1
@@ -162,7 +162,7 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
                 statement.setString(2, tenantId.value());
                 statement.setString(3, sourceInstanceId);
                 statement.setString(4, externalType);
-                statement.setArray(5, seen);
+                statement.setArray(5, observed);
                 updated[0] = statement.executeUpdate();
             }
         });

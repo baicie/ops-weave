@@ -86,16 +86,21 @@ async function request(path: string, method: 'GET' | 'POST', token: string, sign
   })
   if (!response.ok) {
     let failureCode = ''
+    let scannedPages: number | null = null
     try {
       const body: unknown = await response.json()
       if (isRecord(body) && typeof body.failureCode === 'string') {
         failureCode = body.failureCode
       }
+      if (isRecord(body) && typeof body.pages === 'number') {
+        scannedPages = body.pages
+      }
     } catch {
       failureCode = ''
     }
     const code = failureCode === '' ? '' : ` ${failureCode}`
-    throw new Error(`资产请求失败（HTTP ${response.status}${code}）。失败不会清空已显示的资产。`)
+    const scanned = scannedPages === null ? '' : `，已扫描 ${scannedPages} 页`
+    throw new Error(`资产请求失败（HTTP ${response.status}${code}${scanned}）。失败不会清空已显示的资产。`)
   }
   return response.json()
 }

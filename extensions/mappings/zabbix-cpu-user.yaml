@@ -6,7 +6,7 @@ source:
   connector: zabbix
   itemKeyExact: system.cpu.util[,user]
 target:
-  metric: system.cpu.utilization
+  metric: host.cpu.usage.user
   kind: gauge
   unit: '1'
   dimensions:

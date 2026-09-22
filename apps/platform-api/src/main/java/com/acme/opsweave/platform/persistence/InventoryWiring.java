@@ -8,6 +8,8 @@ import com.acme.opsweave.inventory.infrastructure.InMemoryInventoryStore;
 import com.acme.opsweave.integration.infrastructure.InMemoryRawRecordStore;
 import com.acme.opsweave.integration.infrastructure.InMemorySyncRunStore;
 import com.acme.opsweave.platform.OpsweaveProperties;
+import com.acme.opsweave.telemetry.api.MetricDefinitionStore;
+import com.acme.opsweave.telemetry.infrastructure.InMemoryMetricDefinitionStore;
 import com.zaxxer.hikari.HikariDataSource;
 
 public final class InventoryWiring {
@@ -15,6 +17,7 @@ public final class InventoryWiring {
     private final InventoryWritePort writer;
     private final IngestZabbixHostsUseCase.RawRecordCollector rawRecords;
     private final SyncRunStore syncRuns;
+    private final MetricDefinitionStore metrics;
     private final String label;
 
     private InventoryWiring(
@@ -22,12 +25,14 @@ public final class InventoryWiring {
         InventoryWritePort writer,
         IngestZabbixHostsUseCase.RawRecordCollector rawRecords,
         SyncRunStore syncRuns,
+        MetricDefinitionStore metrics,
         String label
     ) {
         this.query = query;
         this.writer = writer;
         this.rawRecords = rawRecords;
         this.syncRuns = syncRuns;
+        this.metrics = metrics;
         this.label = label;
     }
 
@@ -35,7 +40,7 @@ public final class InventoryWiring {
         String store = properties.inventory().store() == null ? "postgres" : properties.inventory().store().trim();
         if ("memory".equalsIgnoreCase(store)) {
             InMemoryInventoryStore inventory = new InMemoryInventoryStore();
-            return new InventoryWiring(inventory, inventory, new InMemoryRawRecordStore(), new InMemorySyncRunStore(), "memory");
+            return new InventoryWiring(inventory, inventory, new InMemoryRawRecordStore(), new InMemorySyncRunStore(), new InMemoryMetricDefinitionStore(), "memory");
         }
         if (!"postgres".equalsIgnoreCase(store)) {
             throw new IllegalStateException("Unknown inventory store");
@@ -51,9 +56,10 @@ public final class InventoryWiring {
         dataSource.setPassword(inventory.jdbcPassword() == null ? "" : inventory.jdbcPassword());
         dataSource.setMaximumPoolSize(4);
         new SchemaMigrator(dataSource).apply("db/migration/V002__host_sync.sql", "V002__host_sync");
+        new SchemaMigrator(dataSource).apply("db/migration/V003__metric_definition.sql", "V003__metric_definition");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource);
-        return new InventoryWiring(postgres, postgres, sync, sync, "postgres");
+        return new InventoryWiring(postgres, postgres, sync, sync, new PostgresMetricDefinitionStore(dataSource), "postgres");
     }
 
     public InventoryQuery query() {
@@ -70,6 +76,10 @@ public final class InventoryWiring {
 
     public SyncRunStore syncRuns() {
         return syncRuns;
+    }
+
+    public MetricDefinitionStore metrics() {
+        return metrics;
     }
 
     public String label() {

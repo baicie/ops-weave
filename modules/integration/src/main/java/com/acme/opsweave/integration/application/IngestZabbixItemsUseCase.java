@@ -7,15 +7,14 @@ import com.acme.opsweave.identity.domain.Principal;
 import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.api.SyncRunStore;
-import com.acme.opsweave.integration.domain.PipelineDefinition;
+import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.RawRecordCollector;
+import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.SyncOutcome;
 import com.acme.opsweave.integration.domain.SyncFailureCode;
 import com.acme.opsweave.integration.domain.SyncRun;
-import com.acme.opsweave.integration.domain.SyncScan;
 import com.acme.opsweave.integration.domain.SyncStatus;
-import com.acme.opsweave.integration.domain.ZabbixHostMapper;
-import com.acme.opsweave.inventory.api.InventoryWritePort;
+import com.acme.opsweave.integration.domain.ZabbixItemMapper;
 import com.acme.opsweave.sharedkernel.TenantId;
-import java.time.Instant;
+import com.acme.opsweave.telemetry.api.MetricDefinitionStore;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,29 +24,31 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public final class IngestZabbixHostsUseCase {
-    private static final Logger LOG = Logger.getLogger(IngestZabbixHostsUseCase.class.getName());
+/**
+ * Pages Zabbix items into metric definitions. History points are not requested or stored.
+ * Presence is separate from mapping success. A finished walk is an offset scan attempt.
+ */
+public final class IngestZabbixItemsUseCase {
+    private static final Logger LOG = Logger.getLogger(IngestZabbixItemsUseCase.class.getName());
     private static final int MAX_PAGES = 10_000;
     private final AuthorizationService authorization;
     private final Connector connector;
-    private final InventoryWritePort inventory;
+    private final MetricDefinitionStore definitions;
     private final RawRecordCollector rawRecords;
     private final SyncRunStore syncRuns;
-    private final PipelineDefinition pipeline;
-    private final ZabbixHostMapper mapper = new ZabbixHostMapper();
+    private final ZabbixItemMapper mapper = new ZabbixItemMapper();
     private final String dataMode;
     private final String inventoryStore;
     private final String configuredSourceInstanceId;
     private final String secretRef;
     private final int pageSize;
 
-    public IngestZabbixHostsUseCase(
+    public IngestZabbixItemsUseCase(
         AuthorizationService authorization,
         Connector connector,
-        InventoryWritePort inventory,
+        MetricDefinitionStore definitions,
         RawRecordCollector rawRecords,
         SyncRunStore syncRuns,
-        PipelineDefinition pipeline,
         String dataMode,
         String inventoryStore,
         String configuredSourceInstanceId,
@@ -56,10 +57,9 @@ public final class IngestZabbixHostsUseCase {
     ) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.connector = Objects.requireNonNull(connector, "connector");
-        this.inventory = Objects.requireNonNull(inventory, "inventory");
+        this.definitions = Objects.requireNonNull(definitions, "definitions");
         this.rawRecords = Objects.requireNonNull(rawRecords, "rawRecords");
         this.syncRuns = Objects.requireNonNull(syncRuns, "syncRuns");
-        this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
         this.dataMode = Objects.requireNonNull(dataMode, "dataMode");
         this.inventoryStore = Objects.requireNonNull(inventoryStore, "inventoryStore");
         this.configuredSourceInstanceId = Objects.requireNonNull(configuredSourceInstanceId, "configuredSourceInstanceId");
@@ -94,7 +94,7 @@ public final class IngestZabbixHostsUseCase {
             sourceInstanceId,
             secretRef
         );
-        SyncRun run = syncRuns.start(principal.tenantId(), sourceInstanceId, "host", dataMode);
+        SyncRun run = syncRuns.start(principal.tenantId(), sourceInstanceId, "item", dataMode);
         String cursor = null;
         int pages = 0;
         int fetched = 0;
@@ -108,14 +108,13 @@ public final class IngestZabbixHostsUseCase {
                 failure = SyncFailureCode.SOURCE_FETCH_FAILED;
                 Connector.Page page = connector.fetch(context, cursor, pageSize);
                 pages++;
-                Instant ingestedAt = Instant.now();
                 for (Connector.RawRecord record : page.records()) {
                     fetched++;
                     if (record.externalId() != null && !record.externalId().isBlank()) {
                         observedExternalIds.add(record.externalId());
                     }
                     failure = SyncFailureCode.RAW_PERSIST_FAILED;
-                    String rawRef = rawRecords.retain(principal.tenantId(), sourceInstanceId, run.id(), record);
+                    rawRecords.retain(principal.tenantId(), sourceInstanceId, run.id(), record);
                     failure = SyncFailureCode.MAPPING_FAILED;
                     var reason = mapper.rejectReason(record.payload());
                     if (reason.isPresent()) {
@@ -123,50 +122,21 @@ public final class IngestZabbixHostsUseCase {
                         rejectionReasons.add(reason.get());
                         continue;
                     }
-                    var mapped = mapper.map(
-                        pipeline,
-                        principal.tenantId(),
-                        sourceInstanceId,
-                        record.payload(),
-                        record.observedAt(),
-                        ingestedAt,
-                        rawRef
-                    );
+                    var mapped = mapper.map(principal.tenantId(), sourceInstanceId, record.payload());
                     failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-                    inventory.upsert(mapped.entity(), mapped.observation(), mapped.link());
+                    definitions.upsert(mapped);
                     accepted++;
                 }
                 String next = page.nextCursor();
                 failure = SyncFailureCode.CHECKPOINT_FAILED;
-                syncRuns.checkpoint(
-                    principal.tenantId(),
-                    run.id(),
-                    next,
-                    pages,
-                    fetched,
-                    accepted,
-                    rejected
-                );
+                syncRuns.checkpoint(principal.tenantId(), run.id(), next, pages, fetched, accepted, rejected);
                 if (page.snapshotComplete()) {
                     failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-                    int retired = inventory.retireMissing(
-                        principal.tenantId(),
-                        sourceInstanceId,
-                        "host",
-                        observedExternalIds
-                    );
+                    int retired = definitions.retireMissing(principal.tenantId(), sourceInstanceId, observedExternalIds);
                     failure = SyncFailureCode.CHECKPOINT_FAILED;
                     syncRuns.succeed(principal.tenantId(), run.id());
                     return SyncOutcome.completed(
-                        run.id(),
-                        pages,
-                        fetched,
-                        accepted,
-                        rejected,
-                        retired,
-                        dataMode,
-                        inventoryStore,
-                        List.copyOf(rejectionReasons)
+                        run.id(), pages, fetched, accepted, rejected, retired, dataMode, inventoryStore, List.copyOf(rejectionReasons)
                     );
                 }
                 if (next == null || next.equals(cursor)) {
@@ -178,7 +148,7 @@ public final class IngestZabbixHostsUseCase {
             failure = SyncFailureCode.PAGE_LIMIT_EXCEEDED;
             throw new IllegalStateException(failure.name());
         } catch (RuntimeException failed) {
-            LOG.log(Level.WARNING, "Zabbix host sync failed: " + failure.name(), failed);
+            LOG.log(Level.WARNING, "Zabbix item sync failed: " + failure.name(), failed);
             failQuietly(principal.tenantId(), run.id(), failure);
             return SyncOutcome.failed(failure, run.id(), pages, fetched, accepted, rejected);
         }
@@ -193,108 +163,5 @@ public final class IngestZabbixHostsUseCase {
         } catch (RuntimeException ignored) {
             // The scan already failed; do not turn a status write into a reconcile.
         }
-    }
-
-    public interface RawRecordCollector {
-        String retain(TenantId tenantId, String sourceInstanceId, UUID syncRunId, Connector.RawRecord record);
-    }
-
-    public record SyncOutcome(
-        Kind kind,
-        String reasonCode,
-        UUID syncRunId,
-        int pages,
-        int fetched,
-        int accepted,
-        int rejected,
-        int retired,
-        boolean snapshotComplete,
-        String dataMode,
-        String inventoryStore,
-        List<String> rejectionReasons,
-        String scanConsistency
-    ) {
-        public enum Kind { COMPLETED, DENIED, UNAVAILABLE }
-
-        public static SyncOutcome completed(
-            UUID syncRunId,
-            int pages,
-            int fetched,
-            int accepted,
-            int rejected,
-            int retired,
-            String dataMode,
-            String inventoryStore,
-            List<String> rejectionReasons
-        ) {
-            return new SyncOutcome(
-                Kind.COMPLETED,
-                "OK",
-                syncRunId,
-                pages,
-                fetched,
-                accepted,
-                rejected,
-                retired,
-                true,
-                dataMode,
-                inventoryStore,
-                rejectionReasons,
-                SyncScan.OFFSET_ATTEMPT
-            );
-        }
-
-        public static SyncOutcome denied(String reasonCode) {
-            return new SyncOutcome(
-                Kind.DENIED, reasonCode, null, 0, 0, 0, 0, 0, false, "none", "none", List.of(), SyncScan.NONE
-            );
-        }
-
-        public static SyncOutcome unavailable(String reasonCode) {
-            return new SyncOutcome(
-                Kind.UNAVAILABLE,
-                reasonCode,
-                null,
-                0,
-                0,
-                0,
-                0,
-                0,
-                false,
-                "unavailable",
-                "none",
-                List.of(),
-                SyncScan.NONE
-            );
-        }
-
-        public static SyncOutcome failed(
-            SyncFailureCode failure,
-            UUID syncRunId,
-            int pages,
-            int fetched,
-            int accepted,
-            int rejected
-        ) {
-            return new SyncOutcome(
-                Kind.UNAVAILABLE,
-                failure.name(),
-                syncRunId,
-                pages,
-                fetched,
-                accepted,
-                rejected,
-                0,
-                false,
-                "unavailable",
-                "none",
-                List.of(),
-                SyncScan.OFFSET_ATTEMPT
-            );
-        }
-    }
-
-    public static String newRawRef() {
-        return "raw-" + UUID.randomUUID();
     }
 }

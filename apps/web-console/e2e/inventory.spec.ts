@@ -34,7 +34,7 @@ test.describe('inventory page', () => {
           await route.fulfill({
             status: 503,
             contentType: 'application/json',
-            body: '{"error":"source_unavailable","failureCode":"SOURCE_FETCH_FAILED"}',
+            body: '{"error":"source_unavailable","failureCode":"SOURCE_FETCH_FAILED","pages":1}',
           })
           return
         }
@@ -69,7 +69,7 @@ test.describe('inventory page', () => {
     await expect(page.getByText('labeled-fixture / postgres / pages 1')).toBeVisible()
 
     await page.getByRole('button', { name: '同步 Zabbix Host' }).click()
-    await expect(page.getByRole('alert')).toContainText('HTTP 503 SOURCE_FETCH_FAILED')
+    await expect(page.getByRole('alert')).toContainText('HTTP 503 SOURCE_FETCH_FAILED，已扫描 1 页')
     await expect(page.getByRole('cell', { name: 'Zabbix server' })).toBeVisible()
 
     expect(calls.every(call => call.authorization === `Bearer ${TOKEN_OK}`)).toBe(true)

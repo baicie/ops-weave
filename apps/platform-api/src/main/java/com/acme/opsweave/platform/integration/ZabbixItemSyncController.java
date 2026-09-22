@@ -1,8 +1,8 @@
 package com.acme.opsweave.platform.integration;
 
 import com.acme.opsweave.identity.api.PrincipalContext;
-import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.SyncOutcome;
+import com.acme.opsweave.integration.application.IngestZabbixItemsUseCase;
 import com.acme.opsweave.integration.domain.SyncFailureCode;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -13,12 +13,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/integrations/zabbix/hosts")
-public class ZabbixHostSyncController {
+@RequestMapping("/api/v1/integrations/zabbix/items")
+public class ZabbixItemSyncController {
     private final PrincipalContext principalContext;
-    private final IngestZabbixHostsUseCase ingest;
+    private final IngestZabbixItemsUseCase ingest;
 
-    public ZabbixHostSyncController(PrincipalContext principalContext, IngestZabbixHostsUseCase ingest) {
+    public ZabbixItemSyncController(PrincipalContext principalContext, IngestZabbixItemsUseCase ingest) {
         this.principalContext = principalContext;
         this.ingest = ingest;
     }

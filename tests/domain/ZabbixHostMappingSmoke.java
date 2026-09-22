@@ -91,6 +91,7 @@ public final class ZabbixHostMappingSmoke {
         require(outcome.accepted() == 2, "two hosts accepted");
         require(outcome.retired() == 1, "absent host retired only after a complete snapshot");
         require(outcome.snapshotComplete(), "snapshot complete");
+        require("offset-scan-attempt".equals(outcome.scanConsistency()), "completed scan is an offset attempt");
         require("labeled-fixture".equals(outcome.dataMode()), "fixture remains labeled");
         require(runs.find(tenant, outcome.syncRunId()).orElseThrow().status() == SyncStatus.SUCCEEDED, "sync run succeeded");
         require("INACTIVE".equals(inventory.find(tenant, staleId).orElseThrow().lifecycle()), "stale host inactive");
@@ -120,10 +121,10 @@ public final class ZabbixHostMappingSmoke {
         require(failed.syncRunId() != null, "failed scan keeps its sync run");
         require(!failed.snapshotComplete(), "failed scan is not a complete snapshot");
         require("ACTIVE".equals(kept.find(tenant, staleId).orElseThrow().lifecycle()), "failed scan does not retire");
-        require(
-            failedRuns.find(tenant, failed.syncRunId()).orElseThrow().failureReason().startsWith("SOURCE_FETCH_FAILED:"),
-            "stored failure reason is the stable code"
-        );
+        require(failed.pages() == 1, "failed scan keeps the completed page count");
+        require(failed.fetched() == 1, "failed scan keeps the fetched count");
+        require(failed.accepted() == 1, "failed scan keeps the accepted count");
+        require("offset-scan-attempt".equals(failed.scanConsistency()), "failed scan remains an offset attempt");
 
         var emptyStore = seeded(tenant, staleKey, staleId, "obs-empty", "raw-empty");
         var emptied = ingest(new StaticPageConnector(true), emptyStore, new InMemorySyncRunStore(), 1).execute(principal, null);
@@ -186,7 +187,45 @@ public final class ZabbixHostMappingSmoke {
         ).execute(principal, null);
         require("RAW_PERSIST_FAILED".equals(rawFailed.reasonCode()), "raw persist failure code");
         require("ACTIVE".equals(rawStore.find(tenant, staleId).orElseThrow().lifecycle()), "raw failure does not retire");
-        System.out.println("Zabbix host mapping smoke: 32 checks passed");
+
+        var presentKey = new ExternalObjectKey(tenant, "zabbix-1", "host", "10084", "1");
+        var presentId = EntityIds.fromExternal(presentKey);
+        var presentStore = seeded(tenant, staleKey, staleId, "obs-present-stale", "raw-present-stale");
+        presentStore.upsert(
+            new Entity(presentId, tenant, "host", "still-there", Lifecycle.ACTIVE, 1, Instant.parse("2026-09-20T00:00:00Z"), Map.of("hostId", "10084")),
+            new com.acme.opsweave.inventory.domain.Observation(
+                "obs-present", presentKey, presentId, Instant.parse("2026-09-20T00:00:00Z"), Instant.parse("2026-09-20T00:00:01Z"),
+                Map.of("hostId", "10084"), "raw-present", 1
+            ),
+            new ExternalLink(presentId, presentKey)
+        );
+        var rejected = ingest(new RejectedButPresentConnector(), presentStore, new InMemorySyncRunStore(), 1).execute(principal, null);
+        require(rejected.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, "rejected mapping can still finish the scan");
+        require(rejected.accepted() == 0, "rejected host is not accepted");
+        require(rejected.rejected() == 1, "rejected host is counted separately");
+        require("ACTIVE".equals(presentStore.find(tenant, presentId).orElseThrow().lifecycle()), "present rejected host stays active");
+        require("INACTIVE".equals(presentStore.find(tenant, staleId).orElseThrow().lifecycle()), "absent host still retires");
+
+        var drift = new InMemoryInventoryStore();
+        for (String hostId : java.util.List.of("1", "2", "3")) {
+            var key = new ExternalObjectKey(tenant, "zabbix-1", "host", hostId, "1");
+            var id = EntityIds.fromExternal(key);
+            drift.upsert(
+                new Entity(id, tenant, "host", "host-" + hostId, Lifecycle.ACTIVE, 1, Instant.parse("2026-09-20T00:00:00Z"), Map.of("hostId", hostId)),
+                new com.acme.opsweave.inventory.domain.Observation(
+                    "obs-drift-" + hostId, key, id, Instant.parse("2026-09-20T00:00:00Z"), Instant.parse("2026-09-20T00:00:01Z"),
+                    Map.of("hostId", hostId), "raw-drift-" + hostId, 1
+                ),
+                new ExternalLink(id, key)
+            );
+        }
+        var drifted = ingest(new DriftingHostConnector(), drift, new InMemorySyncRunStore(), 1).execute(principal, null);
+        require(drifted.snapshotComplete(), "offset drift still ends the scan attempt");
+        require("offset-scan-attempt".equals(drifted.scanConsistency()), "drift is not a consistent snapshot");
+        require("ACTIVE".equals(lifecycle(drift, tenant, "1")), "host returned on page 1 stays active");
+        require("INACTIVE".equals(lifecycle(drift, tenant, "2")), "host skipped by an offset shift is not protected");
+        require("ACTIVE".equals(lifecycle(drift, tenant, "3")), "host returned after the shift stays active");
+        System.out.println("Zabbix host mapping smoke: 46 checks passed");
     }
 
     private static IngestZabbixHostsUseCase ingest(
@@ -277,6 +316,67 @@ public final class ZabbixHostMappingSmoke {
         public Page fetch(SourceContext source, String cursor, int limit) {
             return new Page(java.util.List.of(), null, complete);
         }
+    }
+
+    private static final class RejectedButPresentConnector implements Connector {
+        @Override
+        public String type() {
+            return "zabbix";
+        }
+
+        @Override
+        public ProbeResult probe(SourceContext source) {
+            return new ProbeResult(false, "test");
+        }
+
+        @Override
+        public Page fetch(SourceContext source, String cursor, int limit) {
+            return new Page(
+                java.util.List.of(new RawRecord("10084", Instant.parse("2026-09-21T12:00:00Z"), Map.of("name", "still-there"))),
+                null,
+                true
+            );
+        }
+    }
+
+    private static final class DriftingHostConnector implements Connector {
+        private int calls;
+
+        @Override
+        public String type() {
+            return "zabbix";
+        }
+
+        @Override
+        public ProbeResult probe(SourceContext source) {
+            return new ProbeResult(false, "test");
+        }
+
+        @Override
+        public Page fetch(SourceContext source, String cursor, int limit) {
+            calls++;
+            if (calls == 1) {
+                return new Page(java.util.List.of(hostRecord("1")), "1", false);
+            }
+            if (calls == 2) {
+                return new Page(java.util.List.of(hostRecord("3")), "2", false);
+            }
+            return new Page(java.util.List.of(), null, true);
+        }
+
+        private static RawRecord hostRecord(String hostId) {
+            return new RawRecord(hostId, Instant.parse("2026-09-21T12:00:00Z"), Map.of(
+                "hostid", hostId,
+                "host", "host-" + hostId,
+                "name", "host-" + hostId,
+                "status", "0"
+            ));
+        }
+    }
+
+    private static String lifecycle(InMemoryInventoryStore store, TenantId tenant, String hostId) {
+        var key = new ExternalObjectKey(tenant, "zabbix-1", "host", hostId, "1");
+        return store.find(tenant, EntityIds.fromExternal(key)).orElseThrow().lifecycle();
     }
 
     private static void require(boolean ok, String reason) {

@@ -189,6 +189,19 @@ CI java job 增加了 `postgres:17` 服务，并设置 `OPSWEAVE_TEST_JDBC_URL`�
 | Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --offline` | 11 tests，0 failures，0 skipped。协议桩要求请求含 `sortfield=hostid` 与 `offset=0`。`PostgresHostSyncIT` 仍连本机 `opsweave_host_sync`，失败码为 `SOURCE_FETCH_FAILED` | 不是厂商实例 |
 | 资产页 | `pnpm --filter @opsweave/web-console test:e2e` | 8 passed。第二次同步 503 显示 `SOURCE_FETCH_FAILED`，已有行仍在 | 请求被 Playwright 拦截 |
 
+## 14. 2026-09-22 Host presence 与 MetricDefinition（追加）
+
+环境：macOS aarch64；Gradle 使用 Homebrew OpenJDK 21。`OPSWEAVE_ZABBIX_URL` 未设置。未对厂商 Zabbix 发请求。没有把采样点写入 PostgreSQL。
+
+| 检查 | 命令 | 结果 | 不代表什么 |
+|---|---|---|---|
+| Java 领域 smoke | `python3 scripts/check_java_domain.py` | 7 + 11 + 46 + 15 + 30。含映射拒绝仍保留 presence、offset 漂移会漏掉中途变化的 Host、失败响应保留页数，以及 `system.cpu.util[,user]` → `host.cpu.usage.user` | 不是厂商 Zabbix，也不是 1000 台 Host |
+| Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --offline` | 13 tests，0 failures，2 skipped。跳过的是两个 PostgreSQL 测试。`ZabbixItemSyncIT` 通过 | 该次没有 JDBC |
+| PostgreSQL | 同上，仅 `PostgresHostSyncIT` 与 `PostgresItemSyncIT`，JDBC 指向本机 `opsweave_host_sync` | 2 tests，0 skipped，0 failures。Item 定义写入，缺席 item 变为 INACTIVE | 不是厂商实例 |
+| 资产页与结构 | `pnpm --filter @opsweave/web-console test:e2e`；`python3 scripts/check_repo.py` | Playwright 8 passed，失败提示含已扫描页数。47 个结构化文件 | 浏览器请求被拦截 |
+
+
+
 
 
 

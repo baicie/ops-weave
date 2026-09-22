@@ -10,8 +10,10 @@ public interface InventoryWritePort {
     void upsert(Entity entity, Observation observation, ExternalLink link);
 
     /**
-     * Marks linked entities that were absent from a complete snapshot as inactive.
-     * Callers must not invoke this when the scan failed or the snapshot is incomplete.
+     * Marks linked entities whose external id was absent from a finished offset scan.
+     * {@code observedExternalIds} is source presence, including objects whose mapping was rejected.
+     * Callers must not invoke this when the scan failed or the page walk did not finish.
+     * An offset walk can miss an object that still exists if the source changes mid-scan.
      */
-    int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> seenExternalIds);
+    int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> observedExternalIds);
 }

@@ -6,9 +6,9 @@
 
 | 部分 | 已提供 | 未提供 |
 |---|---|---|
-| Java平台 | Principal/授权、Zabbix Host 分页同步、PostgreSQL 库存、受保护的 Entity API | 生产 OIDC、厂商 Zabbix 联调、Item/Metric、Pipeline Preview |
+| Java平台 | Principal/授权、Zabbix Host 分页同步、Item → MetricDefinition、PostgreSQL 库存、受保护的 Entity/指标定义 API | 生产 OIDC、厂商 Zabbix 联调、History/MetricPoint、Pipeline Preview |
 | Web | 诊断表单；资产页读取平台 Entity API（开发 Token，内存持有） | 生产 BFF/OIDC、指标/Skill/Agent Console |
-| 存储/运维 | Host 同步迁移 `V002__host_sync.sql`、Compose 中的 PostgreSQL | 行级安全、对象存储、生产 Helm/HA/备份验证 |
+| 存储/运维 | Host 同步迁移 `V002__host_sync.sql`、指标定义 `V003__metric_definition.sql`、Compose 中的 PostgreSQL | 行级安全、对象存储、时序库、生产 Helm/HA/备份验证 |
 | Rust Runtime | Axum接口、本机身份、固定只读流程、共享预算、并行fixture、Context/Evidence、版本化Skill加载、Schema输出验证 | 持久RunStore/租约/恢复/取消API/生产鉴权 |
 | Rig | optional适配器、显式模型出网、单次model步骤 | 真实调用测试、多provider/原生strict output/费用采集 |
 | MCP | optional官方SDK本机Probe源码 | Agent内动态调用、OAuth、生产server准入 |
@@ -19,7 +19,7 @@
 
 交付包阶段：Python契约/样例测试、纯Java领域编译与smoke、结构/架构静态检查。
 
-2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。未联调厂商 Zabbix，未接 Keycloak。
+2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。Host presence、offset 扫描语义和 Zabbix Item → MetricDefinition 见第 14 节。未联调厂商 Zabbix，未接 Keycloak。未存 History 点。
 
 ## 写了测试但交付包当时未执行
 

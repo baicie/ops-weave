@@ -62,15 +62,15 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
     }
 
     @Override
-    public int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> seenExternalIds) {
-        Set<String> seen = Set.copyOf(seenExternalIds);
+    public int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, Set<String> observedExternalIds) {
+        Set<String> observed = Set.copyOf(observedExternalIds);
         Set<EntityId> retired = new HashSet<>();
         for (ExternalLink link : List.copyOf(links.values())) {
             ExternalObjectKey key = link.key();
             if (!key.tenantId().equals(tenantId) || !key.sourceInstanceId().equals(sourceInstanceId)) {
                 continue;
             }
-            if (!key.externalType().equals(externalType) || seen.contains(key.externalId())) {
+            if (!key.externalType().equals(externalType) || observed.contains(key.externalId())) {
                 continue;
             }
             StoreKey storeKey = new StoreKey(tenantId, link.entityId());

@@ -28,4 +28,12 @@ public record ResourceRef(TenantId tenantId, String type, String id) {
     public static ResourceRef source(TenantId tenantId, String sourceInstanceId) {
         return new ResourceRef(tenantId, "source", sourceInstanceId);
     }
+
+    public static ResourceRef metric(TenantId tenantId, String metricId) {
+        return new ResourceRef(tenantId, "metric", metricId);
+    }
+
+    public static ResourceRef anyMetric(TenantId tenantId) {
+        return new ResourceRef(tenantId, "metric", "*");
+    }
 }

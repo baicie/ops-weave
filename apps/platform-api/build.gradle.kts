@@ -25,4 +25,7 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("db/migrations/platform/V002__host_sync.sql")) {
         into("db/migration")
     }
+    from(rootProject.file("db/migrations/platform/V003__metric_definition.sql")) {
+        into("db/migration")
+    }
 }

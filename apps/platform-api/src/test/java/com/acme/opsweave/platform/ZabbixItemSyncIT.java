@@ -1,6 +1,7 @@
 package com.acme.opsweave.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -22,13 +23,13 @@ import tools.jackson.databind.json.JsonMapper;
     "opsweave.auth.dev.token=test-dev-token-please-do-not-use-elsewhere",
     "opsweave.auth.dev.subject=user-demo",
     "opsweave.auth.dev.tenant=tenant-demo",
-    "opsweave.auth.dev.permissions=entity.read,source.sync",
+    "opsweave.auth.dev.permissions=metric.read,source.sync",
     "opsweave.zabbix.mode=fixture",
     "opsweave.zabbix.source-instance-id=zabbix-1",
     "opsweave.zabbix.page-size=1",
     "opsweave.inventory.store=memory"
 })
-class IdentityAndZabbixHostIT {
+class ZabbixItemSyncIT {
     private static final String TOKEN = "test-dev-token-please-do-not-use-elsewhere";
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
@@ -37,58 +38,36 @@ class IdentityAndZabbixHostIT {
     int port;
 
     @Test
-    void healthRemainsPublic() throws Exception {
-        assertEquals(200, call("GET", "/actuator/health", null).statusCode());
-    }
+    void fixtureItemSyncPublishesCpuUserDefinition() throws Exception {
+        assertEquals(401, call("GET", "/api/v1/metrics/definitions", null).statusCode());
+        assertEquals(400, call("GET", "/api/v1/metrics/definitions?tenantId=attacker", TOKEN).statusCode());
 
-    @Test
-    void apiWithoutTokenIsUnauthorized() throws Exception {
-        assertEquals(401, call("GET", "/api/v1/entities", null).statusCode());
-    }
-
-    @Test
-    void clientTenantOverrideIsRejected() throws Exception {
-        assertEquals(400, call("GET", "/api/v1/entities?tenantId=attacker", TOKEN).statusCode());
-    }
-
-    @Test
-    void wrongTokenIsUnauthorized() throws Exception {
-        assertEquals(401, call("GET", "/api/v1/entities", "wrong-dev-token-please-do-not-use-elsewhere").statusCode());
-    }
-
-    @Test
-    void fixtureHostSyncWritesEntityVisibleToTrustedPrincipal() throws Exception {
-        HttpResponse<String> synced = call("POST", "/api/v1/integrations/zabbix/hosts/sync", TOKEN);
+        HttpResponse<String> synced = call("POST", "/api/v1/integrations/zabbix/items/sync", TOKEN);
         assertEquals(200, synced.statusCode(), synced.body());
         JsonNode syncBody = mapper.readTree(synced.body());
-        assertEquals("labeled-fixture", syncBody.get("dataMode").asString());
-        assertEquals(2, syncBody.get("accepted").asInt());
+        assertEquals(1, syncBody.get("accepted").asInt());
+        assertEquals(1, syncBody.get("rejected").asInt());
+        assertEquals(2, syncBody.get("pages").asInt());
         assertTrue(syncBody.get("snapshotComplete").asBoolean());
         assertEquals("offset-scan-attempt", syncBody.get("scanConsistency").asString());
+        assertEquals("labeled-fixture", syncBody.get("dataMode").asString());
+        assertFalse(synced.body().contains("history"));
 
-        HttpResponse<String> listed = call("GET", "/api/v1/entities", TOKEN);
+        HttpResponse<String> listed = call("GET", "/api/v1/metrics/definitions", TOKEN);
         assertEquals(200, listed.statusCode(), listed.body());
         JsonNode items = mapper.readTree(listed.body()).get("items");
-        assertEquals(2, items.size());
-        String entityId = items.get(0).get("id").asString();
-
-        HttpResponse<String> entity = call("GET", "/api/v1/entities/" + entityId, TOKEN);
-        assertEquals(200, entity.statusCode(), entity.body());
-        JsonNode body = mapper.readTree(entity.body());
-        assertEquals("host", body.get("entityType").asString());
-        assertEquals("tenant-demo", body.get("tenantId").asString());
-        JsonNode attributes = body.get("attributes");
-        assertEquals("zabbix", attributes.get("source").asString());
-        assertTrue(attributes.get("hostId") != null && !attributes.get("hostId").asString().isBlank());
-        assertTrue(attributes.get("ip") != null);
-        assertTrue(attributes.get("status") != null);
-        assertTrue(attributes.get("lastSeen") != null);
-        assertTrue(attributes.get("rawReference") != null);
-
-        HttpResponse<String> again = call("POST", "/api/v1/integrations/zabbix/hosts/sync", TOKEN);
-        assertEquals(200, again.statusCode(), again.body());
-        assertEquals(2, mapper.readTree(again.body()).get("accepted").asInt());
-        assertEquals(2, mapper.readTree(call("GET", "/api/v1/entities", TOKEN).body()).get("items").size());
+        assertEquals(1, items.size());
+        JsonNode metric = items.get(0);
+        assertEquals("host.cpu.usage.user", metric.get("name").asString());
+        assertEquals("host", metric.get("entityType").asString());
+        assertEquals("1", metric.get("unit").asString());
+        assertEquals("DOUBLE", metric.get("valueType").asString());
+        assertEquals("GAUGE", metric.get("metricType").asString());
+        assertEquals("user", metric.get("dimensions").get("mode").asString());
+        assertEquals("source", metric.get("origin").asString());
+        assertEquals("system.cpu.util[,user]", metric.get("externalMapping").get("itemKey").asString());
+        assertEquals("10084", metric.get("externalMapping").get("hostExternalId").asString());
+        assertEquals("multiply:0.01", metric.get("externalMapping").get("valueTransform").asString());
     }
 
     private HttpResponse<String> call(String method, String path, String token) throws Exception {
