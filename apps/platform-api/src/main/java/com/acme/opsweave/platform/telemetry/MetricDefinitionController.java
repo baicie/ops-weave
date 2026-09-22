@@ -2,6 +2,7 @@ package com.acme.opsweave.platform.telemetry;
 
 import com.acme.opsweave.identity.api.PrincipalContext;
 import com.acme.opsweave.telemetry.application.ListMetricDefinitionsUseCase;
+import com.acme.opsweave.telemetry.domain.MetricBinding;
 import com.acme.opsweave.telemetry.domain.MetricDefinition;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,49 +13,60 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/metrics/definitions")
+@RequestMapping("/api/v1/metrics")
 public class MetricDefinitionController {
     private final PrincipalContext principalContext;
-    private final ListMetricDefinitionsUseCase listDefinitions;
+    private final ListMetricDefinitionsUseCase catalog;
 
-    public MetricDefinitionController(PrincipalContext principalContext, ListMetricDefinitionsUseCase listDefinitions) {
+    public MetricDefinitionController(PrincipalContext principalContext, ListMetricDefinitionsUseCase catalog) {
         this.principalContext = principalContext;
-        this.listDefinitions = listDefinitions;
+        this.catalog = catalog;
     }
 
-    @GetMapping
-    public ResponseEntity<?> list() {
-        var result = listDefinitions.list(principalContext.requirePrincipal());
+    @GetMapping("/definitions")
+    public ResponseEntity<?> definitions() {
+        var result = catalog.list(principalContext.requirePrincipal());
         if (result.kind() == ListMetricDefinitionsUseCase.ListResult.Kind.FORBIDDEN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
         }
-        return ResponseEntity.ok(Map.of("items", result.definitions().stream().map(MetricDefinitionController::body).toList()));
+        return ResponseEntity.ok(Map.of("items", result.definitions().stream().map(MetricDefinitionController::definition).toList()));
     }
 
-    private static Map<String, Object> body(MetricDefinition definition) {
-        Map<String, Object> mapping = new LinkedHashMap<>();
-        var external = definition.externalMapping();
-        mapping.put("sourceType", external.sourceType());
-        mapping.put("sourceInstanceId", external.sourceInstanceId());
-        mapping.put("externalId", external.externalId());
-        mapping.put("itemKey", external.itemKey());
-        mapping.put("hostExternalId", external.hostExternalId());
-        mapping.put("sourceUnit", external.sourceUnit());
-        mapping.put("valueTransform", external.valueTransform());
-        mapping.put("mappingRevision", external.mappingRevision());
+    @GetMapping("/bindings")
+    public ResponseEntity<?> bindings() {
+        var result = catalog.listBindings(principalContext.requirePrincipal());
+        if (result.kind() == ListMetricDefinitionsUseCase.ListResult.Kind.FORBIDDEN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
+        }
+        return ResponseEntity.ok(Map.of("items", result.bindings().stream().map(MetricDefinitionController::binding).toList()));
+    }
+
+    private static Map<String, Object> definition(MetricDefinition definition) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("metricId", definition.id());
         body.put("tenantId", definition.tenantId().value());
-        body.put("name", definition.name());
+        body.put("metricKey", definition.metricKey());
         body.put("displayName", definition.displayName());
-        body.put("entityType", definition.entityType());
         body.put("unit", definition.unit());
         body.put("valueType", definition.valueType().name());
         body.put("metricType", definition.metricType().name());
-        body.put("dimensions", definition.dimensions());
-        body.put("origin", definition.origin().wireValue());
-        body.put("lifecycle", definition.lifecycle().name());
-        body.put("externalMapping", mapping);
+        body.put("dimensionSchema", definition.dimensionSchema());
+        return body;
+    }
+
+    private static Map<String, Object> binding(MetricBinding binding) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("tenantId", binding.tenantId().value());
+        body.put("sourceType", binding.sourceType());
+        body.put("sourceInstanceId", binding.sourceInstanceId());
+        body.put("externalItemId", binding.externalItemId());
+        body.put("entityId", binding.entityId().value().toString());
+        body.put("hostExternalId", binding.hostExternalId());
+        body.put("metricKey", binding.metricKey());
+        body.put("fixedDimensions", binding.fixedDimensions());
+        body.put("sourceUnit", binding.sourceUnit());
+        body.put("valueTransform", binding.valueTransform());
+        body.put("mappingRevision", binding.mappingRevision());
+        body.put("lifecycle", binding.lifecycle().name());
         return body;
     }
 }

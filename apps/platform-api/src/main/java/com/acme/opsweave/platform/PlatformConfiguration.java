@@ -13,6 +13,7 @@ import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.application.IngestZabbixItemsUseCase;
 import com.acme.opsweave.integration.domain.PipelineDefinition;
+import com.acme.opsweave.integration.infrastructure.ClasspathMappingCatalog;
 import com.acme.opsweave.integration.infrastructure.ClosedZabbixConnector;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixItemConnector;
@@ -139,9 +140,14 @@ public class PlatformConfiguration {
             default -> "closed";
         };
         int pageSize = properties.zabbix().pageSize() == 0 ? 100 : properties.zabbix().pageSize();
+        var mappings = ClasspathMappingCatalog.load(PlatformConfiguration.class.getClassLoader());
+        if (mappings.isEmpty() && !"closed".equals(mode)) {
+            throw new IllegalStateException("Mapping catalog is empty");
+        }
         return new IngestZabbixItemsUseCase(
             authorization,
             itemConnector(properties, transport, secrets),
+            mappings,
             wiring.metrics(),
             wiring.rawRecords(),
             wiring.syncRuns(),

@@ -23,16 +23,16 @@
 | 顺序 | ID | 工作 |
 |---|---|---|
 | 1 | 真实 `host.get` | 对可达 Zabbix 跑完整分页；失败仍不得回退 fixture，也不得对账 |
-| 2 | Zabbix History | Item 定义已能落库。下一步才是采样点，目标是 VictoriaMetrics，不把点写进 PostgreSQL |
+| 2 | Zabbix History | 目录和绑定已分开，映射文档是配置来源。下一步才是按 clock/ns 增量读取采样点，写入 VictoriaMetrics，不把点写进 PostgreSQL |
 | 3 | OW-R11 | PipelineVersion、Preview、Replay。仍无画布、无 Copilot |
 
-Host 同步把来源 presence 和映射成功分开。完成态标记为 `offset-scan-attempt`。失败响应带回已扫描页数。`system.cpu.util[,user]` 映射为 `host.cpu.usage.user`。本机没有配置 Zabbix URL，厂商全量还没跑。OIDC、组织树、ABAC 继续不做。
+Host 同步把来源 presence 和映射成功分开。完成态标记为 `offset-scan-attempt`。失败响应带回已扫描页数。`extensions/mappings/zabbix-cpu-user.yaml` 把 `system.cpu.util[,user]` 映射为 `host.cpu.usage.user`；两台主机共用一条目录记录。本机没有配置 Zabbix URL，厂商全量还没跑。OIDC、组织树、ABAC 继续不做。
 
 OW-R12 Integration Copilot **暂缓**。
 
 ## 已完成的 Bootstrap
 
-锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。分页同步与 PostgreSQL 见第 12 节。同步错误码与 `host.get` 游标见第 13 节。Host presence 与 MetricDefinition 见第 14 节。
+锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。分页同步与 PostgreSQL 见第 12 节。同步错误码与 `host.get` 游标见第 13 节。Host presence 与 Item 指标见第 14 节。目录/绑定拆分见第 15 节。
 
 ## 更后（M3 起）
 

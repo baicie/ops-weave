@@ -58,16 +58,26 @@ class ZabbixItemSyncIT {
         JsonNode items = mapper.readTree(listed.body()).get("items");
         assertEquals(1, items.size());
         JsonNode metric = items.get(0);
-        assertEquals("host.cpu.usage.user", metric.get("name").asString());
-        assertEquals("host", metric.get("entityType").asString());
+        assertEquals("host.cpu.usage.user", metric.get("metricKey").asString());
+        assertEquals("Host CPU usage (user)", metric.get("displayName").asString());
         assertEquals("1", metric.get("unit").asString());
         assertEquals("DOUBLE", metric.get("valueType").asString());
         assertEquals("GAUGE", metric.get("metricType").asString());
-        assertEquals("user", metric.get("dimensions").get("mode").asString());
-        assertEquals("source", metric.get("origin").asString());
-        assertEquals("system.cpu.util[,user]", metric.get("externalMapping").get("itemKey").asString());
-        assertEquals("10084", metric.get("externalMapping").get("hostExternalId").asString());
-        assertEquals("multiply:0.01", metric.get("externalMapping").get("valueTransform").asString());
+        assertEquals("mode", metric.get("dimensionSchema").get(0).asString());
+        assertFalse(listed.body().contains("externalMapping"));
+        assertFalse(listed.body().contains("20001"));
+
+        HttpResponse<String> bound = call("GET", "/api/v1/metrics/bindings", TOKEN);
+        assertEquals(200, bound.statusCode(), bound.body());
+        JsonNode bindings = mapper.readTree(bound.body()).get("items");
+        assertEquals(1, bindings.size());
+        JsonNode binding = bindings.get(0);
+        assertEquals("20001", binding.get("externalItemId").asString());
+        assertEquals("10084", binding.get("hostExternalId").asString());
+        assertEquals("host.cpu.usage.user", binding.get("metricKey").asString());
+        assertEquals("user", binding.get("fixedDimensions").get("mode").asString());
+        assertEquals("multiply:0.01", binding.get("valueTransform").asString());
+        assertEquals("ACTIVE", binding.get("lifecycle").asString());
     }
 
     private HttpResponse<String> call(String method, String path, String token) throws Exception {

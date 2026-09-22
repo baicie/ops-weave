@@ -1,8 +1,11 @@
--- Catalog of metric semantics. One row is one metric, not one source item.
--- Point samples and history are not stored here.
+-- Databases that already applied the mixed V003 table are rewritten once.
+-- The migrator records this id and does not run the replacement again.
+DROP TABLE IF EXISTS telemetry.metric_binding;
+DROP TABLE IF EXISTS telemetry.metric_definition;
+
 CREATE SCHEMA IF NOT EXISTS telemetry;
 
-CREATE TABLE IF NOT EXISTS telemetry.metric_definition (
+CREATE TABLE telemetry.metric_definition (
     tenant_id varchar(128) NOT NULL,
     metric_key varchar(255) NOT NULL,
     display_name varchar(255) NOT NULL,
@@ -14,7 +17,7 @@ CREATE TABLE IF NOT EXISTS telemetry.metric_definition (
     PRIMARY KEY (tenant_id, metric_key)
 );
 
-CREATE TABLE IF NOT EXISTS telemetry.metric_binding (
+CREATE TABLE telemetry.metric_binding (
     tenant_id varchar(128) NOT NULL,
     source_instance_id varchar(128) NOT NULL,
     external_item_id varchar(512) NOT NULL,

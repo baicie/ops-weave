@@ -17,6 +17,9 @@ final class SchemaMigrator {
     }
 
     void apply(String classpathResource, String migrationId) {
+        if (applied(migrationId)) {
+            return;
+        }
         String sql = read(classpathResource);
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(true);
@@ -33,6 +36,20 @@ final class SchemaMigrator {
             }
         } catch (SQLException failed) {
             throw new IllegalStateException("Inventory schema migration failed");
+        }
+    }
+
+    private boolean applied(String migrationId) {
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                 "SELECT 1 FROM integration.schema_migration WHERE id = ?"
+             )) {
+            statement.setString(1, migrationId);
+            try (var rows = statement.executeQuery()) {
+                return rows.next();
+            }
+        } catch (SQLException missing) {
+            return false;
         }
     }
 

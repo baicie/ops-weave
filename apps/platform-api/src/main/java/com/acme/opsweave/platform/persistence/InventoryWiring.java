@@ -57,6 +57,7 @@ public final class InventoryWiring {
         dataSource.setMaximumPoolSize(4);
         new SchemaMigrator(dataSource).apply("db/migration/V002__host_sync.sql", "V002__host_sync");
         new SchemaMigrator(dataSource).apply("db/migration/V003__metric_definition.sql", "V003__metric_definition");
+        new SchemaMigrator(dataSource).apply("db/migration/V004__metric_catalog.sql", "V004__metric_catalog");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource);
         return new InventoryWiring(postgres, postgres, sync, sync, new PostgresMetricDefinitionStore(dataSource), "postgres");

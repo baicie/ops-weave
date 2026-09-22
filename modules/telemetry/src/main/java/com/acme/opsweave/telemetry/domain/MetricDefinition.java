@@ -1,46 +1,48 @@
 package com.acme.opsweave.telemetry.domain;
 
 import com.acme.opsweave.sharedkernel.TenantId;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
- * What a metric is. Point values and history stay out of this object.
+ * Shared metric semantics. One definition covers every source item that means the same measurement.
+ * Source item identity lives on {@link MetricBinding}. Point samples are not part of this object.
  */
 public record MetricDefinition(
-    String id,
     TenantId tenantId,
-    String name,
+    String metricKey,
     String displayName,
-    String entityType,
     String unit,
     MetricValueType valueType,
     MetricType metricType,
-    Map<String, String> dimensions,
-    MetricOrigin origin,
-    ExternalMetricMapping externalMapping,
-    MetricLifecycle lifecycle,
+    List<String> dimensionSchema,
     long version
 ) {
     public MetricDefinition {
-        Objects.requireNonNull(id, "id");
         Objects.requireNonNull(tenantId, "tenantId");
-        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(metricKey, "metricKey");
         Objects.requireNonNull(displayName, "displayName");
-        Objects.requireNonNull(entityType, "entityType");
         Objects.requireNonNull(unit, "unit");
         Objects.requireNonNull(valueType, "valueType");
         Objects.requireNonNull(metricType, "metricType");
-        Objects.requireNonNull(dimensions, "dimensions");
-        Objects.requireNonNull(origin, "origin");
-        Objects.requireNonNull(externalMapping, "externalMapping");
-        Objects.requireNonNull(lifecycle, "lifecycle");
-        if (id.isBlank() || name.isBlank() || displayName.isBlank() || entityType.isBlank()) {
-            throw new IllegalArgumentException("Metric definition identity fields must be present");
+        Objects.requireNonNull(dimensionSchema, "dimensionSchema");
+        if (metricKey.isBlank() || displayName.isBlank() || unit.isBlank()) {
+            throw new IllegalArgumentException("Metric definition fields must be present");
         }
         if (version < 1) {
             throw new IllegalArgumentException("Metric definition version must start at 1");
         }
-        dimensions = Map.copyOf(dimensions);
+        List<String> names = new ArrayList<>();
+        for (String name : dimensionSchema) {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Dimension schema names must be present");
+            }
+            if (names.contains(name)) {
+                throw new IllegalArgumentException("Dimension schema repeats " + name);
+            }
+            names.add(name);
+        }
+        dimensionSchema = List.copyOf(names);
     }
 }

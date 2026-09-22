@@ -9,6 +9,7 @@ import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.RawRecordCollector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.SyncOutcome;
+import com.acme.opsweave.integration.domain.MappingRegistry;
 import com.acme.opsweave.integration.domain.SyncFailureCode;
 import com.acme.opsweave.integration.domain.SyncRun;
 import com.acme.opsweave.integration.domain.SyncStatus;
@@ -25,7 +26,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Pages Zabbix items into metric definitions. History points are not requested or stored.
+ * Pages Zabbix items into catalog definitions and source bindings. History points are not requested or stored.
  * Presence is separate from mapping success. A finished walk is an offset scan attempt.
  */
 public final class IngestZabbixItemsUseCase {
@@ -36,7 +37,7 @@ public final class IngestZabbixItemsUseCase {
     private final MetricDefinitionStore definitions;
     private final RawRecordCollector rawRecords;
     private final SyncRunStore syncRuns;
-    private final ZabbixItemMapper mapper = new ZabbixItemMapper();
+    private final ZabbixItemMapper mapper;
     private final String dataMode;
     private final String inventoryStore;
     private final String configuredSourceInstanceId;
@@ -46,6 +47,7 @@ public final class IngestZabbixItemsUseCase {
     public IngestZabbixItemsUseCase(
         AuthorizationService authorization,
         Connector connector,
+        MappingRegistry mappings,
         MetricDefinitionStore definitions,
         RawRecordCollector rawRecords,
         SyncRunStore syncRuns,
@@ -57,6 +59,7 @@ public final class IngestZabbixItemsUseCase {
     ) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.connector = Objects.requireNonNull(connector, "connector");
+        this.mapper = new ZabbixItemMapper(mappings);
         this.definitions = Objects.requireNonNull(definitions, "definitions");
         this.rawRecords = Objects.requireNonNull(rawRecords, "rawRecords");
         this.syncRuns = Objects.requireNonNull(syncRuns, "syncRuns");
@@ -124,7 +127,8 @@ public final class IngestZabbixItemsUseCase {
                     }
                     var mapped = mapper.map(principal.tenantId(), sourceInstanceId, record.payload());
                     failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-                    definitions.upsert(mapped);
+                    definitions.upsert(mapped.definition());
+                    definitions.upsert(mapped.binding());
                     accepted++;
                 }
                 String next = page.nextCursor();

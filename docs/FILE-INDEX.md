@@ -140,6 +140,7 @@ db/migrations/ai/V001__ai_run_prototype.sql
 db/migrations/platform/V001__initial_domain_prototype.sql
 db/migrations/platform/V002__host_sync.sql
 db/migrations/platform/V003__metric_definition.sql
+db/migrations/platform/V004__metric_catalog.sql
 deploy/compose/compose.yaml
 deploy/docker/agent.Dockerfile
 deploy/docker/java.Dockerfile
@@ -175,6 +176,7 @@ extensions/connectors/cmdb/README.md
 extensions/connectors/cmdb/manifest.yaml
 extensions/connectors/zabbix/README.md
 extensions/connectors/zabbix/manifest.yaml
+extensions/mappings/index.txt
 extensions/mappings/zabbix-cpu-user.yaml
 extensions/policies/default-budget.yaml
 extensions/skills/incident-diagnosis/SKILL.md
@@ -257,6 +259,10 @@ modules/integration/src/main/java/com/acme/opsweave/integration/application/Inge
 modules/integration/src/main/java/com/acme/opsweave/integration/application/IngestZabbixItemsUseCase.java
 modules/integration/src/main/java/com/acme/opsweave/integration/application/package-info.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/ErrorPolicy.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappedMetric.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappingDefinition.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappingDocumentParser.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappingRegistry.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/NodeType.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/PipelineDefinition.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/PipelineEdge.java
@@ -268,6 +274,7 @@ modules/integration/src/main/java/com/acme/opsweave/integration/domain/SyncStatu
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/ZabbixHostMapper.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/ZabbixItemMapper.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/package-info.java
+modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ClasspathMappingCatalog.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ClosedZabbixConnector.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/FixtureZabbixHostConnector.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/FixtureZabbixItemConnector.java
@@ -304,7 +311,7 @@ modules/telemetry/src/main/java/com/acme/opsweave/telemetry/api/MetricDefinition
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/api/package-info.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/application/ListMetricDefinitionsUseCase.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/application/package-info.java
-modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/ExternalMetricMapping.java
+modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricBinding.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricDefinition.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricLifecycle.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricOrigin.java

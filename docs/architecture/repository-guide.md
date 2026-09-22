@@ -279,7 +279,7 @@ pnpm test:web
 | 1 | OIDC与平台资源授权（OW-R04） | 本机 Dev Principal + allow/deny 已落地；生产 OIDC 未接 |
 | 2 | PipelineDefinition 与 Catalog（OW-R11） | Host 线性定义已有；Preview/发布指针仍缺；尚无 Copilot |
 | 3 | Zabbix Host 经已发布流水线（OW-R07） | 分页写入 PostgreSQL；presence 与映射成功分开；完成态是 offset 扫描尝试。未对厂商实例取数 |
-| 4 | MetricDefinition | `system.cpu.util[,user]` → `host.cpu.usage.user`。History 与 VictoriaMetrics 未做 |
+| 4 | MetricDefinition / MetricBinding | `extensions/mappings/zabbix-cpu-user.yaml` → `host.cpu.usage.user`。同一语义一条目录，每个 item 一条绑定。History 与 VictoriaMetrics 未做 |
 | 5 | Java Tool Gateway + Rust HTTP Port | 按资源授权、超时、预算、无 Fixture 回退 |
 | 6 | Insight入库与证据浏览 | 真实来源、过期重查、假设与事实分开 |
 | 7 | Skill配置UI与不可变发布 | draft/test/publish、撤销与 run 固定版本 |

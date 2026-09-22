@@ -7,8 +7,12 @@ source:
   itemKeyExact: system.cpu.util[,user]
 target:
   metric: host.cpu.usage.user
+  displayName: Host CPU usage (user)
   kind: gauge
   unit: '1'
+  valueType: double
+  dimensionSchema:
+    - mode
   dimensions:
     mode: user
 transform:

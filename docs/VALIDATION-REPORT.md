@@ -200,6 +200,17 @@ CI java job 增加了 `postgres:17` 服务，并设置 `OPSWEAVE_TEST_JDBC_URL`�
 | PostgreSQL | 同上，仅 `PostgresHostSyncIT` 与 `PostgresItemSyncIT`，JDBC 指向本机 `opsweave_host_sync` | 2 tests，0 skipped，0 failures。Item 定义写入，缺席 item 变为 INACTIVE | 不是厂商实例 |
 | 资产页与结构 | `pnpm --filter @opsweave/web-console test:e2e`；`python3 scripts/check_repo.py` | Playwright 8 passed，失败提示含已扫描页数。47 个结构化文件 | 浏览器请求被拦截 |
 
+## 15. 2026-09-22 指标目录与来源绑定（追加）
+
+环境：macOS aarch64；Gradle 使用 Homebrew OpenJDK 21。`OPSWEAVE_ZABBIX_URL` 未设置。未对厂商 Zabbix 发请求。没有把采样点写入 PostgreSQL。本轮没有改页面，没有重跑 Playwright。
+
+| 检查 | 命令 | 结果 | 不代表什么 |
+|---|---|---|---|
+| Java 领域 smoke | `python3 scripts/check_java_domain.py` | 7 + 11 + 46 + 15 + 41。两台主机共用一条目录、映射来自 YAML、映射器源码不含该 item key 与 metric key、缺席 item 只失活绑定 | 不是厂商 Zabbix |
+| Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --offline` | 13 tests，0 failures，0 skipped。环境里已有 `OPSWEAVE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/opsweave_host_sync`，因此 `PostgresHostSyncIT` 与 `PostgresItemSyncIT` 都实际执行 | 不是厂商实例，也不是一次没有 JDBC 的运行 |
+| 结构 | `python3 scripts/check_repo.py` | 47 个结构化文件，3 个只读工具定义 | 未跑 Web |
+
+
 
 
 

@@ -6,6 +6,7 @@ import com.acme.opsweave.identity.domain.Permission;
 import com.acme.opsweave.identity.domain.Principal;
 import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.telemetry.api.MetricDefinitionStore;
+import com.acme.opsweave.telemetry.domain.MetricBinding;
 import com.acme.opsweave.telemetry.domain.MetricDefinition;
 import java.util.List;
 import java.util.Objects;
@@ -32,6 +33,19 @@ public final class ListMetricDefinitionsUseCase {
         return ListResult.visible(definitions.list(principal.tenantId()));
     }
 
+    public BindingListResult listBindings(Principal principal) {
+        Objects.requireNonNull(principal, "principal");
+        AuthorizationDecision decision = authorization.authorize(
+            principal,
+            ResourceRef.anyMetric(principal.tenantId()),
+            Permission.METRIC_READ
+        );
+        if (decision.denied()) {
+            return BindingListResult.forbidden();
+        }
+        return BindingListResult.visible(definitions.listBindings(principal.tenantId()));
+    }
+
     public record ListResult(Kind kind, List<MetricDefinition> definitions) {
         public enum Kind { VISIBLE, FORBIDDEN }
 
@@ -41,6 +55,16 @@ public final class ListMetricDefinitionsUseCase {
 
         public static ListResult visible(List<MetricDefinition> definitions) {
             return new ListResult(Kind.VISIBLE, List.copyOf(definitions));
+        }
+    }
+
+    public record BindingListResult(ListResult.Kind kind, List<MetricBinding> bindings) {
+        public static BindingListResult forbidden() {
+            return new BindingListResult(ListResult.Kind.FORBIDDEN, List.of());
+        }
+
+        public static BindingListResult visible(List<MetricBinding> bindings) {
+            return new BindingListResult(ListResult.Kind.VISIBLE, List.copyOf(bindings));
         }
     }
 }

@@ -2,6 +2,7 @@ package com.acme.opsweave.telemetry.infrastructure;
 
 import com.acme.opsweave.sharedkernel.TenantId;
 import com.acme.opsweave.telemetry.api.MetricDefinitionStore;
+import com.acme.opsweave.telemetry.domain.MetricBinding;
 import com.acme.opsweave.telemetry.domain.MetricDefinition;
 import com.acme.opsweave.telemetry.domain.MetricLifecycle;
 import java.util.ArrayList;
@@ -12,60 +13,69 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Labeled in-memory metric catalog. Not a production store and not a place for metric points. */
 public final class InMemoryMetricDefinitionStore implements MetricDefinitionStore {
-    private final ConcurrentHashMap<Key, MetricDefinition> definitions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<DefinitionKey, MetricDefinition> definitions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<BindingKey, MetricBinding> bindings = new ConcurrentHashMap<>();
 
     @Override
     public void upsert(MetricDefinition definition) {
-        Key key = new Key(definition.tenantId(), definition.id());
-        definitions.compute(key, (ignored, existing) -> {
-            long version = existing == null ? definition.version() : existing.version() + 1;
-            return new MetricDefinition(
-                definition.id(),
-                definition.tenantId(),
-                definition.name(),
-                definition.displayName(),
-                definition.entityType(),
-                definition.unit(),
-                definition.valueType(),
-                definition.metricType(),
-                definition.dimensions(),
-                definition.origin(),
-                definition.externalMapping(),
-                definition.lifecycle(),
-                version
-            );
-        });
+        DefinitionKey key = new DefinitionKey(definition.tenantId(), definition.metricKey());
+        definitions.compute(key, (ignored, existing) -> new MetricDefinition(
+            definition.tenantId(),
+            definition.metricKey(),
+            definition.displayName(),
+            definition.unit(),
+            definition.valueType(),
+            definition.metricType(),
+            definition.dimensionSchema(),
+            existing == null ? definition.version() : existing.version() + 1
+        ));
+    }
+
+    @Override
+    public void upsert(MetricBinding binding) {
+        BindingKey key = new BindingKey(binding.tenantId(), binding.sourceInstanceId(), binding.externalItemId());
+        bindings.compute(key, (ignored, existing) -> new MetricBinding(
+            binding.tenantId(),
+            binding.sourceType(),
+            binding.sourceInstanceId(),
+            binding.externalItemId(),
+            binding.entityId(),
+            binding.hostExternalId(),
+            binding.metricKey(),
+            binding.fixedDimensions(),
+            binding.sourceUnit(),
+            binding.valueTransform(),
+            binding.mappingRevision(),
+            binding.lifecycle(),
+            existing == null ? binding.version() : existing.version() + 1
+        ));
     }
 
     @Override
     public int retireMissing(TenantId tenantId, String sourceInstanceId, Set<String> observedExternalIds) {
         Set<String> observed = Set.copyOf(observedExternalIds);
         int retired = 0;
-        for (MetricDefinition definition : List.copyOf(definitions.values())) {
-            if (!definition.tenantId().equals(tenantId)) {
+        for (MetricBinding binding : List.copyOf(bindings.values())) {
+            if (!binding.tenantId().equals(tenantId) || !binding.sourceInstanceId().equals(sourceInstanceId)) {
                 continue;
             }
-            var mapping = definition.externalMapping();
-            if (!mapping.sourceInstanceId().equals(sourceInstanceId) || observed.contains(mapping.externalId())) {
+            if (observed.contains(binding.externalItemId()) || binding.lifecycle() == MetricLifecycle.INACTIVE) {
                 continue;
             }
-            if (definition.lifecycle() == MetricLifecycle.INACTIVE) {
-                continue;
-            }
-            definitions.put(new Key(tenantId, definition.id()), new MetricDefinition(
-                definition.id(),
-                definition.tenantId(),
-                definition.name(),
-                definition.displayName(),
-                definition.entityType(),
-                definition.unit(),
-                definition.valueType(),
-                definition.metricType(),
-                definition.dimensions(),
-                definition.origin(),
-                definition.externalMapping(),
+            bindings.put(new BindingKey(tenantId, sourceInstanceId, binding.externalItemId()), new MetricBinding(
+                binding.tenantId(),
+                binding.sourceType(),
+                binding.sourceInstanceId(),
+                binding.externalItemId(),
+                binding.entityId(),
+                binding.hostExternalId(),
+                binding.metricKey(),
+                binding.fixedDimensions(),
+                binding.sourceUnit(),
+                binding.valueTransform(),
+                binding.mappingRevision(),
                 MetricLifecycle.INACTIVE,
-                definition.version() + 1
+                binding.version() + 1
             ));
             retired++;
         }
@@ -73,8 +83,13 @@ public final class InMemoryMetricDefinitionStore implements MetricDefinitionStor
     }
 
     @Override
-    public Optional<MetricDefinition> find(TenantId tenantId, String id) {
-        return Optional.ofNullable(definitions.get(new Key(tenantId, id)));
+    public Optional<MetricDefinition> find(TenantId tenantId, String metricKey) {
+        return Optional.ofNullable(definitions.get(new DefinitionKey(tenantId, metricKey)));
+    }
+
+    @Override
+    public Optional<MetricBinding> findBinding(TenantId tenantId, String sourceInstanceId, String externalItemId) {
+        return Optional.ofNullable(bindings.get(new BindingKey(tenantId, sourceInstanceId, externalItemId)));
     }
 
     @Override
@@ -88,5 +103,18 @@ public final class InMemoryMetricDefinitionStore implements MetricDefinitionStor
         return List.copyOf(result);
     }
 
-    private record Key(TenantId tenantId, String id) {}
+    @Override
+    public List<MetricBinding> listBindings(TenantId tenantId) {
+        List<MetricBinding> result = new ArrayList<>();
+        for (MetricBinding binding : bindings.values()) {
+            if (binding.tenantId().equals(tenantId)) {
+                result.add(binding);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private record DefinitionKey(TenantId tenantId, String metricKey) {}
+
+    private record BindingKey(TenantId tenantId, String sourceInstanceId, String externalItemId) {}
 }

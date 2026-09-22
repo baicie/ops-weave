@@ -1,11 +1,11 @@
 package com.acme.opsweave.platform.persistence;
 
+import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
 import com.acme.opsweave.telemetry.api.MetricDefinitionStore;
-import com.acme.opsweave.telemetry.domain.ExternalMetricMapping;
+import com.acme.opsweave.telemetry.domain.MetricBinding;
 import com.acme.opsweave.telemetry.domain.MetricDefinition;
 import com.acme.opsweave.telemetry.domain.MetricLifecycle;
-import com.acme.opsweave.telemetry.domain.MetricOrigin;
 import com.acme.opsweave.telemetry.domain.MetricType;
 import com.acme.opsweave.telemetry.domain.MetricValueType;
 import java.sql.Array;
@@ -22,6 +22,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 final class PostgresMetricDefinitionStore implements MetricDefinitionStore {
+    private static final TypeReference<List<String>> NAMES = new TypeReference<>() {};
     private static final TypeReference<LinkedHashMap<String, String>> MAP = new TypeReference<>() {};
     private final DataSource dataSource;
     private final JsonMapper json = JsonMapper.builder().build();
@@ -33,33 +34,66 @@ final class PostgresMetricDefinitionStore implements MetricDefinitionStore {
     @Override
     public void upsert(MetricDefinition definition) {
         Transactions.run(dataSource, connection -> {
-            String dimensions = json.writeValueAsString(definition.dimensions());
+            String schema = json.writeValueAsString(definition.dimensionSchema());
             try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO telemetry.metric_definition (
-                    tenant_id, id, name, display_name, entity_type, unit, value_type, metric_type,
-                    dimensions, origin, source_instance_id, external_id, item_key, host_external_id,
-                    source_unit, value_transform, mapping_revision, lifecycle, version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (tenant_id, id) DO UPDATE SET
-                    name = EXCLUDED.name,
+                    tenant_id, metric_key, display_name, unit, value_type, metric_type, dimension_schema, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?)
+                ON CONFLICT (tenant_id, metric_key) DO UPDATE SET
                     display_name = EXCLUDED.display_name,
-                    entity_type = EXCLUDED.entity_type,
                     unit = EXCLUDED.unit,
                     value_type = EXCLUDED.value_type,
                     metric_type = EXCLUDED.metric_type,
-                    dimensions = EXCLUDED.dimensions,
-                    origin = EXCLUDED.origin,
-                    source_instance_id = EXCLUDED.source_instance_id,
-                    external_id = EXCLUDED.external_id,
-                    item_key = EXCLUDED.item_key,
+                    dimension_schema = EXCLUDED.dimension_schema,
+                    version = telemetry.metric_definition.version + 1
+                """)) {
+                statement.setString(1, definition.tenantId().value());
+                statement.setString(2, definition.metricKey());
+                statement.setString(3, definition.displayName());
+                statement.setString(4, definition.unit());
+                statement.setString(5, definition.valueType().name());
+                statement.setString(6, definition.metricType().name());
+                statement.setString(7, schema);
+                statement.setLong(8, definition.version());
+                statement.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    public void upsert(MetricBinding binding) {
+        Transactions.run(dataSource, connection -> {
+            String dimensions = json.writeValueAsString(binding.fixedDimensions());
+            try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO telemetry.metric_binding (
+                    tenant_id, source_instance_id, external_item_id, source_type, entity_id, host_external_id,
+                    metric_key, fixed_dimensions, source_unit, value_transform, mapping_revision, lifecycle, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
+                ON CONFLICT (tenant_id, source_instance_id, external_item_id) DO UPDATE SET
+                    source_type = EXCLUDED.source_type,
+                    entity_id = EXCLUDED.entity_id,
                     host_external_id = EXCLUDED.host_external_id,
+                    metric_key = EXCLUDED.metric_key,
+                    fixed_dimensions = EXCLUDED.fixed_dimensions,
                     source_unit = EXCLUDED.source_unit,
                     value_transform = EXCLUDED.value_transform,
                     mapping_revision = EXCLUDED.mapping_revision,
                     lifecycle = EXCLUDED.lifecycle,
-                    version = telemetry.metric_definition.version + 1
+                    version = telemetry.metric_binding.version + 1
                 """)) {
-                bind(statement, definition, dimensions);
+                statement.setString(1, binding.tenantId().value());
+                statement.setString(2, binding.sourceInstanceId());
+                statement.setString(3, binding.externalItemId());
+                statement.setString(4, binding.sourceType());
+                statement.setString(5, binding.entityId().value().toString());
+                statement.setString(6, binding.hostExternalId());
+                statement.setString(7, binding.metricKey());
+                statement.setString(8, dimensions);
+                statement.setString(9, binding.sourceUnit());
+                statement.setString(10, binding.valueTransform());
+                statement.setInt(11, binding.mappingRevision());
+                statement.setString(12, binding.lifecycle().name());
+                statement.setLong(13, binding.version());
                 statement.executeUpdate();
             }
         });
@@ -67,119 +101,141 @@ final class PostgresMetricDefinitionStore implements MetricDefinitionStore {
 
     @Override
     public int retireMissing(TenantId tenantId, String sourceInstanceId, Set<String> observedExternalIds) {
-        int[] updated = {0};
+        int[] retired = new int[1];
         Transactions.run(dataSource, connection -> {
             Array observed = connection.createArrayOf("varchar", observedExternalIds.toArray(String[]::new));
             try (PreparedStatement statement = connection.prepareStatement("""
-                UPDATE telemetry.metric_definition
-                   SET lifecycle = 'INACTIVE', version = version + 1
-                 WHERE tenant_id = ?
-                   AND source_instance_id = ?
-                   AND lifecycle <> 'INACTIVE'
-                   AND NOT (external_id = ANY (?))
+                UPDATE telemetry.metric_binding
+                SET lifecycle = 'INACTIVE', version = version + 1
+                WHERE tenant_id = ? AND source_instance_id = ? AND lifecycle <> 'INACTIVE'
+                  AND NOT (external_item_id = ANY (?))
                 """)) {
                 statement.setString(1, tenantId.value());
                 statement.setString(2, sourceInstanceId);
                 statement.setArray(3, observed);
-                updated[0] = statement.executeUpdate();
+                retired[0] = statement.executeUpdate();
             }
         });
-        return updated[0];
+        return retired[0];
     }
 
     @Override
-    public Optional<MetricDefinition> find(TenantId tenantId, String id) {
-        try (var connection = dataSource.getConnection();
-             var statement = connection.prepareStatement("""
-                SELECT id, name, display_name, entity_type, unit, value_type, metric_type, dimensions, origin,
-                       source_instance_id, external_id, item_key, host_external_id, source_unit, value_transform,
-                       mapping_revision, lifecycle, version
-                  FROM telemetry.metric_definition
-                 WHERE tenant_id = ? AND id = ?
+    public Optional<MetricDefinition> find(TenantId tenantId, String metricKey) {
+        return one(tenantId, """
+            SELECT metric_key, display_name, unit, value_type, metric_type, dimension_schema, version
+            FROM telemetry.metric_definition
+            WHERE tenant_id = ? AND metric_key = ?
+            """, metricKey);
+    }
+
+    @Override
+    public Optional<MetricBinding> findBinding(TenantId tenantId, String sourceInstanceId, String externalItemId) {
+        List<MetricBinding> found = new ArrayList<>();
+        Transactions.run(dataSource, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT source_instance_id, external_item_id, source_type, entity_id, host_external_id, metric_key,
+                       fixed_dimensions, source_unit, value_transform, mapping_revision, lifecycle, version
+                FROM telemetry.metric_binding
+                WHERE tenant_id = ? AND source_instance_id = ? AND external_item_id = ?
                 """)) {
-            statement.setString(1, tenantId.value());
-            statement.setString(2, id);
-            try (ResultSet rows = statement.executeQuery()) {
-                if (!rows.next()) {
-                    return Optional.empty();
+                statement.setString(1, tenantId.value());
+                statement.setString(2, sourceInstanceId);
+                statement.setString(3, externalItemId);
+                try (ResultSet rows = statement.executeQuery()) {
+                    if (rows.next()) {
+                        found.add(readBinding(tenantId, rows));
+                    }
                 }
-                return Optional.of(read(tenantId, rows));
             }
-        } catch (SQLException failed) {
-            throw new IllegalStateException("Inventory database write failed");
-        }
+        });
+        return found.stream().findFirst();
     }
 
     @Override
     public List<MetricDefinition> list(TenantId tenantId) {
-        try (var connection = dataSource.getConnection();
-             var statement = connection.prepareStatement("""
-                SELECT id, name, display_name, entity_type, unit, value_type, metric_type, dimensions, origin,
-                       source_instance_id, external_id, item_key, host_external_id, source_unit, value_transform,
-                       mapping_revision, lifecycle, version
-                  FROM telemetry.metric_definition
-                 WHERE tenant_id = ?
-                 ORDER BY name, external_id
+        List<MetricDefinition> result = new ArrayList<>();
+        Transactions.run(dataSource, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT metric_key, display_name, unit, value_type, metric_type, dimension_schema, version
+                FROM telemetry.metric_definition
+                WHERE tenant_id = ?
+                ORDER BY metric_key
                 """)) {
-            statement.setString(1, tenantId.value());
-            try (ResultSet rows = statement.executeQuery()) {
-                List<MetricDefinition> result = new ArrayList<>();
-                while (rows.next()) {
-                    result.add(read(tenantId, rows));
+                statement.setString(1, tenantId.value());
+                try (ResultSet rows = statement.executeQuery()) {
+                    while (rows.next()) {
+                        result.add(readDefinition(tenantId, rows));
+                    }
                 }
-                return List.copyOf(result);
             }
-        } catch (SQLException failed) {
-            throw new IllegalStateException("Inventory database write failed");
-        }
+        });
+        return List.copyOf(result);
     }
 
-    private static void bind(PreparedStatement statement, MetricDefinition definition, String dimensions) throws SQLException {
-        ExternalMetricMapping mapping = definition.externalMapping();
-        statement.setString(1, definition.tenantId().value());
-        statement.setString(2, definition.id());
-        statement.setString(3, definition.name());
-        statement.setString(4, definition.displayName());
-        statement.setString(5, definition.entityType());
-        statement.setString(6, definition.unit());
-        statement.setString(7, definition.valueType().name());
-        statement.setString(8, definition.metricType().name());
-        statement.setString(9, dimensions);
-        statement.setString(10, definition.origin().wireValue());
-        statement.setString(11, mapping.sourceInstanceId());
-        statement.setString(12, mapping.externalId());
-        statement.setString(13, mapping.itemKey());
-        statement.setString(14, mapping.hostExternalId());
-        statement.setString(15, mapping.sourceUnit());
-        statement.setString(16, mapping.valueTransform());
-        statement.setInt(17, mapping.mappingRevision());
-        statement.setString(18, definition.lifecycle().name());
-        statement.setLong(19, definition.version());
+    @Override
+    public List<MetricBinding> listBindings(TenantId tenantId) {
+        List<MetricBinding> result = new ArrayList<>();
+        Transactions.run(dataSource, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT source_instance_id, external_item_id, source_type, entity_id, host_external_id, metric_key,
+                       fixed_dimensions, source_unit, value_transform, mapping_revision, lifecycle, version
+                FROM telemetry.metric_binding
+                WHERE tenant_id = ?
+                ORDER BY external_item_id
+                """)) {
+                statement.setString(1, tenantId.value());
+                try (ResultSet rows = statement.executeQuery()) {
+                    while (rows.next()) {
+                        result.add(readBinding(tenantId, rows));
+                    }
+                }
+            }
+        });
+        return List.copyOf(result);
     }
 
-    private MetricDefinition read(TenantId tenantId, ResultSet rows) throws SQLException {
-        LinkedHashMap<String, String> dimensions = json.readValue(rows.getString("dimensions"), MAP);
+    private Optional<MetricDefinition> one(TenantId tenantId, String sql, String metricKey) {
+        List<MetricDefinition> found = new ArrayList<>();
+        Transactions.run(dataSource, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, tenantId.value());
+                statement.setString(2, metricKey);
+                try (ResultSet rows = statement.executeQuery()) {
+                    if (rows.next()) {
+                        found.add(readDefinition(tenantId, rows));
+                    }
+                }
+            }
+        });
+        return found.stream().findFirst();
+    }
+
+    private MetricDefinition readDefinition(TenantId tenantId, ResultSet rows) throws SQLException {
         return new MetricDefinition(
-            rows.getString("id"),
             tenantId,
-            rows.getString("name"),
+            rows.getString("metric_key"),
             rows.getString("display_name"),
-            rows.getString("entity_type"),
             rows.getString("unit"),
             MetricValueType.valueOf(rows.getString("value_type")),
             MetricType.valueOf(rows.getString("metric_type")),
-            dimensions,
-            MetricOrigin.SOURCE,
-            new ExternalMetricMapping(
-                "zabbix",
-                rows.getString("source_instance_id"),
-                rows.getString("external_id"),
-                rows.getString("item_key"),
-                rows.getString("host_external_id"),
-                rows.getString("source_unit"),
-                rows.getString("value_transform"),
-                rows.getInt("mapping_revision")
-            ),
+            json.readValue(rows.getString("dimension_schema"), NAMES),
+            rows.getLong("version")
+        );
+    }
+
+    private MetricBinding readBinding(TenantId tenantId, ResultSet rows) throws SQLException {
+        return new MetricBinding(
+            tenantId,
+            rows.getString("source_type"),
+            rows.getString("source_instance_id"),
+            rows.getString("external_item_id"),
+            EntityId.parse(rows.getString("entity_id")),
+            rows.getString("host_external_id"),
+            rows.getString("metric_key"),
+            json.readValue(rows.getString("fixed_dimensions"), MAP),
+            rows.getString("source_unit"),
+            rows.getString("value_transform"),
+            rows.getInt("mapping_revision"),
             MetricLifecycle.valueOf(rows.getString("lifecycle")),
             rows.getLong("version")
         );

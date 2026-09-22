@@ -465,7 +465,7 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | P1 | R06/R07 | 实体关联、指标语义、告警幂等/恢复、Incident API与页面 |
 | OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-当前启动顺序：不要加深 IAM。Host presence 与 Item → MetricDefinition 已在代码里。下一步是可达 Zabbix 的 `host.get`，然后 History → MetricPoint。不要先做 R12，也不要再迁前端框架。
+当前启动顺序：不要加深 IAM。指标目录和来源绑定已分开，映射从 `extensions/mappings` 加载。下一步是 History 增量读取，再写入 VictoriaMetrics。不要先做 R12，也不要再迁前端框架。
 
 ### Issue 描述模板
 
@@ -521,7 +521,7 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 已能写成 MetricDefinition。下一步是可达 Zabbix 的 `host.get`，然后 History。不要先做 Integration Copilot。
+M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定。下一步是 History，不把采样点写入 PostgreSQL。不要先做 Integration Copilot。
 
 ---
 
