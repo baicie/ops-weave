@@ -6,7 +6,7 @@
 
 | 部分 | 已提供 | 未提供 |
 |---|---|---|
-| Java平台 | Principal/授权、Zabbix Host 分页同步、Item → MetricDefinition + MetricBinding、PostgreSQL 库存、受保护的指标目录/绑定 API | 生产 OIDC、厂商 Zabbix 联调、History/MetricPoint、Pipeline Preview |
+| Java平台 | Principal/授权、Zabbix Host 分页同步、Item → MetricDefinition + MetricBinding、PostgreSQL 库存、指标目录/绑定 API、有界 History 只读接口与数值 MetricPoint | 生产 OIDC、厂商 Zabbix 联调、History 持久采集/VictoriaMetrics、Pipeline Preview |
 | Web | 诊断表单；资产页读取平台 Entity API（开发 Token，内存持有） | 生产 BFF/OIDC、指标/Skill/Agent Console |
 | 存储/运维 | Host 同步迁移 `V002__host_sync.sql`、指标目录 `V003__metric_definition.sql`、混合表替换 `V004__metric_catalog.sql`、Compose 中的 PostgreSQL | 行级安全、对象存储、时序库、生产 Helm/HA/备份验证 |
 | Rust Runtime | Axum接口、本机身份、固定只读流程、共享预算、并行fixture、Context/Evidence、版本化Skill加载、Schema输出验证 | 持久RunStore/租约/恢复/取消API/生产鉴权 |
@@ -19,7 +19,9 @@
 
 交付包阶段：Python契约/样例测试、纯Java领域编译与smoke、结构/架构静态检查。
 
-2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。Host presence 与 Item 指标见第 14 节。目录与绑定拆分、映射改为读取 `extensions/mappings` 见第 15 节。未联调厂商 Zabbix，未接 Keycloak。未存 History 点。
+2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。Host presence 与 Item 指标见第 14 节。目录与绑定拆分、映射改为读取 `extensions/mappings` 见第 15 节。History 读取增量与检查见第 16 节；响应明确为 `not-persisted`。未联调厂商 Zabbix，未接 Keycloak，未存 History 点。
+
+当前阶段是 M1 开发身份切片、M2 数据接入和 M3 指标链的部分实现，尚未达到 M2 真实来源退出条件或 M4 只读诊断 MVP。M0 已关闭。2026-09-22 实查 `f0bcc32` 的 GitHub Actions：contracts/rust/java/web/deploy 五个 job 均 success；这是上一提交的 CI/部署流水线结果，不代表本次 History 修改已部署或真实来源已接通。
 
 ## 写了测试但交付包当时未执行
 
@@ -27,6 +29,6 @@ Rust `runtime_tests.rs` 中的测试检查租户/incident范围、时间窗口�
 
 ## 下一步优先级
 
-下一步不要加深 IAM，也不要做 Copilot。指标语义和来源绑定已经分开，映射从 `extensions/mappings` 加载。`main` 上的 CI 通过后，会把四个启动单元的镜像部署到已配置的一台主机，端口只绑定 `127.0.0.1`。History 仍是增量读取，点写入 VictoriaMetrics，不进 PostgreSQL。
+下一步不要加深 IAM，也不要做 Copilot。History 已有按 clock/ns 的有界读取、权限/窗口/数量/并发限制与失败语义。接下来在 ingestion-worker 增加 VictoriaMetrics 批写和持久 checkpoint：明确毫秒精度、迟到点、去重及写入成功后推进游标；采样点不进 PostgreSQL。配置可达 Zabbix 后再完成厂商实例验收，继续补 PipelineVersion/Preview/Replay。
 
 当前`RunState`枚举不是持久化执行引擎；同步诊断遇到进程退出会中断。Mock输出不是AI；引用校验不是事实/因果验证；前端模块卡片不是已实现模块。

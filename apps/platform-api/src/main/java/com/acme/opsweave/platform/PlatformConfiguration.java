@@ -12,11 +12,16 @@ import com.acme.opsweave.identity.infrastructure.DevPrincipalResolver;
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.application.IngestZabbixItemsUseCase;
+import com.acme.opsweave.integration.application.ReadZabbixHistoryUseCase;
+import com.acme.opsweave.integration.api.ZabbixHistoryPort;
+import com.acme.opsweave.integration.domain.HistoryReadException;
 import com.acme.opsweave.integration.domain.PipelineDefinition;
 import com.acme.opsweave.integration.infrastructure.ClasspathMappingCatalog;
 import com.acme.opsweave.integration.infrastructure.ClosedZabbixConnector;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixItemConnector;
+import com.acme.opsweave.integration.infrastructure.FixtureZabbixHistoryReader;
+import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcHistoryReader;
 import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcConnector;
 import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcItemConnector;
 import com.acme.opsweave.inventory.api.InventoryQuery;
@@ -29,6 +34,7 @@ import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
 import com.acme.opsweave.telemetry.application.ListMetricDefinitionsUseCase;
 import java.net.URI;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -118,6 +124,33 @@ public class PlatformConfiguration {
             properties.zabbix().secretRef(),
             pageSize
         );
+    }
+
+    @Bean
+    ReadZabbixHistoryUseCase readZabbixHistoryUseCase(AuthorizationService authorization, InventoryWiring wiring,
+            OpsweaveProperties properties, JacksonZabbixTransport transport, EnvSecretSource secrets) {
+        String mode = normalize(properties.zabbix().mode());
+        ZabbixHistoryPort reader;
+        String dataMode;
+        switch (mode) {
+            case "fixture" -> {
+                reader = new FixtureZabbixHistoryReader();
+                dataMode = "labeled-fixture";
+            }
+            case "jsonrpc", "real" -> {
+                String url = properties.zabbix().url();
+                if (url == null || url.isBlank()) throw new IllegalStateException("OPSWEAVE_ZABBIX_URL is required for jsonrpc mode");
+                reader = new ZabbixJsonRpcHistoryReader(URI.create(url), transport, secrets,
+                    ClasspathMappingCatalog.load(PlatformConfiguration.class.getClassLoader()));
+                dataMode = "zabbix-jsonrpc";
+            }
+            default -> {
+                reader = (source, binding, window) -> { throw new HistoryReadException(HistoryReadException.Code.SOURCE_UNAVAILABLE); };
+                dataMode = "closed";
+            }
+        }
+        return new ReadZabbixHistoryUseCase(authorization, wiring.metrics(), reader,
+            properties.zabbix().sourceInstanceId(), properties.zabbix().secretRef(), dataMode, Clock.systemUTC());
     }
 
     @Bean

@@ -2,6 +2,7 @@ package com.acme.opsweave.integration.domain;
 
 import com.acme.opsweave.telemetry.domain.MetricType;
 import com.acme.opsweave.telemetry.domain.MetricValueType;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +24,15 @@ public final class MappingDocumentParser {
         Map<String, Object> target = child(map, "target");
         Map<String, Object> transform = child(map, "transform");
         String operation = text(transform, "operation");
-        String factor = text(transform, "factor");
+        String valueTransform = switch (operation) {
+            case "identity" -> "identity";
+            case "multiply" -> "multiply:" + text(transform, "factor");
+            default -> throw new IllegalArgumentException("Unsupported mapping transform");
+        };
+        Map<String, Object> validation = map.containsKey("validation") ? child(map, "validation") : Map.of();
+        if (!java.util.Set.of("min", "max").containsAll(validation.keySet())) {
+            throw new IllegalArgumentException("Unsupported mapping validation");
+        }
         return new MappingDefinition(
             text(map, "id"),
             text(source, "connector"),
@@ -35,8 +44,10 @@ public final class MappingDocumentParser {
             valueType(text(target, "valueType")),
             stringList(target.get("dimensionSchema")),
             stringMap(target.get("dimensions")),
-            operation + ":" + factor,
-            revision(text(map, "version"))
+            valueTransform,
+            revision(text(map, "version")),
+            validation.containsKey("min") ? new BigDecimal(text(validation, "min")) : null,
+            validation.containsKey("max") ? new BigDecimal(text(validation, "max")) : null
         );
     }
 

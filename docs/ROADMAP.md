@@ -9,7 +9,9 @@
 
 ## 1. 当前起点：不要重复建设已经提交的迁移
 
-当前默认分支 `b5404a8`。Web Console 已用 Zeus `render` 作为运行时，页面骨架在 `app/pages/api/state/adapters/styles`；资产/指标/Skill/Agent 页仍是未实现占位，诊断页是唯一已验收交互。
+2026-09-22 执行快照：M0 已关闭；开发身份、Host 分页/PostgreSQL/资产页、Item 指标目录与来源绑定已落地，本轮增加有权限与预算约束的 History 只读增量接口。VictoriaMetrics/持久采集游标、厂商实例验收、Pipeline Preview 和真实 AI 诊断仍未完成，不能宣布 M2/M3 退出。`f0bcc32` 的 CI 与 deploy job 已实查成功；本轮新增代码的验证单独见 `VALIDATION-REPORT.md` 第 16 节。
+
+以下观察表保留 M0 关闭时 `b5404a8` 的基线。Web Console 使用 Zeus `render`，页面骨架在 `app/pages/api/state/adapters/styles`；当前资产页已有交互，指标/Skill/Agent 页仍为占位。
 
 | 观察项 | 当前能确认的事实 | 路线图中的处理 |
 |---|---|---|
@@ -458,14 +460,14 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | OW-R04 | `feat(identity): define verified principal and resource scopes` | ops-weave | 本机切片 | 无 | Dev Principal、资源范围、允许/拒绝矩阵已落地；生产 OIDC/Keycloak 未接 |
 | OW-R05 | `feat(web): centralize API lifecycle and session cleanup` | ops-weave | P0 | R04 | 取消、超时、旧响应、退出/换租户清理；会话方案一致 |
 | OW-R11 | `feat(integration): define PipelineDefinition and versioned catalog` | ops-weave | P0，进行中 | R04 | 已有 Host 线性定义与 JSON Schema；Preview/不可变发布指针仍缺；尚无 Copilot |
-| OW-R06 | `feat(inventory): persist entities, observations and external links` | ops-weave | P0 | R04 | 内存库存已能写入 Host Entity；尚无 PostgreSQL |
+| OW-R06 | `feat(inventory): persist entities, observations and external links` | ops-weave | 本地切片已验证 | R04 | Host Entity、Raw、Observation、ExternalLink/SyncRun 已有 PostgreSQL 与失败扫描保护；生产 RLS/备份仍缺 |
 | OW-R07 | `feat(integration): synchronize Zabbix hosts via published pipeline` | ops-weave | P0，进行中 | R11/R06 | fixture 与 JSON-RPC 客户端已通；尚未对厂商 Zabbix 发 `host.get` |
-| OW-R08 | `feat(web): deliver authorized inventory list and detail` | ops-weave | P1 | R05/R06 | 真 API、服务端筛选分页、来源、新鲜度、拒绝/空/错误态 |
+| OW-R08 | `feat(web): deliver authorized inventory list and detail` | ops-weave | 部分完成 | R05/R06 | 资产页已有开发身份下的列表/同步/失败保留数据；服务端筛选分页、完整详情与生产会话仍缺 |
 | OW-R09 | `feat(integration): add CMDB mapping and cross-source reconciliation` | ops-weave | P1 | R07、CMDB 契约 | 二来源匹配/冲突/权威字段、成功快照对账、重放无副作用 |
-| OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | P1 | R06/R07 | 实体关联、指标语义、告警幂等/恢复、Incident API与页面 |
+| OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | 进行中 | R06/R07 | 指标目录/绑定与 History 有界只读接口已有；时序库、告警幂等/恢复、Incident API与页面仍缺 |
 | OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-当前启动顺序：不要加深 IAM。指标目录和来源绑定已分开，映射从 `extensions/mappings` 加载。下一步是 History 增量读取，再写入 VictoriaMetrics。不要先做 R12，也不要再迁前端框架。
+当前启动顺序：不要加深 IAM。指标目录和来源绑定已分开，映射从 `extensions/mappings` 加载。History 增量读取已提供，下一步在 ingestion-worker 实现 VictoriaMetrics 批写、持久 checkpoint、迟到点/重复点与时间精度策略。不要先做 R12，也不要再迁前端框架。
 
 ### Issue 描述模板
 
@@ -521,7 +523,7 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定。下一步是 History，不把采样点写入 PostgreSQL。不要先做 Integration Copilot。
+M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定，History 已有只读增量接口。下一步是 VictoriaMetrics 和成功写入后的持久游标，不把采样点写入 PostgreSQL。不要先做 Integration Copilot。
 
 ---
 

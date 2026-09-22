@@ -58,6 +58,68 @@ paths:
           description: Forbidden
         '503':
           description: Source is closed or the live fetch failed; inventory is not reconciled
+  /api/v1/integrations/zabbix/items/{itemId}/history:
+    get:
+      operationId: readZabbixNumericHistory
+      description: >
+        Read one active binding in the configured source, authorized by source.sync,
+        metric.read and entity.read including source, metric and entity scope.
+        At most 3600 inclusive seconds in the past and 500 returned points.
+        afterClock and afterNs must appear together and refer to this same item/window.
+        Values are normalized decimal strings, with nanosecond timestamps.
+        nextCursor is an exclusive read position, never a durable ingestion checkpoint.
+        windowComplete covers this scan attempt only, not late-arriving data.
+        No points are stored. No implicit retry or fallback to fixture.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}
+        - in: query
+          name: from
+          required: true
+          schema: {type: integer, minimum: 0, maximum: 9999999999}
+        - in: query
+          name: till
+          required: true
+          schema: {type: integer, minimum: 0, maximum: 9999999999}
+        - in: query
+          name: afterClock
+          schema: {type: integer, minimum: 0, maximum: 9999999999}
+        - in: query
+          name: afterNs
+          schema: {type: integer, minimum: 0, maximum: 999999999}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 500, default: 100}
+      responses:
+        '200':
+          description: Authorized source page, explicitly not persisted
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/metric-history-page.schema.json
+        '400':
+          description: Invalid window/cursor/limit or attempted identity override
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Missing permission or source scope
+        '404':
+          description: Binding absent, inactive or outside the authorized entity/metric scope
+        '503':
+          description: Source closed/failed, metadata changed, unsupported type, bad response, dense second or concurrency limit; no points or cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [error]
+                properties:
+                  error:
+                    enum: [SOURCE_UNAVAILABLE, SOURCE_FETCH_FAILED, INVALID_SOURCE_RESPONSE, UNSUPPORTED_HISTORY, METADATA_CHANGED, HISTORY_SECOND_LIMIT, HISTORY_BUSY]
   /api/v1/incidents/{incidentId}:
     get:
       operationId: getIncident

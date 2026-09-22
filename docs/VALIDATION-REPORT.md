@@ -210,6 +210,40 @@ CI java job 增加了 `postgres:17` 服务，并设置 `OPSWEAVE_TEST_JDBC_URL`�
 | Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --offline` | 13 tests，0 failures，0 skipped。环境里已有 `OPSWEAVE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/opsweave_host_sync`，因此 `PostgresHostSyncIT` 与 `PostgresItemSyncIT` 都实际执行 | 不是厂商实例，也不是一次没有 JDBC 的运行 |
 | 结构 | `python3 scripts/check_repo.py` | 47 个结构化文件，3 个只读工具定义 | 未跑 Web |
 
+## 16. 2026-09-22 有界 History 读取（追加）
+
+环境：macOS aarch64；Gradle 使用 Homebrew OpenJDK 21.0.12.1；领域检查 `javac --release 21`；rustc 1.98.1；Node v26.9.0；pnpm 10.34.3；Python 3.14.6。`OPSWEAVE_ZABBIX_URL` 和 `OPSWEAVE_TEST_JDBC_URL` 均未配置。本次修改在本地分支 `codex/bounded-history-read`，未推送或部署。
+
+实现：`GET /api/v1/integrations/zabbix/items/{itemId}/history`；活动绑定、来源/实体/指标授权、完整秒窗口、纳秒游标、十进制字符串、配置换算及 min/max 校验。来源实际 value_type 来自逐批 `item.get`，不用目录 DOUBLE 推断 history=0。响应明确 `persistence=not-persisted`。详见 ADR-016。
+
+| 检查 | 命令 / 方法 | 结果 | 不代表什么 |
+|---|---|---|---|
+| 仓库结构与契约 | `python3 scripts/check_repo.py`；`python3 -m pytest tests/contracts -q` | 50 个结构化文件，3 个只读工具定义；30 项契约测试通过 | 不是厂商实例验收 |
+| Java 纯领域 | `python3 scripts/check_java_domain.py` | 7 + 13 + 11 + 16 + 46 + 15 + 41 = **149 项 smoke 检查通过**；含同秒续读、截断边界、密集秒拒绝、时间范围、uint64 精度、映射 min/max | 不等于已采集落库 |
+| Java 测试与启动包 | `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew :apps:platform-api:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline` | **23 tests，0 failures，0 errors，2 skipped**；两个 bootJar 成功。新增 History 相关 10 tests 均执行 | 两个 PostgreSQL IT 因无 JDBC 配置跳过；本轮未验证数据库连接 |
+| 实际 HTTP 响应契约 | `ZabbixHistoryIT` 写出合成响应到 `apps/platform-api/build/test-results/history-page.json`，Python `Draft202012Validator` + `FormatChecker` 对照 `contracts/schemas/v1/metric-history-page.schema.json` 校验 | 通过；构建目录产物不提交 | 不是手写样例替代实际响应；仍为显式 fixture |
+| JSON-RPC 协议与边界 | 上述 Gradle 中 `ZabbixHistoryReaderIT`、`HistoryAuthorizationTest`、`ZabbixHistoryIT` | 本机 HttpServer 验证 item.get/history.get、0/3 类型、无 offset、纳秒排序、单位换算；非法值/单位范围/对象/次序/超大响应/上游失败拒绝；租户/对象/权限隔离、4 并发预算与无身份覆盖通过 | 不是厂商 Zabbix，也不证明真实数据完整性 |
+| Rust 默认 | `cargo test --workspace --locked` | **25 passed，0 failed** | fixture/Mock，无真实模型调用 |
+| Rust 全 feature | `cargo test --workspace --all-features --locked` | **25 passed，0 failed**；Rig/MCP 适配已编译 | 无真实模型/MCP 服务调用 |
+| Rust 格式与静态检查 | `cargo fmt --all -- --check`；`cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | 通过；Clippy 曾等待另一项目的 Cargo 缓存锁，随后正常完成 | 不是安全审计 |
+| TypeScript / Web | `pnpm typecheck:web`；`pnpm build:web`；`pnpm test:web` | 类型检查、Vite 构建通过；**8 Playwright passed** | 页面未增加指标曲线；浏览器请求仍被测试拦截 |
+| 发布文件门禁 | `python3 scripts/check_release_inputs.py`；`git diff --check` | 通过 | 不是生产发布验收 |
+
+最终运行输出摘录（测试总数从 Gradle XML 汇总，包含跳过项）：
+
+```text
+HistoryPageSmoke: 13 checks passed
+MetricPointSmoke: 16 checks passed
+BUILD SUCCESSFUL in 1m 46s
+{'tests': 23, 'failures': 0, 'errors': 0, 'skipped': 2}
+Actual HTTP fixture response conforms to metric-history-page v1
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+8 passed (22.2s)
+```
+
+当前基线进度另外实查：`gh run list --limit 5 --json databaseId,workflowName,headSha,status,conclusion,url` 与 `gh run view 35680270637 --json jobs,headSha,conclusion`。提交 `f0bcc32e7e81c2a72cb41bd98f19a285ba9f1e2f` 的 [GitHub Actions](https://github.com/baicie/ops-weave/actions/runs/35680270637) 中 contracts/web/rust/java/deploy 五个 job 均 success。**这是上一提交的 CI/部署记录，不是本次 History 修改的 CI 结果；未独立检查远端服务运行态。**
+
+尚未验证/实现：厂商 `history.get`、VictoriaMetrics 写入/查询、毫秒精度冲突策略、持久采集 checkpoint、迟到点重叠/幂等、Worker 定时采集、生产 OIDC。History 游标不代表持久写入完成；空结果/扫描完成不代表以后不会有迟到数据。
 
 
 

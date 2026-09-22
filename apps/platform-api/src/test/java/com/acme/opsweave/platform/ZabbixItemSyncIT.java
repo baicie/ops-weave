@@ -41,6 +41,7 @@ class ZabbixItemSyncIT {
     void fixtureItemSyncPublishesCpuUserDefinition() throws Exception {
         assertEquals(401, call("GET", "/api/v1/metrics/definitions", null).statusCode());
         assertEquals(400, call("GET", "/api/v1/metrics/definitions?tenantId=attacker", TOKEN).statusCode());
+        assertEquals(403, call("GET", "/api/v1/integrations/zabbix/items/20001/history?from=10&till=20", TOKEN).statusCode());
 
         HttpResponse<String> synced = call("POST", "/api/v1/integrations/zabbix/items/sync", TOKEN);
         assertEquals(200, synced.statusCode(), synced.body());

@@ -13,4 +13,6 @@ gradle :apps:platform-api:bootRun
 
 `POST /api/v1/integrations/zabbix/hosts/sync` 按页拉取，直到快照完整才把未见 Host 标为 `INACTIVE`。中途失败返回 503，不回退 fixture，也不对账删除。
 
-默认 `OPSWEAVE_INVENTORY_STORE=postgres`，需要 `OPSWEAVE_JDBC_URL` 与用户名。`memory` 只用于显式测试。OIDC、Item/Metric/Incident、对象存储均未实现。健康检查不等于业务可用。
+默认 `OPSWEAVE_INVENTORY_STORE=postgres`，需要 `OPSWEAVE_JDBC_URL` 与用户名。`memory` 只用于显式测试。Item 同步、指标目录/绑定与 History 只读接口已提供；OIDC、Incident、时序库写入与对象存储尚未实现。健康检查不等于业务可用。
+
+`GET /api/v1/integrations/zabbix/items/{itemId}/history?from=...&till=...&limit=100` 读取已同步的活动绑定，要求 `source.sync`、`metric.read`、`entity.read` 和对象范围。窗口最多 3600 个完整秒，续页同时传 `afterClock` / `afterNs`。结果携带 `dataMode` 和 `persistence=not-persisted`，不是已落库指标。详见 [运行说明](../../docs/runbooks/development.md) 与 [契约](../../contracts/openapi/platform-draft.yaml)。

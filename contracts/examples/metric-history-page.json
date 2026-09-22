@@ -1,0 +1,19 @@
+{
+  "dataMode": "labeled-fixture",
+  "persistence": "not-persisted",
+  "tenantId": "tenant-demo",
+  "sourceInstanceId": "zabbix-1",
+  "externalItemId": "20001",
+  "entityId": "00000000-0000-4000-8000-000000000001",
+  "metricKey": "host.cpu.usage.user",
+  "unit": "1",
+  "dimensions": {"mode": "user"},
+  "mappingRevision": 1,
+  "definitionVersion": 1,
+  "bindingVersion": 1,
+  "from": 1789992000,
+  "till": 1789992010,
+  "points": [{"clock": 1789992000, "ns": 100, "value": "0.25"}],
+  "nextCursor": {"clock": 1789992000, "ns": 100},
+  "windowComplete": false
+}

@@ -6,17 +6,22 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Transport {
+    public static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
@@ -32,7 +37,7 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
             .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
             .build();
         try {
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = http.send(request, ignored -> new BoundedBodySubscriber());
             if (response.statusCode() / 100 != 2) {
                 throw new IllegalStateException("Zabbix HTTP status " + response.statusCode());
             }
@@ -48,19 +53,51 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
     @Override
     public List<Map<String, Object>> readHostArray(String responseJson) {
         JsonNode root = mapper.readTree(responseJson);
+        if (root == null || !root.isObject() || !"2.0".equals(root.path("jsonrpc").asText())
+            || !root.path("id").isIntegralNumber() || root.path("id").asLong() != 1) {
+            throw new IllegalStateException("Invalid Zabbix JSON-RPC envelope");
+        }
         JsonNode error = root.get("error");
         if (error != null && !error.isNull()) {
             throw new IllegalStateException("Zabbix JSON-RPC error");
         }
         JsonNode result = root.get("result");
         if (result == null || !result.isArray()) {
-            throw new IllegalStateException("Zabbix host.get did not return an array");
+            throw new IllegalStateException("Zabbix JSON-RPC did not return an array");
         }
         List<Map<String, Object>> hosts = new ArrayList<>();
         for (JsonNode node : result) {
+            if (!node.isObject()) throw new IllegalStateException("Invalid Zabbix result row");
             hosts.add(toMap(node));
         }
         return List.copyOf(hosts);
+    }
+
+    /** Cancel during receipt, before an untrusted body can grow without bound. */
+    private static final class BoundedBodySubscriber implements HttpResponse.BodySubscriber<String> {
+        private final HttpResponse.BodySubscriber<String> delegate = HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8);
+        private Flow.Subscription subscription;
+        private long received;
+        private boolean failed;
+
+        @Override public CompletionStage<String> getBody() { return delegate.getBody(); }
+        @Override public void onSubscribe(Flow.Subscription subscription) {
+            this.subscription = subscription;
+            delegate.onSubscribe(subscription);
+        }
+        @Override public void onNext(List<ByteBuffer> buffers) {
+            if (failed) return;
+            for (ByteBuffer buffer : buffers) received += buffer.remaining();
+            if (received > MAX_RESPONSE_BYTES) {
+                failed = true;
+                subscription.cancel();
+                delegate.onError(new IOException("Zabbix response exceeds byte budget"));
+                return;
+            }
+            delegate.onNext(buffers);
+        }
+        @Override public void onError(Throwable error) { if (!failed) delegate.onError(error); }
+        @Override public void onComplete() { if (!failed) delegate.onComplete(); }
     }
 
     private Map<String, Object> toMap(JsonNode node) {

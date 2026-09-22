@@ -55,6 +55,7 @@ apps/platform-api/src/main/java/com/acme/opsweave/platform/identity/ServletPrinc
 apps/platform-api/src/main/java/com/acme/opsweave/platform/identity/TrustedPrincipalFilter.java
 apps/platform-api/src/main/java/com/acme/opsweave/platform/integration/EnvSecretSource.java
 apps/platform-api/src/main/java/com/acme/opsweave/platform/integration/JacksonZabbixTransport.java
+apps/platform-api/src/main/java/com/acme/opsweave/platform/integration/ZabbixHistoryController.java
 apps/platform-api/src/main/java/com/acme/opsweave/platform/integration/ZabbixHostSyncController.java
 apps/platform-api/src/main/java/com/acme/opsweave/platform/integration/ZabbixItemSyncController.java
 apps/platform-api/src/main/java/com/acme/opsweave/platform/inventory/EntityController.java
@@ -70,7 +71,10 @@ apps/platform-api/src/test/java/com/acme/opsweave/platform/EntityReadDeniedIT.ja
 apps/platform-api/src/test/java/com/acme/opsweave/platform/IdentityAndZabbixHostIT.java
 apps/platform-api/src/test/java/com/acme/opsweave/platform/OidcAdapterPlaceholderTest.java
 apps/platform-api/src/test/java/com/acme/opsweave/platform/SourceSyncDeniedIT.java
+apps/platform-api/src/test/java/com/acme/opsweave/platform/ZabbixHistoryIT.java
 apps/platform-api/src/test/java/com/acme/opsweave/platform/ZabbixItemSyncIT.java
+apps/platform-api/src/test/java/com/acme/opsweave/platform/integration/HistoryAuthorizationTest.java
+apps/platform-api/src/test/java/com/acme/opsweave/platform/integration/ZabbixHistoryReaderIT.java
 apps/platform-api/src/test/java/com/acme/opsweave/platform/integration/ZabbixJsonRpcConnectorIT.java
 apps/platform-api/src/test/java/com/acme/opsweave/platform/persistence/PostgresHostSyncIT.java
 apps/platform-api/src/test/java/com/acme/opsweave/platform/persistence/PostgresItemSyncIT.java
@@ -116,6 +120,7 @@ contracts/examples/event-envelope.json
 contracts/examples/evidence.json
 contracts/examples/incident.json
 contracts/examples/insight-draft.json
+contracts/examples/metric-history-page.json
 contracts/examples/pipeline-definition.json
 contracts/examples/v2/context-pack.json
 contracts/examples/v2/evidence.json
@@ -128,6 +133,7 @@ contracts/schemas/v1/event-envelope.schema.json
 contracts/schemas/v1/evidence.schema.json
 contracts/schemas/v1/incident.schema.json
 contracts/schemas/v1/insight-draft.schema.json
+contracts/schemas/v1/metric-history-page.schema.json
 contracts/schemas/v1/pipeline-definition.schema.json
 contracts/schemas/v2/context-pack.schema.json
 contracts/schemas/v2/evidence.schema.json
@@ -170,6 +176,7 @@ docs/adr/012-zeus-web-console.md
 docs/adr/013-trusted-identity.md
 docs/adr/014-postgres-host-sync.md
 docs/adr/015-metric-definition.md
+docs/adr/016-bounded-history-read.md
 docs/architecture/repository-guide.md
 docs/architecture/v4-design.md
 docs/runbooks/development.md
@@ -255,11 +262,17 @@ modules/integration/README.md
 modules/integration/build.gradle.kts
 modules/integration/src/main/java/com/acme/opsweave/integration/api/Connector.java
 modules/integration/src/main/java/com/acme/opsweave/integration/api/SyncRunStore.java
+modules/integration/src/main/java/com/acme/opsweave/integration/api/ZabbixHistoryPort.java
 modules/integration/src/main/java/com/acme/opsweave/integration/api/package-info.java
 modules/integration/src/main/java/com/acme/opsweave/integration/application/IngestZabbixHostsUseCase.java
 modules/integration/src/main/java/com/acme/opsweave/integration/application/IngestZabbixItemsUseCase.java
+modules/integration/src/main/java/com/acme/opsweave/integration/application/ReadZabbixHistoryUseCase.java
 modules/integration/src/main/java/com/acme/opsweave/integration/application/package-info.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/ErrorPolicy.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/HistoryCursor.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/HistoryPage.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/HistoryReadException.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/HistoryWindow.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappedMetric.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappingDefinition.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/MappingDocumentParser.java
@@ -277,11 +290,13 @@ modules/integration/src/main/java/com/acme/opsweave/integration/domain/ZabbixIte
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/package-info.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ClasspathMappingCatalog.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ClosedZabbixConnector.java
+modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/FixtureZabbixHistoryReader.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/FixtureZabbixHostConnector.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/FixtureZabbixItemConnector.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/InMemoryRawRecordStore.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/InMemorySyncRunStore.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ZabbixJsonRpcConnector.java
+modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ZabbixJsonRpcHistoryReader.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/ZabbixJsonRpcItemConnector.java
 modules/integration/src/main/java/com/acme/opsweave/integration/infrastructure/package-info.java
 modules/inventory/README.md
@@ -316,6 +331,7 @@ modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricBinding
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricDefinition.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricLifecycle.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricOrigin.java
+modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricPoint.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricType.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/MetricValueType.java
 modules/telemetry/src/main/java/com/acme/opsweave/telemetry/domain/package-info.java
@@ -338,9 +354,12 @@ scripts/init_env.py
 settings.gradle.kts
 tests/architecture/README.md
 tests/contracts/test_examples.py
+tests/contracts/test_history.py
 tests/contracts/test_v4.py
 tests/domain/DomainSmoke.java
+tests/domain/HistoryPageSmoke.java
 tests/domain/IdentityAuthorizationSmoke.java
+tests/domain/MetricPointSmoke.java
 tests/domain/ZabbixHostMappingSmoke.java
 tests/domain/ZabbixHostPageContractSmoke.java
 tests/domain/ZabbixItemMappingSmoke.java
