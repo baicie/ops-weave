@@ -245,6 +245,40 @@ test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
 尚未验证/实现：厂商 `history.get`、VictoriaMetrics 写入/查询、毫秒精度冲突策略、持久采集 checkpoint、迟到点重叠/幂等、Worker 定时采集、生产 OIDC。History 游标不代表持久写入完成；空结果/扫描完成不代表以后不会有迟到数据。
 
+## 17. 2026-09-22 Worker → VictoriaMetrics → checkpoint（追加）
+
+先将第 16 节提交 `3651112` 推送到 `origin/codex/bounded-history-read`。[该提交的 CI](https://github.com/baicie/ops-weave/actions/runs/35693183287) 实查 conclusion=success。随后在同一分支实现默认关闭的单流采集、批写前/后回读、毫秒冲突与 float64 精度校验、PostgreSQL 事务锁及 checkpoint。
+
+环境：macOS aarch64；Homebrew OpenJDK 21.0.12.1；PostgreSQL 17.10（本机系统角色，新建隔离测试库 `opsweave_history_test`）；VictoriaMetrics v1.152.0 官方 darwin-arm64 二进制，监听 `127.0.0.1:18428`，1ms 去重、非流式 Influx。Docker daemon 不可用，实际存储联调用的是原生二进制。VM 压缩包和二进制分别对照官方 checksums 校验，SHA-256 为 `2867ec3ce6f190be6c391a77d116a0bcde6a06a304799b3d248dbf97bac1f5fd`、`e82c9346d97420c2dd5d331052495531ed574c1689086595e0cf29b2ae349710`。临时二进制/数据位于 gitignore 的 `.tmp`，不提交。
+
+| 检查 | 命令 / 方法 | 最终结果 | 不代表什么 |
+|---|---|---|---|
+| 仓库/契约 | `python3 scripts/check_repo.py`；`python3 -m pytest tests/contracts -q` | 50 个结构化文件、3 个只读 Tool；30 项契约测试通过。结构检查排除 `.tmp` 运行时缓存 | 未增加任何 Agent 写入 Tool |
+| 纯领域 | `python3 scripts/check_java_domain.py` | **179 项 smoke 检查通过**。含重叠窗口、先写后推进、失败保留游标、目标变更拒绝、同毫秒冲突、数值精度与未声明适配身份拒绝 | 不代表生产吞吐 |
+| Java 全套与启动包 | 配置 `OPSWEAVE_TEST_JDBC_URL/USER`、`OPSWEAVE_TEST_VM_URL`，`JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline` | **Platform 23 + Worker 12 = 35 tests，0 failures，0 errors，0 skipped**；两个 bootJar 通过 | 来源是 fixture/协议桩，未连接厂商 Zabbix |
+| PostgreSQL | 上述测试的 Host/Item IT 与 `PostgresHistoryCheckpointIT` | 实际连本机测试库；checkpoint 回滚、重建 Store 后恢复、tenant/source/item/stream 键隔离、并发锁通过 | 不是租约/fencing 或 HA 验收 |
+| VictoriaMetrics | `VictoriaHistoryIngestionIT` 实连 v1.152.0 | 迟到点补入、重复轮询、确认后中断/重放、已有值冲突、保留期外点不可视作已确认写入通过 | 查询可见不是跨库事务或断电持久化证明 |
+| 实际 Java 进程链 | 设置上述测试存储变量与 `JAVA_HOME`，`python3 scripts/check_history_stack.py` | **PASS**：临时 Token、真实 platform-api、定时 ingestion-worker、真实 VM 与 PG；fixture 的 `1789992001` / `0.40` 点可查询且 checkpoint 提交。检查后关闭两个 Java 进程 | Python 仅开发检查，不是执行后端；仍是合成来源 |
+| Rust 默认/全 feature | `cargo test --workspace --locked`；`cargo test --workspace --all-features --locked` | **25 + 25 passed** | 未调用真实模型/MCP |
+| Rust 格式/Clippy | `cargo fmt --all -- --check`；`cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | 通过 | 不是安全审计 |
+| Web | `pnpm typecheck:web`；`pnpm build:web`；`pnpm test:web` | 类型/构建通过；**8 Playwright passed** | 本轮未增加指标页面 |
+| 依赖与交付配置 | `./gradlew :apps:ingestion-worker:dependencies --write-locks --offline`；`docker manifest inspect victoriametrics/victoria-metrics:v1.152.0`；`docker compose ... --profile metrics config --quiet`；`python3 scripts/check_release_inputs.py`；`git diff --check` | Worker JDBC 锁由 Gradle 生成；镜像 manifest 可取得、Compose 配置及文件门禁通过 | 未运行本机 Docker Compose、未固定生产镜像 digest |
+
+回归过程曾因真实 VM 新序列可见延迟超出初始确认预算而失败，checkpoint 未提交。独立探测观察到完整标签查询约 10 秒才可见，因此最终采用最多 11 次、间隔 2 秒的回读预算；未确认仍返回失败。表中 Java 总数来自最后一次完整成功运行的 XML，不使用早先失败运行作通过证据。
+
+最终输出摘录：
+
+```text
+HistoryIngestionPolicySmoke: 14 checks passed
+HistoryIngestionSmoke: 16 checks passed
+BUILD SUCCESSFUL in 27s
+platform-api {'tests': 23, 'failures': 0, 'errors': 0, 'skipped': 0}
+ingestion-worker {'tests': 12, 'failures': 0, 'errors': 0, 'skipped': 0}
+Java platform -> scheduled Java worker -> real VictoriaMetrics + PostgreSQL: PASS (labeled fixture source)
+8 passed (8.8s)
+```
+
+CI java job 已加入 Worker tests 和独立 VictoriaMetrics 容器；本节本地结果不替代随后推送的 CI 状态。远端部署配置仍默认关闭采集。本次不声明厂商接入、生产鉴权、自动回补所有迟到点、分布式采集或物理 exactly-once。下一步是有资源授权与点数限制的时序查询 API、指标页与真实来源验收。
 
 
 

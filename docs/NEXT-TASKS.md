@@ -23,7 +23,7 @@
 | 顺序 | ID | 工作 |
 |---|---|---|
 | 1 | 真实 `host.get` | 对可达 Zabbix 跑完整分页；失败仍不得回退 fixture，也不得对账 |
-| 2 | History → VictoriaMetrics | 已有 clock/ns 有界读取接口与数值换算；下一步是 Worker 批写、毫秒精度/同毫秒冲突策略、迟到点重叠去重、成功写入后推进持久 checkpoint。采样点不进 PostgreSQL |
+| 2 | 指标查询与页面 | Worker 批写/回读确认、毫秒冲突检查、迟到点重叠去重与持久 checkpoint 已落地；下一步是受控时序查询 API 和指标曲线/缺失状态 |
 | 3 | OW-R11 | PipelineVersion、Preview、Replay。仍无画布、无 Copilot |
 
 Host 同步把来源 presence 和映射成功分开。完成态标记为 `offset-scan-attempt`。失败响应带回已扫描页数。`extensions/mappings/zabbix-cpu-user.yaml` 把 `system.cpu.util[,user]` 映射为 `host.cpu.usage.user`；两台主机共用一条目录记录。本机没有配置 Zabbix URL，厂商全量还没跑。OIDC、组织树、ABAC 继续不做。
@@ -31,6 +31,8 @@ Host 同步把来源 presence 和映射成功分开。完成态标记为 `offset
 OW-R12 Integration Copilot **暂缓**。
 
 2026-09-22 增量：History 读取已通过本地协议桩、HTTP、权限/资源范围与分页负例测试。接口明确未持久化，同秒达到探测上限即失败，不跳过采样点。详见 [ADR-016](adr/016-bounded-history-read.md) 和验证报告第 16 节。当前仍无厂商 Zabbix URL。
+
+后续增量已提供单流 Worker 与真实存储适配，默认关闭、固定开发租户和 loopback。见 [ADR-017](adr/017-history-ingestion-checkpoint.md)。前述只读接口仍不自动持久化，只有显式启用 Worker 才进行采集。
 
 ## 已完成的 Bootstrap
 

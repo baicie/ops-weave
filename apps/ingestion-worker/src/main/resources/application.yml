@@ -13,3 +13,23 @@ management:
       probes:
         enabled: true
       show-details: never
+opsweave:
+  history:
+    enabled: ${OPSWEAVE_HISTORY_ENABLED:false}
+    platform-url: ${OPSWEAVE_HISTORY_PLATFORM_URL:http://127.0.0.1:8080}
+    platform-token: ${OPSWEAVE_HISTORY_PLATFORM_TOKEN:}
+    expected-data-mode: ${OPSWEAVE_HISTORY_DATA_MODE:closed}
+    tenant: tenant-demo
+    source-instance-id: ${OPSWEAVE_HISTORY_SOURCE:zabbix-1}
+    item-id: ${OPSWEAVE_HISTORY_ITEM_ID:}
+    stream-name: ${OPSWEAVE_HISTORY_STREAM:history-v1}
+    initial-from: ${OPSWEAVE_HISTORY_INITIAL_FROM:-1}
+    step-seconds: ${OPSWEAVE_HISTORY_STEP_SECONDS:60}
+    overlap-seconds: ${OPSWEAVE_HISTORY_OVERLAP_SECONDS:120}
+    delay-seconds: ${OPSWEAVE_HISTORY_DELAY_SECONDS:10}
+    max-pages: ${OPSWEAVE_HISTORY_MAX_PAGES:4}
+    poll-millis: ${OPSWEAVE_HISTORY_POLL_MILLIS:30000}
+    victoria-url: ${OPSWEAVE_HISTORY_VICTORIA_URL:http://127.0.0.1:8428}
+    jdbc-url: ${OPSWEAVE_HISTORY_JDBC_URL:}
+    jdbc-user: ${OPSWEAVE_HISTORY_JDBC_USER:}
+    jdbc-password: ${OPSWEAVE_HISTORY_JDBC_PASSWORD:}

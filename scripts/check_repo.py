@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 errors: list[str] = []
 count = 0
 for path in ROOT.rglob("*"):
-    if not path.is_file() or any(x in path.parts for x in ("node_modules", ".git", ".venv", "build", "target", "__pycache__", ".pytest_cache")):
+    if not path.is_file() or any(x in path.parts for x in ("node_modules", ".git", ".venv", "build", "target", "__pycache__", ".pytest_cache", ".tmp")):
         continue
     try:
         if path.suffix == ".json":

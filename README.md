@@ -20,8 +20,8 @@
 
 | 目录 | 语言 | 当前内容 |
 |---|---|---|
-| `apps/platform-api` | Java 21 / Spring Boot | 健康检查；Dev Principal 保护的 Entity 查询与 Zabbix Host 同步；默认 closed，无生产 OIDC |
-| `apps/ingestion-worker` | Java 21 / Spring Boot | 启动骨架；真实 Connector 待实现 |
+| `apps/platform-api` | Java 21 / Spring Boot | Dev Principal 保护的 Entity/Host、Item 目录/绑定与有界 History 读取；默认 closed，无生产 OIDC |
+| `apps/ingestion-worker` | Java 21 / Spring Boot | 默认关闭的本机 History 采集流；VictoriaMetrics 批写/回读、PostgreSQL checkpoint、重叠去重 |
 | `apps/agent-runtime` | Rust / Tokio / Axum | 只读固定流程、动态 Skill 包、合成证据、Mock、可选 Rig 适配源码 |
 | `apps/web-console` | Zeus / TypeScript / Vite | 诊断表单、开发代理、证据与缺失数据展示、其他模块占位 |
 

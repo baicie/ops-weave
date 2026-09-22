@@ -1,5 +1,18 @@
 name: opsweave-dev
 services:
+  victoriametrics:
+    profiles: [metrics]
+    image: victoriametrics/victoria-metrics:v1.152.0
+    command:
+      - -storageDataPath=/storage
+      - -dedup.minScrapeInterval=1ms
+      - -influx.forceStreamMode=false
+      - -retentionPeriod=1y
+      - -memory.allowedBytes=128MB
+    ports:
+      - "127.0.0.1:8428:8428"
+    volumes:
+      - vmdata:/storage
   postgres:
     image: postgres:17
     environment:
@@ -54,5 +67,6 @@ services:
       - "127.0.0.1:8088:80"
 volumes:
   pgdata:
+  vmdata:
 # Development composition only. platform-api uses PostgreSQL when the apps profile is started.
 # Production must pin image digests and add separate identities, policies, resource limits and backups.

@@ -18,6 +18,7 @@
 | Zeus UI | 0.1.0-beta.4 | 样式来自 `@zeus-web/ui` CSS；注册用 `@zeus-web/button` / `@zeus-web/input` 的 `wc/auto` |
 | Vite | ^8.0.0 | Node22.12+；包管理 pnpm 10.34.3 |
 | PG | 17开发镜像 | 生产固定patch/digest，独立应用账号 |
+| VictoriaMetrics | v1.152.0 单节点 | 可选 metrics Compose profile 与 CI；本机验证官方 darwin-arm64 二进制及 SHA-256，未固定生产镜像 digest |
 
 Rig0.42 root facade重导出core和agent；不要误用旧教程`rig-core`重命名后期望获得全部runtime接口。当前适配器只依赖ModelPort；领域层不泄漏Rig类型。`default_max_turns(1)`按固定版本API文档表示总模型调用预算，包含首次调用。模型用量/费用计费仍须补充集成测试。
 

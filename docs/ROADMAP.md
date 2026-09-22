@@ -464,10 +464,10 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | OW-R07 | `feat(integration): synchronize Zabbix hosts via published pipeline` | ops-weave | P0，进行中 | R11/R06 | fixture 与 JSON-RPC 客户端已通；尚未对厂商 Zabbix 发 `host.get` |
 | OW-R08 | `feat(web): deliver authorized inventory list and detail` | ops-weave | 部分完成 | R05/R06 | 资产页已有开发身份下的列表/同步/失败保留数据；服务端筛选分页、完整详情与生产会话仍缺 |
 | OW-R09 | `feat(integration): add CMDB mapping and cross-source reconciliation` | ops-weave | P1 | R07、CMDB 契约 | 二来源匹配/冲突/权威字段、成功快照对账、重放无副作用 |
-| OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | 进行中 | R06/R07 | 指标目录/绑定与 History 有界只读接口已有；时序库、告警幂等/恢复、Incident API与页面仍缺 |
+| OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | 进行中 | R06/R07 | 指标目录/绑定、History、VM 批写与 checkpoint 已有本机切片；查询/指标页、告警幂等/恢复、Incident 仍缺 |
 | OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-当前启动顺序：不要加深 IAM。指标目录和来源绑定已分开，映射从 `extensions/mappings` 加载。History 增量读取已提供，下一步在 ingestion-worker 实现 VictoriaMetrics 批写、持久 checkpoint、迟到点/重复点与时间精度策略。不要先做 R12，也不要再迁前端框架。
+当前启动顺序：不要加深 IAM。指标目录、History 读取、单流 Worker 的 VictoriaMetrics 批写/回读确认与持久 checkpoint 已提供；当前采集仅为显式启用的本机开发切片。下一步是受控时序查询与指标页，再补真实来源验收和 PipelineVersion。不要先做 R12，也不要再迁前端框架。
 
 ### Issue 描述模板
 
@@ -523,7 +523,7 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定，History 已有只读增量接口。下一步是 VictoriaMetrics 和成功写入后的持久游标，不把采样点写入 PostgreSQL。不要先做 Integration Copilot。
+M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定，History 可由默认关闭的 Worker 批写 VictoriaMetrics、回读确认后提交游标。下一步是指标查询 API 和页面，采样点不进 PostgreSQL。不要先做 Integration Copilot。
 
 ---
 

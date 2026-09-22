@@ -42,7 +42,20 @@ jobs:
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '21'}
       - run: test -f gradlew || (echo 'Generate and commit the Gradle wrapper first'; exit 1)
-      - run: chmod +x gradlew && ./gradlew :apps:platform-api:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar
+      - name: Start isolated VictoriaMetrics for ingestion tests
+        run: |
+          docker run --detach --rm --name opsweave-test-vm -p 127.0.0.1:8428:8428 \
+            victoriametrics/victoria-metrics:v1.152.0 \
+            -dedup.minScrapeInterval=1ms -influx.forceStreamMode=false -retentionPeriod=1y
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:8428/health; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: chmod +x gradlew && ./gradlew :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar
+      - name: Stop test storage
+        if: always()
+        run: docker rm --force opsweave-test-vm || true
     services:
       postgres:
         image: postgres:17
@@ -61,6 +74,7 @@ jobs:
       OPSWEAVE_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/opsweave
       OPSWEAVE_TEST_JDBC_USER: opsweave_dev
       OPSWEAVE_TEST_JDBC_PASSWORD: ci-only-not-a-secret
+      OPSWEAVE_TEST_VM_URL: http://127.0.0.1:8428
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [contracts, rust, web, java]
