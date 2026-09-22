@@ -10,7 +10,9 @@ import java.util.Objects;
 
 /**
  * Zabbix JSON-RPC host.get client. Transport is injected so this module stays free of HTTP JSON libraries.
- * Failures propagate; callers must not treat an error as a complete empty inventory.
+ * Pages use limit/offset sorted by hostid, because an unsorted offset is not a stable cursor.
+ * The cursor advances by the API result size. A shorter page, including an empty page, is a complete snapshot.
+ * Transport failures propagate and are not a complete snapshot.
  */
 public final class ZabbixJsonRpcConnector implements Connector {
     private final URI endpoint;
@@ -43,7 +45,7 @@ public final class ZabbixJsonRpcConnector implements Connector {
     @Override
     public Page fetch(SourceContext source, String cursor, int limit) {
         String token = secrets.resolve(source.secretRef());
-        int bounded = Math.min(Math.max(limit, 1), 100);
+        int bounded = Math.min(Math.max(limit, 1), 500);
         int offset = 0;
         if (cursor != null && !cursor.isBlank()) {
             offset = Integer.parseInt(cursor);
@@ -51,6 +53,8 @@ public final class ZabbixJsonRpcConnector implements Connector {
         String body = "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{"
             + "\"output\":[\"hostid\",\"host\",\"name\",\"status\"],"
             + "\"selectInterfaces\":[\"ip\",\"main\",\"type\"],"
+            + "\"sortfield\":\"hostid\","
+            + "\"sortorder\":\"ASC\","
             + "\"limit\":" + bounded + ","
             + "\"offset\":" + offset
             + "},\"id\":1}";
@@ -66,7 +70,7 @@ public final class ZabbixJsonRpcConnector implements Connector {
             records.add(new RawRecord(String.valueOf(hostId), observedAt, host));
         }
         boolean complete = hosts.size() < bounded;
-        String next = complete ? null : Integer.toString(offset + records.size());
+        String next = complete ? null : Integer.toString(offset + hosts.size());
         return new Page(List.copyOf(records), next, complete);
     }
 

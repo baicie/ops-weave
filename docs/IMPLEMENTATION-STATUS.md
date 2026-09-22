@@ -19,7 +19,7 @@
 
 交付包阶段：Python契约/样例测试、纯Java领域编译与smoke、结构/架构静态检查。
 
-2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。未联调厂商 Zabbix，未接 Keycloak。详见第 12 节。
+2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。未联调厂商 Zabbix，未接 Keycloak。
 
 ## 写了测试但交付包当时未执行
 

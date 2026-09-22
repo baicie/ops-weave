@@ -85,7 +85,17 @@ async function request(path: string, method: 'GET' | 'POST', token: string, sign
     signal,
   })
   if (!response.ok) {
-    throw new Error(`资产请求失败（HTTP ${response.status}）。失败不会清空已显示的资产。`)
+    let failureCode = ''
+    try {
+      const body: unknown = await response.json()
+      if (isRecord(body) && typeof body.failureCode === 'string') {
+        failureCode = body.failureCode
+      }
+    } catch {
+      failureCode = ''
+    }
+    const code = failureCode === '' ? '' : ` ${failureCode}`
+    throw new Error(`资产请求失败（HTTP ${response.status}${code}）。失败不会清空已显示的资产。`)
   }
   return response.json()
 }

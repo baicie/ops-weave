@@ -11,6 +11,8 @@ import com.acme.opsweave.integration.domain.ZabbixHostMapper;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
 import com.acme.opsweave.integration.infrastructure.InMemoryRawRecordStore;
 import com.acme.opsweave.integration.infrastructure.InMemorySyncRunStore;
+import com.acme.opsweave.inventory.api.InventoryWritePort;
+import com.acme.opsweave.inventory.domain.Entity;
 import com.acme.opsweave.inventory.domain.EntityIds;
 import com.acme.opsweave.inventory.domain.ExternalLink;
 import com.acme.opsweave.inventory.domain.ExternalObjectKey;
@@ -114,9 +116,77 @@ public final class ZabbixHostMappingSmoke {
         );
         var failed = ingest(new FailingSecondPageConnector(), kept, failedRuns, 1).execute(principal, null);
         require(failed.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.UNAVAILABLE, "mid-scan failure is unavailable");
+        require("SOURCE_FETCH_FAILED".equals(failed.reasonCode()), "fetch failure code");
+        require(failed.syncRunId() != null, "failed scan keeps its sync run");
         require(!failed.snapshotComplete(), "failed scan is not a complete snapshot");
         require("ACTIVE".equals(kept.find(tenant, staleId).orElseThrow().lifecycle()), "failed scan does not retire");
-        System.out.println("Zabbix host mapping smoke: 20 checks passed");
+        require(
+            failedRuns.find(tenant, failed.syncRunId()).orElseThrow().failureReason().startsWith("SOURCE_FETCH_FAILED:"),
+            "stored failure reason is the stable code"
+        );
+
+        var emptyStore = seeded(tenant, staleKey, staleId, "obs-empty", "raw-empty");
+        var emptied = ingest(new StaticPageConnector(true), emptyStore, new InMemorySyncRunStore(), 1).execute(principal, null);
+        require(emptied.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, "empty snapshot completes");
+        require(emptied.retired() == 1, "empty complete snapshot retires previously seen hosts");
+        require("INACTIVE".equals(emptyStore.find(tenant, staleId).orElseThrow().lifecycle()), "empty snapshot host inactive");
+
+        var writeStore = seeded(tenant, staleKey, staleId, "obs-write", "raw-write");
+        var writeFailed = new IngestZabbixHostsUseCase(
+            new AuthorizeUseCase(),
+            new FixtureZabbixHostConnector(),
+            new InventoryWritePort() {
+                @Override
+                public void upsert(
+                    com.acme.opsweave.inventory.domain.Entity entity,
+                    com.acme.opsweave.inventory.domain.Observation observation,
+                    ExternalLink link
+                ) {
+                    throw new IllegalStateException("inventory unavailable");
+                }
+
+                @Override
+                public int retireMissing(TenantId tenantId, String sourceInstanceId, String externalType, java.util.Set<String> seenExternalIds) {
+                    throw new IllegalStateException("retire must not run");
+                }
+            },
+            new InMemoryRawRecordStore(),
+            new InMemorySyncRunStore(),
+            PipelineDefinition.zabbixHostV1(),
+            "labeled-fixture",
+            "memory",
+            "zabbix-1",
+            "env:OPSWEAVE_ZABBIX_TOKEN",
+            1
+        ).execute(principal, null);
+        require("INVENTORY_WRITE_FAILED".equals(writeFailed.reasonCode()), "inventory write failure code");
+        require("ACTIVE".equals(writeStore.find(tenant, staleId).orElseThrow().lifecycle()), "write failure does not retire");
+
+        var stalledStore = seeded(tenant, staleKey, staleId, "obs-stall", "raw-stall");
+        var stalled = ingest(new StaticPageConnector(false), stalledStore, new InMemorySyncRunStore(), 1).execute(principal, null);
+        require("PAGE_NOT_ADVANCED".equals(stalled.reasonCode()), "stalled cursor failure code");
+        require("ACTIVE".equals(stalledStore.find(tenant, staleId).orElseThrow().lifecycle()), "stalled cursor does not retire");
+
+        var rawStore = seeded(tenant, staleKey, staleId, "obs-raw", "raw-raw");
+        var rawRuns = new InMemorySyncRunStore();
+        var rawFailed = new IngestZabbixHostsUseCase(
+            new AuthorizeUseCase(),
+            new FixtureZabbixHostConnector(),
+            rawStore,
+            (tenantId, sourceInstanceId, syncRunId, record) -> {
+                throw new IllegalStateException("raw store unavailable");
+            },
+            rawRuns,
+            PipelineDefinition.zabbixHostV1(),
+            "labeled-fixture",
+            "memory",
+            "zabbix-1",
+            "env:OPSWEAVE_ZABBIX_TOKEN",
+            1
+        ).execute(principal, null);
+        require("RAW_PERSIST_FAILED".equals(rawFailed.reasonCode()), "raw persist failure code");
+        require("ACTIVE".equals(rawStore.find(tenant, staleId).orElseThrow().lifecycle()), "raw failure does not retire");
+        System.out.println("Zabbix host mapping smoke: 32 checks passed");
     }
 
     private static IngestZabbixHostsUseCase ingest(
@@ -160,6 +230,52 @@ public final class ZabbixHostMappingSmoke {
                 throw new IllegalStateException("page failed");
             }
             return new FixtureZabbixHostConnector().fetch(source, cursor, limit);
+        }
+    }
+
+    private static InMemoryInventoryStore seeded(
+        TenantId tenant,
+        ExternalObjectKey staleKey,
+        com.acme.opsweave.sharedkernel.EntityId staleId,
+        String observationId,
+        String rawRef
+    ) {
+        var store = new InMemoryInventoryStore();
+        store.upsert(
+            new Entity(
+                staleId, tenant, "host", "gone-host", Lifecycle.ACTIVE, 1,
+                Instant.parse("2026-09-20T00:00:00Z"), Map.of("hostId", "999")
+            ),
+            new com.acme.opsweave.inventory.domain.Observation(
+                observationId, staleKey, staleId,
+                Instant.parse("2026-09-20T00:00:00Z"), Instant.parse("2026-09-20T00:00:01Z"),
+                Map.of("hostId", "999"), rawRef, 1
+            ),
+            new ExternalLink(staleId, staleKey)
+        );
+        return store;
+    }
+
+    private static final class StaticPageConnector implements Connector {
+        private final boolean complete;
+
+        private StaticPageConnector(boolean complete) {
+            this.complete = complete;
+        }
+
+        @Override
+        public String type() {
+            return "zabbix";
+        }
+
+        @Override
+        public ProbeResult probe(SourceContext source) {
+            return new ProbeResult(false, "test");
+        }
+
+        @Override
+        public Page fetch(SourceContext source, String cursor, int limit) {
+            return new Page(java.util.List.of(), null, complete);
         }
     }
 

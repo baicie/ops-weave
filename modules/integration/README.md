@@ -2,7 +2,7 @@
 
 Connector SPI、同步任务、游标、映射和受控写入端口。
 
-第一版 `PipelineDefinition` 绑定 Zabbix Host：Source → Parse → Map → Validate → EntityResolve → WriteObservation，并且只允许单链。同步写入 `SyncRun` 与游标；未完成的扫描不会对账。
+第一版 `PipelineDefinition` 绑定 Zabbix Host：Source → Parse → Map → Validate → EntityResolve → WriteObservation，并且只允许单链。同步写入 `SyncRun` 与游标；未完成的扫描不会对账。失败原因是稳定错误码，不把异常原文返回给调用方。
 
 未实现：Item/Trigger/History、Preview/Replay、可视化编辑器、Integration Copilot。
 

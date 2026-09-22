@@ -115,6 +115,7 @@ class PostgresHostSyncIT {
         );
         var broken = failed.execute(principal, null);
         assertEquals(IngestZabbixHostsUseCase.SyncOutcome.Kind.UNAVAILABLE, broken.kind());
+        assertEquals("SOURCE_FETCH_FAILED", broken.reasonCode());
         assertEquals("INACTIVE", wiring.query().find(principal.tenantId(), staleId).orElseThrow().lifecycle());
         var stillThere = wiring.query().list(principal.tenantId()).stream()
             .filter(view -> "10085".equals(view.attributes().get("hostId")))

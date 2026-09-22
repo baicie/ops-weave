@@ -8,6 +8,7 @@ import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.domain.PipelineDefinition;
+import com.acme.opsweave.integration.domain.SyncFailureCode;
 import com.acme.opsweave.integration.domain.SyncRun;
 import com.acme.opsweave.integration.domain.SyncStatus;
 import com.acme.opsweave.integration.domain.ZabbixHostMapper;
@@ -20,8 +21,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class IngestZabbixHostsUseCase {
+    private static final Logger LOG = Logger.getLogger(IngestZabbixHostsUseCase.class.getName());
     private static final int MAX_PAGES = 10_000;
     private final AuthorizationService authorization;
     private final Connector connector;
@@ -97,39 +101,40 @@ public final class IngestZabbixHostsUseCase {
         int rejected = 0;
         Set<String> seen = new LinkedHashSet<>();
         List<String> rejectionReasons = new ArrayList<>();
+        SyncFailureCode failure = SyncFailureCode.SOURCE_FETCH_FAILED;
         try {
             while (pages < MAX_PAGES) {
+                failure = SyncFailureCode.SOURCE_FETCH_FAILED;
                 Connector.Page page = connector.fetch(context, cursor, pageSize);
                 pages++;
                 Instant ingestedAt = Instant.now();
                 for (Connector.RawRecord record : page.records()) {
                     fetched++;
+                    failure = SyncFailureCode.RAW_PERSIST_FAILED;
                     String rawRef = rawRecords.retain(principal.tenantId(), sourceInstanceId, run.id(), record);
+                    failure = SyncFailureCode.MAPPING_FAILED;
                     var reason = mapper.rejectReason(record.payload());
                     if (reason.isPresent()) {
                         rejected++;
                         rejectionReasons.add(reason.get());
                         continue;
                     }
-                    try {
-                        var mapped = mapper.map(
-                            pipeline,
-                            principal.tenantId(),
-                            sourceInstanceId,
-                            record.payload(),
-                            record.observedAt(),
-                            ingestedAt,
-                            rawRef
-                        );
-                        inventory.upsert(mapped.entity(), mapped.observation(), mapped.link());
-                        seen.add(record.externalId());
-                        accepted++;
-                    } catch (RuntimeException failed) {
-                        rejected++;
-                        rejectionReasons.add("mapping failed");
-                    }
+                    var mapped = mapper.map(
+                        pipeline,
+                        principal.tenantId(),
+                        sourceInstanceId,
+                        record.payload(),
+                        record.observedAt(),
+                        ingestedAt,
+                        rawRef
+                    );
+                    failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
+                    inventory.upsert(mapped.entity(), mapped.observation(), mapped.link());
+                    seen.add(record.externalId());
+                    accepted++;
                 }
                 String next = page.nextCursor();
+                failure = SyncFailureCode.CHECKPOINT_FAILED;
                 syncRuns.checkpoint(
                     principal.tenantId(),
                     run.id(),
@@ -140,12 +145,14 @@ public final class IngestZabbixHostsUseCase {
                     rejected
                 );
                 if (page.snapshotComplete()) {
+                    failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
                     int retired = inventory.retireMissing(
                         principal.tenantId(),
                         sourceInstanceId,
                         "host",
                         seen
                     );
+                    failure = SyncFailureCode.CHECKPOINT_FAILED;
                     syncRuns.succeed(principal.tenantId(), run.id());
                     return SyncOutcome.completed(
                         run.id(),
@@ -160,25 +167,28 @@ public final class IngestZabbixHostsUseCase {
                     );
                 }
                 if (next == null || next.equals(cursor)) {
-                    throw new IllegalStateException("Zabbix page did not advance");
+                    failure = SyncFailureCode.PAGE_NOT_ADVANCED;
+                    throw new IllegalStateException(failure.name());
                 }
                 cursor = next;
             }
-            throw new IllegalStateException("Zabbix page limit exceeded");
+            failure = SyncFailureCode.PAGE_LIMIT_EXCEEDED;
+            throw new IllegalStateException(failure.name());
         } catch (RuntimeException failed) {
-            failQuietly(principal.tenantId(), run.id());
-            return SyncOutcome.unavailable("Zabbix fetch failed; inventory was not reconciled");
+            LOG.log(Level.WARNING, "Zabbix host sync failed: " + failure.name(), failed);
+            failQuietly(principal.tenantId(), run.id(), failure);
+            return SyncOutcome.failed(failure, run.id());
         }
     }
 
-    private void failQuietly(TenantId tenantId, UUID id) {
+    private void failQuietly(TenantId tenantId, UUID id, SyncFailureCode failure) {
         try {
             SyncRun current = syncRuns.find(tenantId, id).orElse(null);
             if (current != null && current.status() == SyncStatus.RUNNING) {
-                syncRuns.fail(tenantId, id, "fetch failed");
+                syncRuns.fail(tenantId, id, failure.storedReason());
             }
         } catch (RuntimeException ignored) {
-            // The scan already failed; do not turn a checkpoint error into a reconcile.
+            // The scan already failed; do not turn a status write into a reconcile.
         }
     }
 
@@ -238,6 +248,23 @@ public final class IngestZabbixHostsUseCase {
                 Kind.UNAVAILABLE,
                 reasonCode,
                 null,
+                0,
+                0,
+                0,
+                0,
+                0,
+                false,
+                "unavailable",
+                "none",
+                List.of()
+            );
+        }
+
+        public static SyncOutcome failed(SyncFailureCode failure, UUID syncRunId) {
+            return new SyncOutcome(
+                Kind.UNAVAILABLE,
+                failure.name(),
+                syncRunId,
                 0,
                 0,
                 0,

@@ -179,6 +179,18 @@ web job 含 Node 22.18、`pnpm install --frozen-lockfile`、typecheck、生产�
 
 CI java job 增加了 `postgres:17` 服务，并设置 `OPSWEAVE_TEST_JDBC_URL`。本轮还没有新的 GitHub Actions 结果。
 
+## 13. 2026-09-22 同步错误码与 host.get 游标（追加）
+
+环境：macOS aarch64；Gradle 使用 Homebrew OpenJDK 21.0.12.1。`OPSWEAVE_ZABBIX_URL` 未设置。未对厂商 Zabbix 发请求。
+
+| 检查 | 命令 | 结果 | 不代表什么 |
+|---|---|---|---|
+| Java 领域 smoke | `python3 scripts/check_java_domain.py` | 7 + 11 + 32 + 15。含空快照才 retire、写库失败 / 游标不前进 / Raw 失败不 retire，以及 `host.get` 的 hostid 排序与 offset | 不是厂商 Zabbix，也不是 1000 台 Host |
+| Gradle | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --offline` | 11 tests，0 failures，0 skipped。协议桩要求请求含 `sortfield=hostid` 与 `offset=0`。`PostgresHostSyncIT` 仍连本机 `opsweave_host_sync`，失败码为 `SOURCE_FETCH_FAILED` | 不是厂商实例 |
+| 资产页 | `pnpm --filter @opsweave/web-console test:e2e` | 8 passed。第二次同步 503 显示 `SOURCE_FETCH_FAILED`，已有行仍在 | 请求被 Playwright 拦截 |
+
+
+
 
 
 

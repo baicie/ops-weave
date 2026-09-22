@@ -19,8 +19,14 @@ class ZabbixJsonRpcConnectorIT {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api_jsonrpc.php", exchange -> {
             String auth = exchange.getRequestHeaders().getFirst("Authorization");
+            byte[] request = exchange.getRequestBody().readAllBytes();
+            String requestText = new String(request, StandardCharsets.UTF_8);
             byte[] body;
-            if (!"Bearer stub-token-not-from-a-vendor-zabbix".equals(auth)) {
+            if (!requestText.contains("\"sortfield\":\"hostid\"") || !requestText.contains("\"offset\":0")) {
+                body = "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"bad page\"},\"id\":1}"
+                    .getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(400, body.length);
+            } else if (!"Bearer stub-token-not-from-a-vendor-zabbix".equals(auth)) {
                 body = "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"denied\"},\"id\":1}"
                     .getBytes(StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(401, body.length);

@@ -253,6 +253,7 @@ modules/integration/src/main/java/com/acme/opsweave/integration/domain/NodeType.
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/PipelineDefinition.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/PipelineEdge.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/PipelineNode.java
+modules/integration/src/main/java/com/acme/opsweave/integration/domain/SyncFailureCode.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/SyncRun.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/SyncStatus.java
 modules/integration/src/main/java/com/acme/opsweave/integration/domain/ZabbixHostMapper.java
@@ -311,6 +312,7 @@ tests/contracts/test_v4.py
 tests/domain/DomainSmoke.java
 tests/domain/IdentityAuthorizationSmoke.java
 tests/domain/ZabbixHostMappingSmoke.java
+tests/domain/ZabbixHostPageContractSmoke.java
 tests/fixtures/README.md
 tests/fixtures/zabbix-host-get.json
 tests/scenarios/acceptance.md

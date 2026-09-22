@@ -26,13 +26,13 @@
 | 2 | Zabbix Item | 只接 Item → MetricDefinition。不存 History 点，不接 Trigger/Template |
 | 3 | OW-R11 | PipelineVersion、Preview、Replay。仍无画布、无 Copilot |
 
-资产页已能用开发 Token 显示 Host 字段。OIDC、组织树、ABAC 继续不做。
+资产页已能用开发 Token 显示 Host 字段。同步失败对外是稳定错误码和固定摘要，异常留在服务日志。`host.get` 按 `hostid` 排序做 offset 翻页。本机没有配置 Zabbix URL，厂商全量还没跑。OIDC、组织树、ABAC 继续不做。
 
 OW-R12 Integration Copilot **暂缓**。
 
 ## 已完成的 Bootstrap
 
-锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。分页同步与 PostgreSQL 见第 12 节。
+锁文件、Gradle Wrapper、Rust 1.98.1、pnpm、Zeus 迁移与诊断页 E2E 见 `VALIDATION-REPORT.md` 第 5–10 节。身份与 Host 切片见第 11 节。分页同步与 PostgreSQL 见第 12 节。同步错误码与 `host.get` 游标见第 13 节。
 
 ## 更后（M3 起）
 
