@@ -7,12 +7,14 @@ import com.acme.opsweave.telemetry.domain.MetricSeriesQuery;
 import com.acme.opsweave.telemetry.domain.MetricSeriesResult;
 import com.acme.opsweave.telemetry.domain.MetricSeriesResult.MetricSeries;
 import com.acme.opsweave.telemetry.domain.MetricSeriesResult.Sample;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -56,16 +60,16 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
         HttpResponse<String> response;
         try {
             var request = HttpRequest.newBuilder(origin.resolve(path)).timeout(Duration.ofSeconds(25)).GET().build();
-            response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            response = client.send(request, ignored -> new BoundedBody());
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new MetricQueryException(Code.SOURCE_UNAVAILABLE);
-        } catch (Exception failed) {
+        } catch (IOException failed) {
+            throw new MetricQueryException(tooLarge(failed) ? Code.INVALID_RESPONSE : Code.SOURCE_UNAVAILABLE);
+        } catch (RuntimeException failed) {
             throw new MetricQueryException(Code.SOURCE_UNAVAILABLE);
         }
-        if (response.statusCode() != 200 || response.body().length() > 2 * 1024 * 1024) {
-            throw new MetricQueryException(response.statusCode() == 200 ? Code.INVALID_RESPONSE : Code.SOURCE_UNAVAILABLE);
-        }
+        if (response.statusCode() != 200) throw new MetricQueryException(Code.SOURCE_UNAVAILABLE);
         Map<SeriesKey, List<Sample>> grouped = new LinkedHashMap<>();
         int scanned = 0;
         boolean beyondCap = false;
@@ -87,10 +91,16 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
                 else if (!IDENTITY.contains(key)) throw new MetricQueryException(Code.INVALID_RESPONSE);
             });
             long revision;
-            try { revision = Long.parseLong(labels.get("mapping_revision")); }
+            try { revision = Long.parseLong(requiredLabel(labels, "mapping_revision")); }
+            catch (MetricQueryException invalid) { throw invalid; }
             catch (RuntimeException failed) { throw new MetricQueryException(Code.INVALID_RESPONSE); }
-            var key = new SeriesKey(labels.get("source_instance_id"), labels.get("data_mode"), labels.get("external_item_id"),
-                revision, labels.get("unit"), dimensions);
+            var key = new SeriesKey(
+                requiredLabel(labels, "source_instance_id"),
+                requiredLabel(labels, "data_mode"),
+                requiredLabel(labels, "external_item_id"),
+                revision,
+                requiredLabel(labels, "unit"),
+                dimensions);
             JsonNode times = row.get("timestamps");
             JsonNode values = row.get("values");
             if (times == null || values == null || !times.isArray() || times.size() != values.size()) {
@@ -119,6 +129,20 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
         return MetricSeriesResult.compose(query, series, beyondCap);
     }
 
+    private static String requiredLabel(Map<String, String> labels, String key) {
+        String value = labels.get(key);
+        if (value == null || value.isBlank()) throw new MetricQueryException(Code.INVALID_RESPONSE);
+        return value;
+    }
+
+    private static boolean tooLarge(Throwable failed) {
+        while (failed != null) {
+            if ("HTTP_RESPONSE_TOO_LARGE".equals(failed.getMessage())) return true;
+            failed = failed.getCause();
+        }
+        return false;
+    }
+
     private static Map<String, String> labels(JsonNode row) {
         JsonNode metric = row.get("metric");
         if (metric == null || !metric.isObject()) throw new MetricQueryException(Code.INVALID_RESPONSE);
@@ -132,4 +156,28 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
 
     private record SeriesKey(String sourceInstanceId, String dataMode, String externalItemId, long mappingRevision,
                              String unit, Map<String, String> dimensions) {}
+
+    private static final class BoundedBody implements HttpResponse.BodySubscriber<String> {
+        private final HttpResponse.BodySubscriber<String> delegate = HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8);
+        private Flow.Subscription subscription;
+        private long bytes;
+        private boolean failed;
+
+        @Override public CompletionStage<String> getBody() { return delegate.getBody(); }
+        @Override public void onSubscribe(Flow.Subscription subscription) {
+            this.subscription = subscription;
+            delegate.onSubscribe(subscription);
+        }
+        @Override public void onNext(List<ByteBuffer> buffers) {
+            if (failed) return;
+            for (ByteBuffer buffer : buffers) bytes += buffer.remaining();
+            if (bytes > 2 * 1024 * 1024) {
+                failed = true;
+                subscription.cancel();
+                delegate.onError(new IOException("HTTP_RESPONSE_TOO_LARGE"));
+            } else delegate.onNext(buffers);
+        }
+        @Override public void onError(Throwable failure) { if (!failed) delegate.onError(failure); }
+        @Override public void onComplete() { if (!failed) delegate.onComplete(); }
+    }
 }

@@ -20,6 +20,6 @@
 
 HTTP 成功不代表逐点保留成功（例如数据已超出保留期）；只有全部点可查询且值一致才视为本轮确认。确认可见性不等于跨库事务或断电持久化保证。未知写入结果允许下轮显式重放，VM 按同序列/毫秒去重；不声称物理 exactly-once。
 
-产品查询不接受调用方传入的 PromQL 或 MetricsQL。`VictoriaMetricsQueryAdapter` 只用 `tenant_id`、`entity_id`、`metric_key` 生成 `opsweave_metric_value` 的 `/api/v1/export` 选择器，窗口最多 3600 秒，返回点最多 500。同一指标的不同 `source_instance_id` 保持多条 series。导出为空是 `NO_DATA`；连接失败或非 200 是 `SOURCE_UNAVAILABLE`，不能写成空数组。
+产品查询不接受调用方传入的 PromQL 或 MetricsQL。`VictoriaMetricsQueryAdapter` 只用 `tenant_id`、`entity_id`、`metric_key` 生成 `opsweave_metric_value` 的 `/api/v1/export` 选择器，窗口最多 3600 秒，返回点最多 500。身份标签缺失时拒绝整页，不补默认值。响应体在传输中超过 2MB 即取消。同一指标的不同 `source_instance_id` 保持多条 series。导出为空是 `NO_DATA`；连接失败或非 200 是 `SOURCE_UNAVAILABLE`，不能写成空数组。扫描超过 8000 点时结果为 `PARTIAL`，此时 `fresh` 只描述已返回的点。
 
 来源：[VictoriaMetrics InfluxDB 协议](https://docs.victoriametrics.com/victoriametrics/integrations/influxdb/)、[存储与去重](https://docs.victoriametrics.com/victoriametrics/)、[查询可见延迟](https://docs.victoriametrics.com/victoriametrics/keyconcepts/#query-latency)。OpsWeave 的限制与失败码由本仓库定义。

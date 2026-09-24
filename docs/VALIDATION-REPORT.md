@@ -306,6 +306,19 @@ CI java job 已加入 Worker tests 和独立 VictoriaMetrics 容器；本节本�
 
 尚未提供 `QueryMetricSeriesUseCase`、`GET /api/v1/entities/{entityId}/metrics/{metricKey}/series` 和 Zeus MetricsPage。查询适配器只生成固定 export 选择器，不接受 PromQL/MetricsQL。
 
+## 20. 2026-09-24 指标查询授权、HTTP 与指标页（追加）
+
+VictoriaMetrics 导出缺少 `source_instance_id`、`data_mode`、`external_item_id`、`unit` 或 `mapping_revision` 时返回 `INVALID_RESPONSE`，不再抛出空指针。响应体用有界订阅者在超过 2MB 时取消读取。`QueryMetricSeriesUseCase` 只检查 `entity.read` 和 `metric.read`，再确认实体与指标目录存在。未配置 `OPSWEAVE_VICTORIAMETRICS_URL` 时查询端口是关闭实现。指标页提供资产、指标和 Last 15m/30m/1h；`partial` 时显示数据不完整。曲线绘制放在可替换 SVG 适配器中，没有引入图表库。
+
+| 检查 | 命令 / 方法 | 最终结果 | 不代表什么 |
+|---|---|---|---|
+| 适配器负例 | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --tests com.acme.opsweave.platform.telemetry.VictoriaMetricsQueryContractTest --offline --no-build-cache --rerun-tasks` | 2 tests，0 failures。缺身份标签与超过 2MB 的导出都是 `INVALID_RESPONSE`，大响应在写完前被取消 | 不是厂商 Zabbix，也没有重跑真实 VM 双来源 IT |
+| 纯领域 | `python3 scripts/check_java_domain.py` | 原有 smoke 通过，`QueryMetricSeriesSmoke` 6 项通过：授权、缺实体、缺指标、关闭存储、未来窗口 | 不覆盖 Spring MVC |
+| 契约结构 | `python3 scripts/check_repo.py` | 50 个结构化文件通过 | 不是运行中的 HTTP 调用 |
+| Web 类型 | `pnpm --dir apps/web-console typecheck` | `tsc --noEmit` 通过 | 未跑 Playwright，未在浏览器里对真实平台完成一次查询 |
+
+没有重跑 Worker 的 PostgreSQL / VictoriaMetrics 全量，也没有把指标页接到生产图表库。
+
 
 
 

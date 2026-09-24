@@ -32,7 +32,12 @@ import com.acme.opsweave.platform.integration.JacksonZabbixTransport;
 import com.acme.opsweave.platform.persistence.InventoryWiring;
 import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
+import com.acme.opsweave.telemetry.api.EntityExistence;
+import com.acme.opsweave.telemetry.api.MetricQueryPort;
 import com.acme.opsweave.telemetry.application.ListMetricDefinitionsUseCase;
+import com.acme.opsweave.telemetry.application.QueryMetricSeriesUseCase;
+import com.acme.opsweave.telemetry.infrastructure.ClosedMetricQuery;
+import com.acme.opsweave.platform.telemetry.VictoriaMetricsQueryAdapter;
 import java.net.URI;
 import java.time.Clock;
 import java.util.Arrays;
@@ -45,7 +50,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(OpsweaveProperties.class)
+@EnableConfigurationProperties({OpsweaveProperties.class, MetricsQueryProperties.class})
 public class PlatformConfiguration {
     @Bean
     AuthorizationService authorizationService() {
@@ -156,6 +161,19 @@ public class PlatformConfiguration {
     @Bean
     ListMetricDefinitionsUseCase listMetricDefinitionsUseCase(AuthorizationService authorization, InventoryWiring wiring) {
         return new ListMetricDefinitionsUseCase(authorization, wiring.metrics());
+    }
+
+    @Bean
+    MetricQueryPort metricQueryPort(MetricsQueryProperties metrics) {
+        String url = metrics.victoriaUrl();
+        if (url == null || url.isBlank()) return new ClosedMetricQuery();
+        return new VictoriaMetricsQueryAdapter(URI.create(url));
+    }
+
+    @Bean
+    QueryMetricSeriesUseCase queryMetricSeriesUseCase(AuthorizationService authorization, InventoryWiring wiring, MetricQueryPort metricQueryPort) {
+        EntityExistence entities = (tenantId, entityId) -> wiring.query().find(tenantId, entityId).isPresent();
+        return new QueryMetricSeriesUseCase(authorization, entities, wiring.metrics(), metricQueryPort, Clock.systemUTC());
     }
 
     @Bean

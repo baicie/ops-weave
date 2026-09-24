@@ -23,7 +23,7 @@
 | 顺序 | ID | 工作 |
 |---|---|---|
 | 1 | 真实 `host.get` | 对可达 Zabbix 跑完整分页；失败仍不得回退 fixture，也不得对账 |
-| 2 | 指标查询与页面 | Worker 批写/回读确认与 checkpoint 租约已落地。`MetricQueryPort` 与 VictoriaMetrics export 适配器已能按实体和指标读出多条 series。下一步是带 `entity.read`/`metric.read` 的查询用例、平台 API 和 Zeus 指标页 |
+| 2 | 指标查询与页面 | 查询用例、`GET /api/v1/entities/{entityId}/metrics/{metricKey}/series` 和 Zeus 指标页已能按资产、指标和 15m/30m/1h 显示曲线、无数据、陈旧和部分结果。未配置 VictoriaMetrics 时接口返回 503，不回退空数组 |
 | 3 | OW-R11 | PipelineVersion、Preview、Replay。仍无画布、无 Copilot |
 
 Host 同步把来源 presence 和映射成功分开。完成态标记为 `offset-scan-attempt`。失败响应带回已扫描页数。`extensions/mappings/zabbix-cpu-user.yaml` 把 `system.cpu.util[,user]` 映射为 `host.cpu.usage.user`；两台主机共用一条目录记录。本机没有配置 Zabbix URL，厂商全量还没跑。OIDC、组织树、ABAC 继续不做。
