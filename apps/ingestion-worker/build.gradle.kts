@@ -14,6 +14,7 @@ dependencies {
 
 tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("db/migrations/ingestion/V001__history_checkpoint.sql")) { into("db/ingestion") }
+    from(rootProject.file("db/migrations/ingestion/V002__history_checkpoint_lease.sql")) { into("db/ingestion") }
 }
 
 tasks.named<ProcessResources>("processTestResources") {

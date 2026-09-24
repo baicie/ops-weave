@@ -20,7 +20,7 @@ public final class HistoryIngestionPorts {
         default String checkpointIdentity() { throw new Failure(Failure.Code.CONFIGURATION_INVALID); }
     }
     public interface CheckpointStore {
-        /** Exclusively owns one stream until work and metadata commit finish; any exception rolls back. */
+        /** Holds one series lease until work finishes. The database transaction does not cover that work. */
         Result withLock(HistoryStream stream, long initialFrom, Function<HistoryCheckpoint, Update> work);
     }
     public record Slice(Map<String, String> labels, long definitionVersion, long bindingVersion, HistoryPage page) {

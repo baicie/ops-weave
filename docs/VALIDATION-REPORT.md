@@ -280,6 +280,20 @@ Java platform -> scheduled Java worker -> real VictoriaMetrics + PostgreSQL: PAS
 
 CI java job 已加入 Worker tests 和独立 VictoriaMetrics 容器；本节本地结果不替代随后推送的 CI 状态。远端部署配置仍默认关闭采集。本次不声明厂商接入、生产鉴权、自动回补所有迟到点、分布式采集或物理 exactly-once。下一步是有资源授权与点数限制的时序查询 API、指标页与真实来源验收。
 
+## 18. 2026-09-24 checkpoint 租约与序列互斥（追加）
+
+把采集锁从「一个 PostgreSQL 事务包住平台读取和 VictoriaMetrics 回读」改成两段短事务：先提交 fencing token 与 300 秒租约，网络工作结束后再用 `revision + fencing_token` 条件更新。主键改为 tenant/source/item。`stream_name` 只保留为任务名；同一 item 的另一个任务名返回 `CONFIGURATION_INVALID`。
+
+运行前清空了本机测试库 `opsweave_history_test` 里的旧 checkpoint 行。那些行来自旧主键（含 stream_name）的重复测试数据，V002 遇到同一 item 的多行会拒绝迁移。
+
+| 检查 | 命令 / 方法 | 最终结果 | 不代表什么 |
+|---|---|---|---|
+| 纯领域 | `python3 scripts/check_java_domain.py` | Java domain smoke 7 项、HistoryIngestionPolicySmoke 14、HistoryIngestionSmoke 16、HistoryPageSmoke 13、Identity 11、MetricPointSmoke 16、Zabbix host mapping 46、host page 15、item mapping 41，均通过 | 不覆盖 PostgreSQL 租约 |
+| Worker 测试 | `OPSWEAVE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/opsweave_history_test`、`OPSWEAVE_TEST_JDBC_USER=liuzhiwei`，`JAVA_HOME=<jdk21> ./gradlew :apps:ingestion-worker:test --offline` | 15 tests：12 通过，0 失败；`VictoriaHistoryIngestionIT` 3 项因未设置 `OPSWEAVE_TEST_VM_URL` 跳过 | 未重跑平台测试、VictoriaMetrics、`check_history_stack.py`、Rust 或 Web |
+| PostgreSQL | `PostgresHistoryCheckpointIT` 6 项 | 失败不推进、重建后恢复、tenant/source/item 隔离、第二 streamName 拒绝、失败释放租约、租约占用返回 `CHECKPOINT_BUSY`、替换 fencing token 后不能提交 | 不是多绑定调度或 HA 验收 |
+
+远端 Compose 仍未启用 History。本次不声明查询 API、指标页或生产部署已经完成。
+
 
 
 

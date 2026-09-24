@@ -156,6 +156,7 @@ db/README.md
 db/examples/rls.sql
 db/migrations/ai/V001__ai_run_prototype.sql
 db/migrations/ingestion/V001__history_checkpoint.sql
+db/migrations/ingestion/V002__history_checkpoint_lease.sql
 db/migrations/platform/V001__initial_domain_prototype.sql
 db/migrations/platform/V002__host_sync.sql
 db/migrations/platform/V003__metric_definition.sql

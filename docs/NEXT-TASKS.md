@@ -23,7 +23,7 @@
 | 顺序 | ID | 工作 |
 |---|---|---|
 | 1 | 真实 `host.get` | 对可达 Zabbix 跑完整分页；失败仍不得回退 fixture，也不得对账 |
-| 2 | 指标查询与页面 | Worker 批写/回读确认、毫秒冲突检查、迟到点重叠去重与持久 checkpoint 已落地；下一步是受控时序查询 API 和指标曲线/缺失状态 |
+| 2 | 指标查询与页面 | Worker 批写/回读确认、毫秒冲突检查、迟到点重叠去重与持久 checkpoint 已落地；checkpoint 使用短事务租约和 fencing，同一 item 不能并行开第二条 stream。下一步是受控时序查询 API 和指标曲线/缺失状态 |
 | 3 | OW-R11 | PipelineVersion、Preview、Replay。仍无画布、无 Copilot |
 
 Host 同步把来源 presence 和映射成功分开。完成态标记为 `offset-scan-attempt`。失败响应带回已扫描页数。`extensions/mappings/zabbix-cpu-user.yaml` 把 `system.cpu.util[,user]` 映射为 `host.cpu.usage.user`；两台主机共用一条目录记录。本机没有配置 Zabbix URL，厂商全量还没跑。OIDC、组织树、ABAC 继续不做。

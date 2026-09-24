@@ -39,7 +39,7 @@ class PostgresHistoryCheckpointIT {
     }
 
     @Test
-    void tenantSourceAndStreamKeysStayIsolated() {
+    void tenantSourceAndItemKeysStayIsolated() {
         try (var dataSource = dataSource()) {
             var store = new PostgresHistoryCheckpointStore(dataSource); store.initialize();
             var first = stream();
@@ -47,11 +47,76 @@ class PostgresHistoryCheckpointIT {
             for (var other : new HistoryStream[] {
                 new HistoryStream(new TenantId("other-tenant"), first.sourceInstanceId(), first.itemId(), first.streamName()),
                 new HistoryStream(first.tenantId(), "another-source", first.itemId(), first.streamName()),
-                new HistoryStream(first.tenantId(), first.sourceInstanceId(), "20002", first.streamName()),
-                new HistoryStream(first.tenantId(), first.sourceInstanceId(), first.itemId(), "another-stream")}) {
+                new HistoryStream(first.tenantId(), first.sourceInstanceId(), otherItem(), first.streamName())}) {
                 store.withLock(other, 100, before -> {
                     assertEquals(99, before.completedThrough()); return new Update(before, Result.idle(99));
                 });
+            }
+        }
+    }
+
+    @Test
+    void anotherStreamNameCannotCollectTheSameItem() {
+        try (var dataSource = dataSource()) {
+            var store = new PostgresHistoryCheckpointStore(dataSource); store.initialize();
+            var first = stream();
+            store.withLock(first, 100, before -> new Update(before.accepted(159, "a".repeat(64)), Result.idle(159)));
+            var other = new HistoryStream(first.tenantId(), first.sourceInstanceId(), first.itemId(), "another-stream");
+            var rejected = assertThrows(Failure.class, () -> store.withLock(other, 100, before -> {
+                fail("second stream entered"); return null;
+            }));
+            assertEquals(Failure.Code.CONFIGURATION_INVALID, rejected.code());
+            store.withLock(first, 100, before -> {
+                assertEquals(159, before.completedThrough());
+                return new Update(before, Result.idle(before.completedThrough()));
+            });
+        }
+    }
+
+    @Test
+    void failedWorkReleasesTheLease() {
+        try (var dataSource = dataSource()) {
+            var store = new PostgresHistoryCheckpointStore(dataSource); store.initialize();
+            var stream = stream();
+            assertEquals(Failure.Code.SINK_FAILED, assertThrows(Failure.class, () -> store.withLock(stream, 100, before -> {
+                throw new Failure(Failure.Code.SINK_FAILED);
+            })).code());
+            store.withLock(stream, 100, before -> {
+                assertEquals(99, before.completedThrough());
+                return new Update(before.accepted(159, "d".repeat(64)), Result.idle(159));
+            });
+        }
+    }
+
+    @Test
+    void staleFenceCannotAdvanceTheCheckpoint() throws Exception {
+        try (var dataSource = dataSource()) {
+            var store = new PostgresHistoryCheckpointStore(dataSource); store.initialize();
+            var stream = stream();
+            var rejected = assertThrows(Failure.class, () -> store.withLock(stream, 100, before -> {
+                try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement("""
+                    UPDATE ingestion.history_checkpoint
+                    SET fencing_token = fencing_token + 1, lease_until = clock_timestamp() + interval '5 minutes'
+                    WHERE tenant_id=? AND source_instance_id=? AND item_id=?
+                    """)) {
+                    statement.setString(1, stream.tenantId().value());
+                    statement.setString(2, stream.sourceInstanceId());
+                    statement.setString(3, stream.itemId());
+                    if (statement.executeUpdate() != 1) throw new IllegalStateException("fence not stolen");
+                } catch (IllegalStateException failed) { throw failed; }
+                catch (Exception failed) { throw new IllegalStateException(failed); }
+                return new Update(before.accepted(159, "c".repeat(64)), Result.idle(159));
+            }));
+            assertEquals(Failure.Code.CHECKPOINT_FAILED, rejected.code());
+            try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(
+                "SELECT completed_through FROM ingestion.history_checkpoint WHERE tenant_id=? AND source_instance_id=? AND item_id=?")) {
+                statement.setString(1, stream.tenantId().value());
+                statement.setString(2, stream.sourceInstanceId());
+                statement.setString(3, stream.itemId());
+                try (var rows = statement.executeQuery()) {
+                    assertTrue(rows.next());
+                    assertEquals(99, rows.getLong(1));
+                }
             }
         }
     }
@@ -77,7 +142,14 @@ class PostgresHistoryCheckpointIT {
         }
     }
 
-    static HistoryStream stream() { return new HistoryStream(new TenantId("tenant-demo"), "zabbix-test", "20001", UUID.randomUUID().toString()); }
+    static HistoryStream stream() {
+        return new HistoryStream(new TenantId("tenant-demo"), "zabbix-test", otherItem(), "history-v1");
+    }
+
+    static String otherItem() {
+        long item = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
+        return Long.toString(item == 0 ? 1 : item);
+    }
     static HikariDataSource dataSource() {
         var dataSource = new HikariDataSource();
         dataSource.setJdbcUrl(System.getenv("OPSWEAVE_TEST_JDBC_URL"));

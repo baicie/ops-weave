@@ -32,7 +32,7 @@ GET /api/v1/integrations/zabbix/items/20001/history?from=1789992000&till=1789992
 
 1. 启动 PostgreSQL 与 VictoriaMetrics。可使用 `docker compose --env-file .env -f deploy/compose/compose.yaml --profile metrics up -d postgres victoriametrics`；已有本机 PostgreSQL 时只启动 `victoriametrics`。VM 固定 v1.152.0、1ms 去重、非流式 Influx。镜像不是已验收的生产部署。
 2. 配置 Worker 的 `OPSWEAVE_HISTORY_PLATFORM_URL`、`OPSWEAVE_HISTORY_PLATFORM_TOKEN`（同一开发授权边界的 Token，不写入仓库）、`OPSWEAVE_HISTORY_DATA_MODE`（`zabbix-jsonrpc` 或显式 `labeled-fixture`）、`OPSWEAVE_HISTORY_SOURCE` 和 `OPSWEAVE_HISTORY_ITEM_ID`。
-3. 显式设置 `OPSWEAVE_HISTORY_INITIAL_FROM`（UTC epoch 秒）、`OPSWEAVE_HISTORY_STREAM`、`OPSWEAVE_HISTORY_VICTORIA_URL`，以及 `OPSWEAVE_HISTORY_JDBC_URL/USER/PASSWORD`。JDBC 仅允许 loopback，连接同一平台数据库的 worker 自有 schema。不要直接修改已有 checkpoint；更换存储目标、来源端点、映射或回补起点时使用新的 streamName。
+3. 显式设置 `OPSWEAVE_HISTORY_INITIAL_FROM`（UTC epoch 秒）、`OPSWEAVE_HISTORY_STREAM`、`OPSWEAVE_HISTORY_VICTORIA_URL`，以及 `OPSWEAVE_HISTORY_JDBC_URL/USER/PASSWORD`。JDBC 仅允许 loopback，连接同一平台数据库的 worker 自有 schema。同一 tenant/source/item 只有一条 checkpoint；`OPSWEAVE_HISTORY_STREAM` 是任务名，不能用来并行采集同一 item。不要直接修改已有 checkpoint。更换存储目标、来源端点、映射或回补起点时，先停 Worker，导出并删除该行，再改 initialFrom。
 4. 设置 `OPSWEAVE_HISTORY_ENABLED=true`，运行 `./gradlew :apps:ingestion-worker:bootRun`。第一次启动会建 `ingestion.history_checkpoint`；不建采样点表。
 
 默认步长 60 秒、重叠 120 秒、延迟 10 秒、最多 4 页、完成一轮后等待 30 秒；对应配置在 Worker 的 `application.yml`。单次硬上限 8 页/4000 点/3600 秒，最大 4 页默认下是 2000 点。过密数据应缩小步长或另建支持高密度导出的适配，不得绕过分页失败跳过数据。
