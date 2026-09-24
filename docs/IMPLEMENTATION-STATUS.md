@@ -6,7 +6,7 @@
 
 | 部分 | 已提供 | 未提供 |
 |---|---|---|
-| Java平台 | Principal/授权、Zabbix Host 分页同步、Item → MetricDefinition + MetricBinding、PostgreSQL 库存、指标目录/绑定 API、有界 History 只读接口与数值 MetricPoint | 生产 OIDC、厂商 Zabbix 联调、Pipeline Preview |
+| Java平台 | Principal/授权、Zabbix Host 分页同步、Item → MetricDefinition + MetricBinding、PostgreSQL 库存、指标目录/绑定 API、有界 History 只读接口与数值 MetricPoint、按实体/指标读取 VictoriaMetrics 的查询适配器 | 生产 OIDC、厂商 Zabbix 联调、Metric Query HTTP API、Pipeline Preview |
 | Java采集 | 默认关闭的单流 History Worker；平台授权读取、毫秒冲突/数值精度检查、VictoriaMetrics 批写与回读确认、PostgreSQL checkpoint、重叠去重/恢复 | 生产服务身份、远端采集启用、多数据流调度、分布式租约/fencing、重叠范围外的自动回补 |
 | Web | 诊断表单；资产页读取平台 Entity API（开发 Token，内存持有） | 生产 BFF/OIDC、指标/Skill/Agent Console |
 | 存储/运维 | Host/指标元数据迁移 V002–V004；worker 自有 `ingestion.history_checkpoint`（V002 租约/fencing，一序列一行）；PostgreSQL 与可选 VictoriaMetrics Compose profile | 行级安全、对象存储、生产 Helm/HA/备份验证 |
@@ -20,7 +20,7 @@
 
 交付包阶段：Python契约/样例测试、纯Java领域编译与smoke、结构/架构静态检查。
 
-2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。Host presence 与 Item 指标见第 14 节。目录与绑定拆分见第 15 节；History 只读接口见第 16 节，响应仍为 `not-persisted`。第 17 节追加 Worker 对显式合成数据的真实 VM/PG 采集验证。2026-09-24 第 18 节把 checkpoint 改成短事务租约和 fencing，并拒绝同一 item 的第二条 stream；该次只复跑了 Worker 测试与纯领域 smoke，没有重跑 VictoriaMetrics。未联调厂商 Zabbix，未接 Keycloak。
+2026-09-22：identity allow/deny 与 Zabbix Host 链见 `VALIDATION-REPORT.md` 第 11 节。同日追加分页 SyncRun 与 PostgreSQL：`PostgresHostSyncIT` 在本机库 `opsweave_host_sync` 通过；资产页 Playwright 库存用例通过。同步失败码与 `host.get` offset 游标见第 13 节。Host presence 与 Item 指标见第 14 节。目录与绑定拆分见第 15 节；History 只读接口见第 16 节，响应仍为 `not-persisted`。第 17 节追加 Worker 对显式合成数据的真实 VM/PG 采集验证。2026-09-24 第 18 节把 checkpoint 改成短事务租约和 fencing，并拒绝同一 item 的第二条 stream。第 19 节在 lease 修改后重跑了 Worker 的 PostgreSQL 与 VictoriaMetrics 测试，并验证查询适配器能把两个来源读成两条 series。未联调厂商 Zabbix，未接 Keycloak。查询 HTTP API 和指标页尚未提供。
 
 当前阶段是 M1 开发身份切片、M2 数据接入和 M3 指标链的部分实现，尚未达到 M2 真实来源退出条件或 M4 只读诊断 MVP。M0 已关闭。2026-09-22 实查 `f0bcc32` 的 GitHub Actions：contracts/rust/java/web/deploy 五个 job 均 success；这是上一提交的 CI/部署流水线结果，不代表本次 History 修改已部署或真实来源已接通。
 

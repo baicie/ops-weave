@@ -294,6 +294,18 @@ CI java job 已加入 Worker tests 和独立 VictoriaMetrics 容器；本节本�
 
 远端 Compose 仍未启用 History。本次不声明查询 API、指标页或生产部署已经完成。
 
+## 19. 2026-09-24 lease 后的存储回归与查询适配器（追加）
+
+使用本机 PostgreSQL 库 `opsweave_history_test`（系统角色 `liuzhiwei`）和已有的 VictoriaMetrics v1.152.0 二进制，监听 `127.0.0.1:18428`，参数为 `-dedup.minScrapeInterval=1ms -influx.forceStreamMode=false -retentionPeriod=1y`。数据目录在 gitignore 的 `.tmp`，不提交。
+
+| 检查 | 命令 / 方法 | 最终结果 | 不代表什么 |
+|---|---|---|---|
+| Worker 全量 | `OPSWEAVE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/opsweave_history_test`、`OPSWEAVE_TEST_JDBC_USER=liuzhiwei`、`OPSWEAVE_TEST_VM_URL=http://127.0.0.1:18428`，`JAVA_HOME=<jdk21> ./gradlew :apps:ingestion-worker:test --offline --no-build-cache --rerun-tasks` | 15 tests，0 failures，0 errors，0 skipped。含 checkpoint 6 项与 `VictoriaHistoryIngestionIT` 3 项 | 未重跑平台全套、Rust、Web 或 `check_history_stack.py` |
+| 查询适配器 | 同一 VM，`./gradlew :apps:platform-api:test --tests com.acme.opsweave.platform.telemetry.VictoriaMetricsQueryAdapterIT --offline --no-build-cache --rerun-tasks` | 1 test 通过：两个来源保持两条 series，空指标为 `NO_DATA`，端口不可达为 `SOURCE_UNAVAILABLE` | 不是查询 HTTP API，也没有权限用例或指标页 |
+| 纯领域 | `python3 scripts/check_java_domain.py` | 原有 smoke 通过，另加 `MetricSeriesQuerySmoke` 6 项 | 不覆盖真实 VM |
+
+尚未提供 `QueryMetricSeriesUseCase`、`GET /api/v1/entities/{entityId}/metrics/{metricKey}/series` 和 Zeus MetricsPage。查询适配器只生成固定 export 选择器，不接受 PromQL/MetricsQL。
+
 
 
 
