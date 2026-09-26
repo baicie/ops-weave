@@ -41,13 +41,13 @@ class SourceReceiptCapacityHttpIT {
         assertEquals("no-store",response.headers().firstValue("Cache-Control").orElse(""));
         assertEquals("nosniff",response.headers().firstValue("X-Content-Type-Options").orElse(""));
         var body=SourceReviewJson.JSON.readTree(response.body());
-        assertEquals(Set.of("schemaVersion","storage","dataMode","tenantId","sourceInstanceId","items"),names(body));
+        assertEquals(Set.of("schemaVersion","storage","dataMode","tenantId","sourceInstanceId","items"),new HashSet<>(names(body)));
         assertEquals("import",body.get("dataMode").asString());
         assertEquals(TENANT,body.get("tenantId").asString());
         assertEquals("cmdb-import",body.get("sourceInstanceId").asString());
         assertEquals(2,body.get("items").size());
         var snapshot=body.get("items").get(0);
-        assertEquals(Set.of("kind","kept","max","status","summary"),names(snapshot));
+        assertEquals(Set.of("kind","kept","max","status","summary"),new HashSet<>(names(snapshot)));
         assertEquals("snapshot",snapshot.get("kind").asString());
         assertEquals(0,snapshot.get("kept").asInt());
         assertEquals(SourceReceiptCapacity.cap(SourceReceiptCapacity.Kind.SNAPSHOT),snapshot.get("max").asInt());
