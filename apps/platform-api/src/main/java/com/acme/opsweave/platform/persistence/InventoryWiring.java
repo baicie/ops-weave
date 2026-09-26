@@ -34,6 +34,7 @@ public final class InventoryWiring implements AutoCloseable {
     private final SourceItemWritePort itemWrites;
     private final SourceConnectionCheckStore sourceChecks;
     private final com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites;
+    private final String cmdbImportSource;
     private final String label;
     private final RawRecordReader rawReader;
     private final PipelineVersionStore pipelines;
@@ -53,6 +54,7 @@ public final class InventoryWiring implements AutoCloseable {
         SourceItemWritePort itemWrites,
         SourceConnectionCheckStore sourceChecks,
         com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites,
+        String cmdbImportSource,
         String label,
         RawRecordReader rawReader,
         PipelineVersionStore pipelines,
@@ -70,6 +72,7 @@ public final class InventoryWiring implements AutoCloseable {
         this.itemWrites = itemWrites;
         this.sourceChecks = sourceChecks;
         this.rejectedWrites = rejectedWrites;
+        this.cmdbImportSource = cmdbImportSource == null ? "" : cmdbImportSource;
         this.label = label;
         this.rawReader = rawReader;
         this.pipelines = pipelines;
@@ -80,7 +83,7 @@ public final class InventoryWiring implements AutoCloseable {
         this.insights = insights;
     }
 
-    public static InventoryWiring open(OpsweaveProperties properties) {
+    public static InventoryWiring open(OpsweaveProperties properties, String cmdbImportSource) {
         String store = properties.inventory().store() == null ? "postgres" : properties.inventory().store().trim();
         if ("memory".equalsIgnoreCase(store)) {
             InMemoryInventoryStore inventory = new InMemoryInventoryStore();
@@ -95,8 +98,8 @@ public final class InventoryWiring implements AutoCloseable {
             var rejected = new com.acme.opsweave.inventory.infrastructure.InMemoryRejectedWriteAttemptStore(
                 properties.rejectedWriteRetention(null));
             return new InventoryWiring(com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
-                    inventory, rejected, java.time.Clock.systemUTC(), properties.inventory().cmdbImportSource()), inventory, raw,
-                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
+                    inventory, rejected, java.time.Clock.systemUTC(), cmdbImportSource), inventory, raw,
+                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -143,10 +146,10 @@ public final class InventoryWiring implements AutoCloseable {
         var metrics = new PostgresMetricDefinitionStore(dataSource);
         var rejected = new PostgresRejectedWriteAttempts(dataSource, properties.rejectedWriteRetention(null));
         var sourceReviews = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
-            new PostgresSourceReviews(dataSource), rejected, java.time.Clock.systemUTC(), properties.inventory().cmdbImportSource());
+            new PostgresSourceReviews(dataSource), rejected, java.time.Clock.systemUTC(), cmdbImportSource);
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
-            new PostgresSourceSnapshots(dataSource), rejected, java.time.Clock.systemUTC(), properties.inventory().cmdbImportSource());
-        var wiring = new InventoryWiring(sourceReviews, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
+            new PostgresSourceSnapshots(dataSource), rejected, java.time.Clock.systemUTC(), cmdbImportSource);
+        var wiring = new InventoryWiring(sourceReviews, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
         wiring.sourceSnapshotsWired = sourceSnapshots; wiring.ownedDataSource = dataSource; return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
@@ -198,6 +201,11 @@ public final class InventoryWiring implements AutoCloseable {
 
     public String label() {
         return label;
+    }
+
+    /** The configured supplemental import source; the refusal log is scoped to it. */
+    public String cmdbImportSource() {
+        return cmdbImportSource;
     }
     public RawRecordReader rawReader() { return rawReader; }
     public PipelineVersionStore pipelines() { return pipelines; }

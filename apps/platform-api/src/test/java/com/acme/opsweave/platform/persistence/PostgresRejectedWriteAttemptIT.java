@@ -1,6 +1,7 @@
 package com.acme.opsweave.platform.persistence;
 
 import static org.junit.jupiter.api.Assertions.*;
+import com.acme.opsweave.inventory.domain.ExternalObjectKey;
 import com.acme.opsweave.inventory.domain.RejectedWriteAttempt;
 import com.acme.opsweave.platform.OpsweaveProperties;
 import com.acme.opsweave.sharedkernel.TenantId;
@@ -24,7 +25,7 @@ class PostgresRejectedWriteAttemptIT extends OwnedInventoryTest {
         new OpsweaveProperties.Auth("closed",true,new OpsweaveProperties.Auth.Dev("","",tenant.value(),"","")),
         new OpsweaveProperties.Zabbix("fixture","","env:OPSWEAVE_ZABBIX_TOKEN","zabbix-1",1),
         new OpsweaveProperties.Inventory("postgres",System.getenv("OPSWEAVE_TEST_JDBC_URL"),System.getenv("OPSWEAVE_TEST_JDBC_USER"),System.getenv("OPSWEAVE_TEST_JDBC_PASSWORD")));
-    final InventoryWiring wiring=openInventory(properties);
+    final InventoryWiring wiring=openInventory(properties,"cmdb-import");
 
     DriverManagerDataSource dataSource(){
         return new DriverManagerDataSource(System.getenv("OPSWEAVE_TEST_JDBC_URL"),System.getenv("OPSWEAVE_TEST_JDBC_USER"),System.getenv("OPSWEAVE_TEST_JDBC_PASSWORD"));
@@ -100,5 +101,33 @@ class PostgresRejectedWriteAttemptIT extends OwnedInventoryTest {
         assertEquals(List.of("ip"),stored.fieldNames());
         assertFalse(stored.toString().contains("10.0.0"),"no value is stored or returned");
         assertEquals("unknown",stored.actor());
+    }
+
+    /**
+     * The real path: a store that refuses the write leaves the refusal in the audit, keeps the
+     * caller's own exception, and records only the attempted field names.
+     */
+    @Test void aRefusedSupplementalWriteIsAuditedWithoutChangingTheRefusal()throws Exception{
+        var store=new PostgresRejectedWriteAttempts(dataSource(),RejectedWriteAttempt.Policy.defaults());
+        var audited=com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
+            new com.acme.opsweave.inventory.api.SourceReviewStore(){
+                public com.acme.opsweave.inventory.domain.SourceReview stage(com.acme.opsweave.sharedkernel.TenantId tenantId,com.acme.opsweave.sharedkernel.EntityId entity,Import input,Instant now){throw new com.acme.opsweave.inventory.domain.SourceReview.Conflict("Review is not in the required state");}
+                public com.acme.opsweave.inventory.domain.SourceReview decide(com.acme.opsweave.sharedkernel.TenantId tenantId,com.acme.opsweave.sharedkernel.EntityId entity,String sourceId,UUID reviewId,com.acme.opsweave.inventory.domain.SourceReview.Command command,Instant now){throw new com.acme.opsweave.inventory.domain.SourceReview.Conflict("Review is not in the required state");}
+                public Page reviews(com.acme.opsweave.sharedkernel.TenantId tenantId,com.acme.opsweave.sharedkernel.EntityId entity,String sourceId,UUID after,int limit){return new Page(java.util.List.of(),null);}
+            },
+            store,java.time.Clock.systemUTC(),source);
+        var input=new com.acme.opsweave.inventory.api.SourceReviewStore.Import(UUID.randomUUID(),1,
+            new ExternalObjectKey(tenant,source,"cmdb-host","host-7","1"),
+            Instant.parse("2026-09-26T09:00:00Z"),java.util.Map.of("owner","sre","ip","10.0.0.7"),"sha256:"+"cd".repeat(32),"operator");
+        var refused=assertThrows(com.acme.opsweave.inventory.domain.SourceReview.Conflict.class,
+            ()->audited.stage(tenant,new com.acme.opsweave.sharedkernel.EntityId(UUID.randomUUID()),input,Instant.parse("2026-09-26T10:00:00Z")));
+        assertEquals("Review is not in the required state",refused.getMessage(),"the caller's own refusal is unchanged");
+        var rows=store.recent(tenant,source,10);
+        assertEquals(1,rows.size());
+        assertEquals(RejectedWriteAttempt.Code.REVIEW_STATE_CHANGED,rows.getFirst().code());
+        assertEquals(RejectedWriteAttempt.Method.STAGE_REVIEW,rows.getFirst().method());
+        assertEquals("operator",rows.getFirst().actor());
+        assertEquals(List.of("ip","owner"),rows.getFirst().fieldNames(),"field names are recorded in a stable order");
+        assertEquals(1L,rowsInScope());
     }
 }

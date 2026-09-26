@@ -103,8 +103,9 @@ public class PlatformConfiguration {
     }
 
     @Bean
-    InventoryWiring inventoryWiring(OpsweaveProperties properties) {
-        return InventoryWiring.open(properties);
+    InventoryWiring inventoryWiring(OpsweaveProperties properties,
+            @org.springframework.beans.factory.annotation.Value("${opsweave.inventory.cmdb-import-source:}") String cmdbImportSource) {
+        return InventoryWiring.open(properties, cmdbImportSource);
     }
 
     @Bean
