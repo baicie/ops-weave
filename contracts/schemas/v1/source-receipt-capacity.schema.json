@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source-receipt-capacity",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": ["postgres", "memory"]
+    },
+    "dataMode": {
+      "const": "import"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]{1,128}(?![\\s\\S])"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["snapshot", "binding-correction"]
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "max": {
+            "const": 1000
+          },
+          "status": {
+            "enum": ["OK", "NEAR_LIMIT", "AT_LIMIT"]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^\\S(?:[^\\u0000-\\u001f\\u007f-\\u009f]*\\S)?(?![\\s\\S])"
+          }
+        },
+        "required": ["kind", "kept", "max", "status", "summary"]
+      }
+    }
+  },
+  "required": ["schemaVersion", "storage", "dataMode", "tenantId", "sourceInstanceId", "items"]
+}

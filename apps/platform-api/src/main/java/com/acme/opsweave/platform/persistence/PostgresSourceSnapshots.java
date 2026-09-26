@@ -10,9 +10,23 @@ import java.util.*;
 import javax.sql.DataSource;
 
 /** Source lock -> sorted entity locks; one bounded transaction commits observations, presence and receipt. */
-final class PostgresSourceSnapshots implements SourceSnapshotStore {
+final class PostgresSourceSnapshots implements SourceSnapshotStore, SourceReceiptCapacityReader {
     private final DataSource dataSource;
     PostgresSourceSnapshots(DataSource dataSource){this.dataSource=dataSource;}
+
+    @Override public int snapshotReceipts(TenantId tenant,String source){
+        try(var c=dataSource.getConnection();var s=c.prepareStatement("SELECT count(*) FROM inventory.source_snapshot WHERE tenant_id=? AND source_instance_id=?")){
+            s.setQueryTimeout(5);s.setString(1,tenant.value());s.setString(2,source);
+            try(var r=s.executeQuery()){r.next();return r.getInt(1);}
+        }catch(SQLException failed){throw new IllegalStateException("Snapshot receipts unavailable");}
+    }
+
+    @Override public int correctionReceipts(TenantId tenant,String source){
+        try(var c=dataSource.getConnection();var s=c.prepareStatement("SELECT count(*) FROM inventory.source_binding_correction WHERE tenant_id=? AND source_instance_id=?")){
+            s.setQueryTimeout(5);s.setString(1,tenant.value());s.setString(2,source);
+            try(var r=s.executeQuery()){r.next();return r.getInt(1);}
+        }catch(SQLException failed){throw new IllegalStateException("Correction receipts unavailable");}
+    }
     static final String LIVE = """
         EXISTS (SELECT 1 FROM inventory.entity_source_presence p JOIN inventory.asset_identity i
           ON i.tenant_id=p.tenant_id AND i.id=p.identity_id AND i.entity_id=p.entity_id AND i.active

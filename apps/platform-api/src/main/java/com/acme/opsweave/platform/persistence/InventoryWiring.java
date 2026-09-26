@@ -27,6 +27,7 @@ public final class InventoryWiring implements AutoCloseable {
     private HikariDataSource ownedDataSource;
     private com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshotsWired;
     private com.acme.opsweave.inventory.api.SourceReviewStore sourceReviewsWired;
+    private com.acme.opsweave.inventory.api.SourceSnapshotStore rawSnapshots;
     private final InventoryQuery query;
     private final InventoryWritePort writer;
     private final IngestZabbixHostsUseCase.RawRecordCollector rawRecords;
@@ -57,6 +58,7 @@ public final class InventoryWiring implements AutoCloseable {
         com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites,
         String cmdbImportSource,
         com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshotsWired,
+        com.acme.opsweave.inventory.api.SourceSnapshotStore rawSnapshots,
         com.acme.opsweave.inventory.api.SourceReviewStore sourceReviewsWired,
         String label,
         RawRecordReader rawReader,
@@ -77,6 +79,7 @@ public final class InventoryWiring implements AutoCloseable {
         this.rejectedWrites = rejectedWrites;
         this.cmdbImportSource = cmdbImportSource == null ? "" : cmdbImportSource;
         this.sourceSnapshotsWired = sourceSnapshotsWired;
+        this.rawSnapshots = rawSnapshots;
         this.sourceReviewsWired = sourceReviewsWired;
         this.label = label;
         this.rawReader = rawReader;
@@ -105,7 +108,7 @@ public final class InventoryWiring implements AutoCloseable {
             var sourceReviews = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
                 inventory, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
             return new InventoryWiring(inventory, inventory, raw,
-                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, null, sourceReviews, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
+                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, null, null, sourceReviews, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -153,9 +156,10 @@ public final class InventoryWiring implements AutoCloseable {
         var rejected = new PostgresRejectedWriteAttempts(dataSource, properties.rejectedWriteRetention(null));
         var sourceReviews = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
             new PostgresSourceReviews(dataSource), rejected, java.time.Clock.systemUTC(), cmdbImportSource);
+        var rawSnapshots = new PostgresSourceSnapshots(dataSource);
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
-            new PostgresSourceSnapshots(dataSource), rejected, java.time.Clock.systemUTC(), cmdbImportSource);
-        var wiring = new InventoryWiring(postgres, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
+            rawSnapshots, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
+        var wiring = new InventoryWiring(postgres, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
         wiring.ownedDataSource = dataSource; return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
@@ -213,6 +217,27 @@ public final class InventoryWiring implements AutoCloseable {
     public String cmdbImportSource() {
         return cmdbImportSource;
     }
+
+    /**
+     * Counts the stored receipts of the configured source. The audited snapshot store decorates the
+     * same underlying store, so counting here describes exactly what the caps protect.
+     */
+    public com.acme.opsweave.inventory.api.SourceReceiptCapacityReader receiptCapacity() {
+        if (rawSnapshots == null) {
+            return EMPTY_RECEIPTS;
+        }
+        if (rawSnapshots instanceof com.acme.opsweave.inventory.api.SourceReceiptCapacityReader receipts) {
+            return receipts;
+        }
+        throw new IllegalStateException("Receipt capacity is unavailable for this store");
+    }
+
+    /** The in-memory build stores no snapshot or correction receipts, so it reports zero truthfully. */
+    private static final com.acme.opsweave.inventory.api.SourceReceiptCapacityReader EMPTY_RECEIPTS =
+        new com.acme.opsweave.inventory.api.SourceReceiptCapacityReader() {
+            public int snapshotReceipts(com.acme.opsweave.sharedkernel.TenantId tenantId, String sourceInstanceId) { return 0; }
+            public int correctionReceipts(com.acme.opsweave.sharedkernel.TenantId tenantId, String sourceInstanceId) { return 0; }
+        };
     public RawRecordReader rawReader() { return rawReader; }
     public PipelineVersionStore pipelines() { return pipelines; }
     public PipelineReplayStore replays() { return replays; }

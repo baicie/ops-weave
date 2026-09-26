@@ -22,7 +22,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Labeled in-memory inventory. Not a production store and not a silent fixture for live sources. */
-public final class InMemoryInventoryStore implements InventoryQuery, InventoryWritePort, com.acme.opsweave.inventory.api.ObservationReader, com.acme.opsweave.inventory.api.SourceReviewStore, com.acme.opsweave.inventory.api.AssetIdentityStore {
+public final class InMemoryInventoryStore implements InventoryQuery, InventoryWritePort, com.acme.opsweave.inventory.api.ObservationReader, com.acme.opsweave.inventory.api.SourceReviewStore, com.acme.opsweave.inventory.api.AssetIdentityStore, com.acme.opsweave.inventory.api.SourceReceiptCapacityReader {
+    @Override public int snapshotReceipts(com.acme.opsweave.sharedkernel.TenantId tenantId, String sourceInstanceId) { return 0; }
+    @Override public int correctionReceipts(com.acme.opsweave.sharedkernel.TenantId tenantId, String sourceInstanceId) { return 0; }
     private final ConcurrentHashMap<StoreKey, Entity> entities = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<ExternalObjectKey, ExternalLink> links = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Observation> observations = new ConcurrentHashMap<>();

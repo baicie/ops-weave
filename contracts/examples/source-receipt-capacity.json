@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "dataMode": "import",
+  "tenantId": "tenant-demo",
+  "sourceInstanceId": "cmdb-import",
+  "items": [
+    {
+      "kind": "snapshot",
+      "kept": 940,
+      "max": 1000,
+      "status": "NEAR_LIMIT",
+      "summary": "Most of the receipt budget is used; plan a review before imports start failing."
+    },
+    {
+      "kind": "binding-correction",
+      "kept": 1000,
+      "max": 1000,
+      "status": "AT_LIMIT",
+      "summary": "The source reached its stored correction receipts; further corrections are refused."
+    }
+  ]
+}
