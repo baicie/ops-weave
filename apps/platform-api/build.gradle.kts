@@ -33,6 +33,7 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("db/migrations/platform/V024__scan_run_consistency.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V025__item_watermark_label.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V026__source_connection_check.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V027__rejected_write_audit.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V016__problem_observation.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V012__ai_insight.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V013__incident_reorganization.sql")) { into("db/migration") }

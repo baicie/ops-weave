@@ -71,3 +71,6 @@ opsweave:
   scan-run-retention:
     max-runs-per-scope: ${OPSWEAVE_SCAN_RUN_MAX_PER_SCOPE:1000}
     max-runs-per-tenant: ${OPSWEAVE_SCAN_RUN_MAX_PER_TENANT:5000}
+  # Bounded audit of refused supplemental-source writes: 500 rows per source by default, tighten only.
+  rejected-write-retention:
+    max-per-source: ${OPSWEAVE_REJECTED_WRITE_MAX_PER_SOURCE:500}

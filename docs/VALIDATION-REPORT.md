@@ -1208,3 +1208,30 @@ ToolExecutorTest > ordinaryFailuresReleaseCapacityAndPreserveSanitizedFailureTyp
 | 本机 | 无 PostgreSQL/Playwright 环境（Docker Desktop 未运行、pip 与直连网络不可用） | 只跑了纯领域与 Web typecheck；契约/Java/Playwright 全部按 CI 真实结果记录，未在本机复跑 |
 
 M2–M4 与 MVP 估算不变（两处都是构建/测试缺陷，不改变产品能力）。这两个缺陷说明“本机全绿”不等于“可交付”：CI 与镜像构建覆盖了本机无法执行的部分，本轮把它们的真实结果留在这里而不是留在口头结论里。部署通道的卡点（第55节 deploy 记录）需要单独处理：它是镜像分发方式的问题，不属于 M0–M4 退出门槛，也不改变本次四个 job 的结论。
+
+## 56. 2026-09-26 被拒写尝试的审计留存（追加）
+
+继续目标里的第 (2) 项：第43/53 节把“被拒绝的写尝试不落库，只有决策回执”记为已知缺口。补充来源链的两类人工写
+（字段审核、绑定更正）在**成功**时都有完整回执，但被拒时只返回 409 与稳定错误码，不留任何痕迹——"谁在何时试图
+改什么、为什么被拒"事后无法回答，而这恰恰是最需要看到的信号。
+
+本轮新增 `integration.rejected_write_attempt`（V027）与两个存储装饰器：字段审核（`stage`/`decide`）与绑定更正
+（`correct`/`ingest`）在内存与 PostgreSQL 两条路径上都被记录，**原请求原样重新抛出**。记录内容刻意收窄：稳定
+`reasonCode`、被拒操作的白名单标签、actor、尝试过的**字段名**、时间与 tenant/source；**不记录字段值、厂商报文、
+异常消息**。每 tenant/source 保留最近 500 条（`OPSWEAVE_REJECTED_WRITE_MAX_PER_SOURCE`，只能收紧），写入与清理在
+同一事务。读取入口 `GET /api/v1/integrations/cmdb/rejected-writes` 只读且不重放，权限沿用写入所需的三项（仅
+`source.sync` 会 403），装饰器只写"配置来源"的记录——读不回来的行不写。
+
+| 检查 | 实际命令 / 方法 | 最终结果与边界 |
+|---|---|---|
+| 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并逐个运行 main | **1108 项、40 个 main 通过**。新增 `RejectedWriteAuditSmoke` 37 项：预算默认/收紧/越界拒绝、记录往返（码/操作/actor/字段名/时间）、**拒绝原样重抛且不改写消息**、成功写不产生审计、字段名白名单丢弃未知名、actor 坏输入记为 `unknown` 且不回显、非配置来源不落库、每 scope 上限与淘汰顺序、tenant/source 隔离、记录自身拒绝重复/非法/超量字段名 |
+| Web 类型 | `apps/web-console` 的 `pnpm typecheck` | **通过**（本轮不改前端，作回归） |
+| 契约 | `contracts/schemas/v1/rejected-write-audit.schema.json` + 样例 + `tests/contracts/test_rejected_write_audit.py` | 新增 1 类 Schema、1 份样例与 34 项用例：信封闭合与必填、kind/method/reasonCode 闭集、每码对应固定摘要、摘要单行长度、actor 无控制字符/无首尾空白、**字段名只能是 `name/ip/owner/environment` 且不重复**、不允许 `fieldValues`/`vendorMessage`/`receiptId` 等额外声明、时间必须是绝对时间戳。本机无 pytest 依赖，未执行；由 CI 的 contracts job 验证 |
+| Java / 真实 PG | `PostgresRejectedWriteAttemptIT`（新增 4 项）与 `RejectedWriteAuditHttpIT`（3 项 + 嵌套 1 项） | 本机无 PostgreSQL 与 Gradle 依赖缓存（`~/.gradle` 只有 211 个 jar 且缺 Spring/JDBC/Servlet），**未在本机执行**；CI 的 java job 自带 PostgreSQL 17，覆盖：记录往返与固定摘要、六个拒绝后真实行数为 3 且读取不清理、tenant/source 隔离、HTTP 读回字段名与 `no-store`/`nosniff`、limit/未知参数 400、未认证 401 且不泄漏行内容、只有 `source.sync` 时 403 |
+| 真实环境 / 人工 | — | 未运行；真实 Zabbix/模型/IdP/TLS 与人工抽样审阅仍为环境阻塞项 |
+
+保留边界：审计**不重放、不授权、不重试**，被拒的请求仍然被拒，绑定与字段状态不因记录而变化；没有 Web 页面
+（接口与契约已就绪）、没有按时间窗口的清理入口、没有跨来源汇总或拒绝次数告警；读取入口只服务配置的导入来源。
+`source_sync_run` 之外的其他业务/授权元数据生命周期仍按 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md)
+保持开放。M2–M4 与 MVP 估算不变（补齐的是治理缺口，不是退出门槛本身）。见
+[ADR-049](adr/049-rejected-write-audit.md)、[契约](../contracts/schemas/v1/rejected-write-audit.schema.json)。

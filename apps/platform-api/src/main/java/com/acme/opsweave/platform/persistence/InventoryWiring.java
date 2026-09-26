@@ -25,6 +25,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 public final class InventoryWiring implements AutoCloseable {
     private HikariDataSource ownedDataSource;
+    private com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshotsWired;
     private final InventoryQuery query;
     private final InventoryWritePort writer;
     private final IngestZabbixHostsUseCase.RawRecordCollector rawRecords;
@@ -32,6 +33,7 @@ public final class InventoryWiring implements AutoCloseable {
     private final MetricDefinitionStore metrics;
     private final SourceItemWritePort itemWrites;
     private final SourceConnectionCheckStore sourceChecks;
+    private final com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites;
     private final String label;
     private final RawRecordReader rawReader;
     private final PipelineVersionStore pipelines;
@@ -50,6 +52,7 @@ public final class InventoryWiring implements AutoCloseable {
         MetricDefinitionStore metrics,
         SourceItemWritePort itemWrites,
         SourceConnectionCheckStore sourceChecks,
+        com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites,
         String label,
         RawRecordReader rawReader,
         PipelineVersionStore pipelines,
@@ -66,6 +69,7 @@ public final class InventoryWiring implements AutoCloseable {
         this.metrics = metrics;
         this.itemWrites = itemWrites;
         this.sourceChecks = sourceChecks;
+        this.rejectedWrites = rejectedWrites;
         this.label = label;
         this.rawReader = rawReader;
         this.pipelines = pipelines;
@@ -88,7 +92,11 @@ public final class InventoryWiring implements AutoCloseable {
                 return result;
             });
             var tools = new com.acme.opsweave.aicontrol.infrastructure.InMemoryToolReadStore();
-            return new InventoryWiring(inventory, inventory, raw, new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
+            var rejected = new com.acme.opsweave.inventory.infrastructure.InMemoryRejectedWriteAttemptStore(
+                properties.rejectedWriteRetention(null));
+            return new InventoryWiring(com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
+                    inventory, rejected, java.time.Clock.systemUTC(), properties.inventory().cmdbImportSource()), inventory, raw,
+                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -129,11 +137,17 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V024__scan_run_consistency.sql", "V024__scan_run_consistency");
         new SchemaMigrator(dataSource).apply("db/migration/V025__item_watermark_label.sql", "V025__item_watermark_label");
         new SchemaMigrator(dataSource).apply("db/migration/V026__source_connection_check.sql", "V026__source_connection_check");
+        new SchemaMigrator(dataSource).apply("db/migration/V027__rejected_write_audit.sql", "V027__rejected_write_audit");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
-        var wiring = new InventoryWiring(postgres, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
-        wiring.ownedDataSource = dataSource; return wiring;
+        var rejected = new PostgresRejectedWriteAttempts(dataSource, properties.rejectedWriteRetention(null));
+        var sourceReviews = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
+            new PostgresSourceReviews(dataSource), rejected, java.time.Clock.systemUTC(), properties.inventory().cmdbImportSource());
+        var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
+            new PostgresSourceSnapshots(dataSource), rejected, java.time.Clock.systemUTC(), properties.inventory().cmdbImportSource());
+        var wiring = new InventoryWiring(sourceReviews, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
+        wiring.sourceSnapshotsWired = sourceSnapshots; wiring.ownedDataSource = dataSource; return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
 
@@ -166,14 +180,19 @@ public final class InventoryWiring implements AutoCloseable {
         return sourceChecks;
     }
 
+    public com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites() { return rejectedWrites; }
+
     public com.acme.opsweave.inventory.api.SourceReviewStore sourceReviews() {
-        return ownedDataSource == null ? (com.acme.opsweave.inventory.api.SourceReviewStore) writer : new PostgresSourceReviews(ownedDataSource);
+        return (com.acme.opsweave.inventory.api.SourceReviewStore) writer;
     }
     public com.acme.opsweave.inventory.api.AssetIdentityStore assetIdentities() {
         return ownedDataSource == null ? (com.acme.opsweave.inventory.api.AssetIdentityStore) writer : new PostgresAssetIdentities(ownedDataSource);
     }
     public com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshots() {
-        if(ownedDataSource==null)throw new IllegalStateException("Persistent source snapshots require PostgreSQL");
+        if (sourceSnapshotsWired != null) {
+            return sourceSnapshotsWired;
+        }
+        if (ownedDataSource == null) throw new IllegalStateException("Persistent source snapshots require PostgreSQL");
         return new PostgresSourceSnapshots(ownedDataSource);
     }
 

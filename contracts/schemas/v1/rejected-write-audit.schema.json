@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rejected-write-audit",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": ["postgres", "memory"]
+    },
+    "dataMode": {
+      "const": "import"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]{1,128}(?![\\s\\S])"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attemptId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "enum": ["FIELD_REVIEW", "BINDING_CORRECTION"]
+          },
+          "method": {
+            "enum": ["stage-review", "decide-review", "correct-binding", "ingest-snapshot"]
+          },
+          "reasonCode": {
+            "enum": [
+              "ENTITY_VERSION_CHANGED",
+              "REVIEW_VERSION_CHANGED",
+              "REVIEW_STATE_CHANGED",
+              "REVIEW_STALE",
+              "BINDING_CHANGED",
+              "BINDING_UNCHANGED",
+              "BINDING_FIELDS_ACTIVE",
+              "BINDING_CONFLICT",
+              "SNAPSHOT_OUTDATED",
+              "REQUEST_CONFLICT",
+              "LIMIT_REACHED",
+              "IDENTITY_UNRESOLVED"
+            ]
+          },
+          "reasonSummary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+(?![\\s\\S])"
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^\\S(?:[^\\u0000-\\u001f\\u007f-\\u009f]*\\S)?(?![\\s\\S])"
+          },
+          "fieldNames": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "enum": ["name", "ip", "owner", "environment"]
+            }
+          },
+          "attemptedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["attemptId", "kind", "method", "reasonCode", "reasonSummary", "actor", "fieldNames", "attemptedAt"]
+      }
+    }
+  },
+  "required": ["schemaVersion", "storage", "dataMode", "tenantId", "sourceInstanceId", "limit", "items"]
+}

@@ -6,7 +6,7 @@
 
 ## 当前源码
 
-最新增量：扫描运行记录已被有界化（第54节）。`ScanRunRetention` 定义预算（每 tenant/source/objectType 1000 行、每租户 5000 行，配置只能收紧），两个存储适配器在**打开扫描的同一事务里、写入新行之后**清理最旧的“可删除”行；仍在 `RUNNING` 的运行与被 `sync_pipeline_pin` 钉住的运行永不删除，读取（`recent`/`retained`）不触发清理。追溯响应新增 `retention` 预算与当前条数，页面显示并拒绝越界/不一致/缺字段的预算；契约新增 `retention` 必填对象与 19 项用例，领域新增 `ScanRunRetentionSmoke`(50) 与 `ScanRunRetentionConfigSmoke`(11)，真实 PG 新增 `PostgresScanRunRetentionIT` 4 项。本机验证：领域 1071 项/39 个 main 连续三次通过、Web typecheck 通过；契约/Java/Rust/Playwright 由推送后的 CI 执行（本机无 pytest 依赖、PostgreSQL 与 Playwright 环境）。M2 约93%、M3 约90%、M4 约80%、MVP 约91%。
+最新增量：被拒写尝试已可审计（第56节）。`integration.rejected_write_attempt`（V027）记录补充来源链两类人工写（字段审核、绑定更正）的**拒绝**：稳定 `reasonCode`、被拒操作的白名单标签、actor、尝试过的字段名、时间与 tenant/source；不记录字段值/厂商报文/异常消息。两个存储装饰器在内存与 PostgreSQL 路径记录后**原样重抛**，成功路径不写，非配置来源不写（读不回来的行不写），每 tenant/source 保留最近 500 条并只能收紧。`GET /api/v1/integrations/cmdb/rejected-writes` 只读、不重放，权限沿用写入所需三项。本机验证：领域 1108 项/40 个 main、Web typecheck；契约/Java/PG/Playwright 由 CI 执行。M2 约93%、M3 约90%、M4 约80%、MVP 约91%。
 
 第52节 SUM/计数器变化率与 reset 策略继续保留：只有 SUM 查询得到派生视图（按秒变化率，下降视为重置、该区间从零起算并带 `counterReset = true`，非正区间与负值跳过，原始点/单位/来源/窗口/状态不变）；契约把 `derivation` 与 `counterRates` 收紧为闭集，Web 指标页默认画变化率曲线并标出 reset 区间、可切回原始累计值。
 
@@ -52,7 +52,7 @@
 | 资产强标识登记/定位 | 运维命名空间、人工核对 UUID、租户唯一生效目标、可信 actor/原因/原始回执、实体版本/共享锁、PG 并发唯一与回滚；有权精确定位、可选导入 pin、依赖字段先撤销、Web 原请求重试与会话清理；快照复核登记且撤销即时停止存在保护 | 自动来源标识核验、通用采集 Resolver、已有 Entity 合并/alias/标识迁移、tenant 总量/时间清理；不按名字/IP 自动合并 |
 | URL 只读选择 | 三类 canonical selection、严格参数/长度/编码/窗口、资源和游标恢复、前进后退丢弃结果、固定实际窗口、重新读取与身份清理、初始 Token 逐字输入保持链接 | 历史子面板筛选、跨页一致快照、写操作输入/执行恢复、浏览器历史擦除或凭据持久化 |
 | 告警观测历史 | 合并前规范化输入、稳定 ID/原样重投、异内容全批回滚、首次映射/接收纳秒、当前归属和版本校验、历史实体权限先于分页、Web 筛选/翻页/冲突刷新与身份清理 | 厂商原始 JSON、留存前补造、Incident 任意 asOf 投影、留存总量/清理和生产迁移/容量验收 |
-| 补充来源字段审核 | 固定版本 CMDB 导入；目标版本与四字段预览、逐字段选择、可信 actor/原因/幂等回执、唯一生效绑定、V015 主来源快照/原子确认撤销、来源/过期/历史页面；UUID pin复核；与V021来源绑定双向冲突检查 | 通用已有资产合并、厂商来源自动采集、真实 CMDB API、留存清理/全平台总量配额 |
+| 补充来源字段审核 | 固定版本 CMDB 导入；目标版本与四字段预览、逐字段选择、可信 actor/原因/幂等回执、唯一生效绑定、V015 主来源快照/原子确认撤销、来源/过期/历史页面；UUID pin复核；与V021来源绑定双向冲突检查；被拒尝试写入有界审计（V027、每来源 500 条、只记字段名与稳定码） | 通用已有资产合并、厂商来源自动采集、真实 CMDB API、留存清理/全平台总量配额、审计页面 |
 | 资产 Observation | 不可变 JSON/租户 ID、原子重复/冲突和 Link 检查、迟到保留、V014 纳秒/旧精度、授权窗口/source/ID 分页与 Web 文本展示 | 通用跨源 Resolver、完整来源事件日志、任意 asOf 投影、留存清理与存储总量限制 |
 | Worker 服务身份 | 默认关闭的独立 OAuth client_credentials/RS256 at+jwt；固定 issuer/audience/scope、运维 Principal/资源/时间/点数/速率授权、4 并发；有界网络、单调缓存、撤权/故障不推进 checkpoint、轮换续采本机通过 | 真实 IdP/TLS 联调；远端 VM/PG、多流、分布式全局配额/HA 未提供 |
 | OIDC BFF / 委托 | 固定提供方/回调、授权码+PKCE/nonce、操作员 issuer/sub→Principal；单进程有限期 Cookie/CSRF、授权更改/退出撤销、跨标签清理；最多 4 个/65 秒/8 次原请求及额外各一次费用预留/报告的 Runtime 委托；协议 fixture 完整链通过 | 真实 IdP/HTTPS/反向代理验收、跨主机 Runtime 认证、共享会话/HA、IdP 退出通知 |

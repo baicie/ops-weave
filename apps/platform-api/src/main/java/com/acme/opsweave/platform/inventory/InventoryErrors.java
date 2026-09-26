@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-@RestControllerAdvice(assignableTypes = {EntityController.class, ObservationController.class, SourceReviewController.class, AssetIdentityController.class, SourceSnapshotController.class})
+@RestControllerAdvice(assignableTypes = {EntityController.class, ObservationController.class, SourceReviewController.class, AssetIdentityController.class, SourceSnapshotController.class, RejectedWriteAuditController.class})
 public class InventoryErrors {
     @ExceptionHandler(com.acme.opsweave.inventory.domain.SourceBindingCorrection.Conflict.class)
     public ResponseEntity<?> correctionConflict(com.acme.opsweave.inventory.domain.SourceBindingCorrection.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error",failed.code().name())); }

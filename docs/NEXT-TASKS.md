@@ -2,11 +2,15 @@
 
 规划里程碑与 Issue 拆分见 [ROADMAP.md](ROADMAP.md)。本页只列**当前可启动**的工作，不把未验收能力写成已完成。
 
-## 最新增量（第54节，2026-09-26）
+## 最新增量（第56节，2026-09-26）
 
-扫描运行记录已**有界化**：`ScanRunRetention` 定义保留预算（每个 tenant/source/objectType 1000 行、每租户 5000 行；`OPSWEAVE_SCAN_RUN_MAX_PER_SCOPE/PER_TENANT` 只能收紧，越界或不一致在启动时按 `INVALID_REQUEST` 拒绝），两个存储适配器在**打开扫描的同一事务里、写入新行之后**清理最旧的“可删除”行。仍在 `RUNNING` 的运行与被 `sync_pipeline_pin` 钉住的运行永不删除（钉子是外键，删掉会破坏引用或抹掉映射版本归属）；读取（`recent`/`retained`）不触发清理。追溯响应新增 `retention`（预算 + 当前条数），页面显示并拒绝越界/不一致/缺字段的预算；契约新增必填 `retention` 与 19 项用例；领域新增 `ScanRunRetentionSmoke`(50) 与 `ScanRunRetentionConfigSmoke`(11)；真实 PG 新增 `PostgresScanRunRetentionIT`(4)。本机实测：领域 1071 项/39 个 main 连续三次通过、Web typecheck 通过；契约/Java/Rust/Playwright 由 CI 执行。中间修掉三处真实缺陷（先插入后清理的顺序、可删除集合的分母语义、同毫秒运行的排序与游标不一致）与五处测试自身的错误假设，细节见[验证报告第54节](VALIDATION-REPORT.md)与 [ADR-047](adr/047-scan-run-retention.md)。**这不是修复路径**：不改写结果、不退休对象、不补做对账、不回收遗留 `RUNNING`（需独立租约/状态修复）。元数据留存与备份生命周期只在 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md) 记录边界，未实现备份/恢复/擦除。
+被拒写尝试已可审计：`integration.rejected_write_attempt`（V027）记录补充来源链两类人工写（字段审核、绑定更正）的**拒绝**——稳定 `reasonCode`、被拒操作的白名单标签、actor、尝试过的字段名、时间与 tenant/source；**不记录字段值、厂商报文、异常消息**。两个存储装饰器在内存与 PostgreSQL 路径记录后原样重抛同一异常（审计不是第二道闸门，也不是隐藏重试），成功路径不写，非配置来源不写，每 tenant/source 保留最近 500 条（`OPSWEAVE_REJECTED_WRITE_MAX_PER_SOURCE` 只能收紧），写入与清理同一事务。新增只读入口 `GET /api/v1/integrations/cmdb/rejected-writes`（权限沿用写入所需的 `entity.read`+`entity.manage`+源级 `source.sync`；仅 `source.sync` 为 403，未配置为 503，未认证为 401）。证据：领域 `RejectedWriteAuditSmoke` 37 项（本机 1108 项/40 个 main 全绿）、契约 1 类 Schema + 34 项用例、`PostgresRejectedWriteAttemptIT` 4 项、`RejectedWriteAuditHttpIT` 4 项（后两者由 CI 的 PostgreSQL job 执行，本机无 PG/Gradle 依赖缓存）。见[验证报告第56节](VALIDATION-REPORT.md)与 [ADR-049](adr/049-rejected-write-audit.md)。
 
-**下一项（本地可做）**：① 为观测/快照/审核与更正回执定义租户级总量预算与显式清理入口（先契约与设计，再实现，形状复用 ADR-034 的预览→确认→回执）；② Incident 时间线分页与留存上限；③ 遗留 `RUNNING` 运行的可观测与人工标记（不做自动改写）。真实环境一旦可用，按 [real-acceptance runbook](runbooks/real-acceptance.md) 先跑 S1–S7 并附报告。
+**下一项（本地可做）**：① 被拒审计的 Web 只读面板（接口与契约已就绪）；② Incident 时间线分页与留存上限；③ 观测/快照/审核与更正回执的租户级总量预算与显式清理入口（形状复用 ADR-034 的预览→确认→回执）；④ 遗留 `RUNNING` 运行的可观测与人工标记（不做自动改写）。真实环境一旦可用，按 [real-acceptance runbook](runbooks/real-acceptance.md) 先跑 S1–S7 并附报告。
+
+## 前一增量（第54节，2026-09-26）
+
+扫描运行记录已**有界化**：`ScanRunRetention` 定义保留预算（每个 tenant/source/objectType 1000 行、每租户 5000 行；`OPSWEAVE_SCAN_RUN_MAX_PER_SCOPE/PER_TENANT` 只能收紧，越界或不一致在启动时按 `INVALID_REQUEST` 拒绝），两个存储适配器在**打开扫描的同一事务里、写入新行之后**清理最旧的“可删除”行。仍在 `RUNNING` 的运行与被 `sync_pipeline_pin` 钉住的运行永不删除（钉子是外键，删掉会破坏引用或抹掉映射版本归属）；读取（`recent`/`retained`）不触发清理。追溯响应新增 `retention`（预算 + 当前条数），页面显示并拒绝越界/不一致/缺字段的预算；契约新增必填 `retention` 与 19 项用例；领域新增 `ScanRunRetentionSmoke`(50) 与 `ScanRunRetentionConfigSmoke`(11)；真实 PG 新增 `PostgresScanRunRetentionIT`(4)。中间修掉三处真实缺陷（先插入后清理的顺序、可删除集合的分母语义、同毫秒运行的排序与游标不一致）与五处测试自身的错误假设，细节见[验证报告第54节](VALIDATION-REPORT.md)与 [ADR-047](adr/047-scan-run-retention.md)。**这不是修复路径**：不改写结果、不退休对象、不补做对账、不回收遗留 `RUNNING`（需独立租约/状态修复）。元数据留存与备份生命周期只在 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md) 记录边界，未实现备份/恢复/擦除。
 
 ## 已关闭：M0（Zeus 迁移验收）
 

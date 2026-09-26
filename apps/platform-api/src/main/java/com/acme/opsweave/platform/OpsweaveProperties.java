@@ -20,4 +20,12 @@ public record OpsweaveProperties(Auth auth, Zabbix zabbix, Inventory inventory) 
     public ScanRunRetention.Policy scanRunRetention(Integer maxRunsPerScope, Integer maxRunsPerTenant) {
         return ScanRunRetention.Policy.of(maxRunsPerScope, maxRunsPerTenant);
     }
+
+    /**
+     * Optional refusal-log budget. Same rule: configuration may only tighten the published default of
+     * 500 rows per source, and an unusable value fails at startup.
+     */
+    public com.acme.opsweave.inventory.domain.RejectedWriteAttempt.Policy rejectedWriteRetention(Integer maxPerSource) {
+        return com.acme.opsweave.inventory.domain.RejectedWriteAttempt.Policy.of(maxPerSource);
+    }
 }
