@@ -1238,3 +1238,33 @@ schema 使用仓库既有的可打印文本模式，未对孤立 DEL 字符另�
 `source_sync_run` 之外的其他业务/授权元数据生命周期仍按 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md)
 保持开放。M2–M4 与 MVP 估算不变（补齐的是治理缺口，不是退出门槛本身）。见
 [ADR-049](adr/049-rejected-write-audit.md)、[契约](../contracts/schemas/v1/rejected-write-audit.schema.json)。
+
+## 57. 2026-09-26 来源收据容量的只读视图（追加）
+
+继续目标里的第 (3) 项（其他业务/授权元数据的留存与备份生命周期）。审计这一项时确认了 ADR-048 里的一条真实缺口：
+来源快照与绑定更正的**回执**按 tenant/source 各保留最多 1000 份，而且**达到上限就 fail closed**——`ingest` 与 `correct`
+直接以 `SNAPSHOT_LIMIT`/`CORRECTION_LIMIT` 拒绝写入。也就是说，一旦某个来源满了，导入会开始静默失败，而平台
+**没有任何地方显示这个计数**。ADR-048 同时明确：删除回执会让旧请求的幂等回执不可再查（ADR-037 的"原请求原样取回"），
+所以清理必须是人工作业而不是后台任务。
+
+本轮先做**可见性**（清理入口仍待设计，ADR-048 的"后续工作"里保留）：新增只读
+`GET /api/v1/integrations/cmdb/receipt-capacity`，报告两类回执各自的 `kept`、发布上限与
+`OK/NEAR_LIMIT/AT_LIMIT` 状态（80% 起告警），每行带固定文案说明"还能写 / 该安排了 / 已经写不进去了"。它**只计数**：
+不删除任何回执、不放宽上限、不重放任何导入或更正；权限沿用写入所需的三项（仅 `source.sync` 为 403，未配置为 503，
+未认证为 401），且不接受任何查询参数。
+
+| 检查 | 实际命令 / 方法 | 最终结果与边界 |
+|---|---|---|
+| 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并逐个运行 main | **1136 项、41 个 main 通过**。新增 `ReceiptCapacitySmoke` 28 项：两类上限取自写入路径真正使用的常量（`SourceSnapshot.MAX_RECEIPTS`/`SourceBindingCorrection.MAX_RECEIPTS`，防止视图与写入漂移）、状态边界（0/799/800/999/1000、cap=1）、固定文案且**不声称发生了清理**、记录拒绝负数/超上限/max=0/非法来源、三类权限缺失各自 403、计数只读（计数次数可观测）、`max` 是发布常量 |
+| Web 类型 | `apps/web-console` 的 `pnpm typecheck` | 本轮不改前端；由 CI 的 web job 回归通过 |
+| 契约 | `contracts/schemas/v1/source-receipt-capacity.schema.json` + 样例 + `tests/contracts/test_source_receipt_capacity.py` | 新增 1 类 Schema、1 份样例与 27 项用例：信封必填与闭合、**恰好两行**且 kind 为 `snapshot`/`binding-correction`、`max` 必须是发布的 1000、`kept` 不越界、status 闭集与五个边界值、摘要单行、不允许 `removed`/`raisedTo` 等额外声明。本机无 pytest 依赖，**未在本机执行**；CI 的 contracts job 实测通过 |
+| Java / 真实 PG | `PostgresReceiptCapacityIT`（3 项）与 `SourceReceiptCapacityHttpIT`（2 项 + 独立只读权限类 1 项） | 本机无 PostgreSQL 与完整 Gradle 缓存，**未在本机执行**；CI 的 java job 实测 **225 tests, 0 failed**（含新增 6 项），覆盖：空来源报 0/OK、真实落库 1000 行后计数为 1000 且**读两次不会删掉任何回执**、状态为 AT_LIMIT、另一类仍为 0、跨租户/跨来源不计入、HTTP 返回两行与固定文案、无 `removed`/`raised` 字样、带任何查询参数 400、未认证 401 且不泄漏行、只有 `source.sync` 时 403 |
+| 真实环境 / 人工 | — | 未运行；真实 Zabbix/模型/IdP/TLS 与人工抽样审阅仍为环境阻塞项 |
+
+CI 迭代：① 首次 java 失败是本轮新用例把 `Set` 与排序后的 `List` 直接比较（`names()` 返回 List），改为按集合比较后全绿。
+这一处是本轮新代码的问题，没有放宽任何既有断言。
+
+保留边界：这是**可见性**而不是治理本身——没有清理入口、没有扩容路径、没有跨来源汇总或后台调度；容量视图不删除任何回执，
+也不改变 fail-closed 语义（满了仍然拒绝写入）。资产观测**刻意不进入清理候选**：已存储的工具证据引用观测 id，删除观测会
+留下悬空引用（记录在 ADR-048）。备份/恢复/物理擦除仍无任何能力或承诺。M2–M4 与 MVP 估算不变。见
+[ADR-048](adr/048-metadata-retention-backup-lifecycle.md)、[契约](../contracts/schemas/v1/source-receipt-capacity.schema.json)。

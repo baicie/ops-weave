@@ -6,7 +6,11 @@
 
 被拒写尝试已可审计：`integration.rejected_write_attempt`（V027）记录补充来源链两类人工写（字段审核、绑定更正）的**拒绝**——稳定 `reasonCode`、被拒操作的白名单标签、actor、尝试过的字段名、时间与 tenant/source；**不记录字段值、厂商报文、异常消息**。两个存储装饰器在内存与 PostgreSQL 路径记录后原样重抛同一异常（审计不是第二道闸门，也不是隐藏重试），成功路径不写，非配置来源不写，每 tenant/source 保留最近 500 条（`OPSWEAVE_REJECTED_WRITE_MAX_PER_SOURCE` 只能收紧），写入与清理同一事务。新增只读入口 `GET /api/v1/integrations/cmdb/rejected-writes`（权限沿用写入所需的 `entity.read`+`entity.manage`+源级 `source.sync`；仅 `source.sync` 为 403，未配置为 503，未认证为 401）。证据：领域 `RejectedWriteAuditSmoke` 37 项（本机 1108 项/40 个 main 全绿）、契约 1 类 Schema + 40 项用例、`PostgresRejectedWriteAttemptIT` 5 项、`RejectedWriteAuditHttpIT` 4 项；契约与 Java 在本机无法执行（无 pytest 依赖、无 PostgreSQL 与完整 Gradle 缓存），由 CI 实测 **contracts 与 java(219 tests) 全绿**，迭代中修掉 5 处新代码缺陷（详见验证报告第56节）。见[验证报告第56节](VALIDATION-REPORT.md)与 [ADR-049](adr/049-rejected-write-audit.md)。
 
-**下一项（本地可做）**：① 被拒审计的 Web 只读面板（接口与契约已就绪）；② Incident 时间线分页与留存上限；③ 观测/快照/审核与更正回执的租户级总量预算与显式清理入口（形状复用 ADR-034 的预览→确认→回执）；④ 遗留 `RUNNING` 运行的可观测与人工标记（不做自动改写）。真实环境一旦可用，按 [real-acceptance runbook](runbooks/real-acceptance.md) 先跑 S1–S7 并附报告。
+**下一项（本地可做）**：① 被拒审计的 Web 只读面板（接口与契约已就绪）；② 来源回执容量的**清理入口**（容量视图已提供输入：达到 `AT_LIMIT` 时如何人工移除旧回执、并说明旧请求幂等回执随之不可再查）；③ Incident 时间线分页与留存上限；④ 遗留 `RUNNING` 运行的可观测与人工标记（不做自动改写）。真实环境一旦可用，按 [real-acceptance runbook](runbooks/real-acceptance.md) 先跑 S1–S7 并附报告。
+
+## 前一增量（第57节，2026-09-26）
+
+来源**收据容量**已可见：`GET /api/v1/integrations/cmdb/receipt-capacity` 只读报告快照与绑定更正两类回执的 `kept`、发布上限（各 1000）与 `OK/NEAR_LIMIT/AT_LIMIT`（80% 起告警）+ 固定文案。它存在的理由是该上限 **fail closed**：满了以后每次导入/更正都以 `SNAPSHOT_LIMIT`/`CORRECTION_LIMIT` 被拒，而此前没有任何地方显示计数。它只计数——不删除回执、不放宽上限、不重放写入；权限沿用写入所需三项。证据：领域 `ReceiptCapacitySmoke` 28 项（本机 1136 项/41 个 main）、契约 1 类 Schema + 27 项用例、`PostgresReceiptCapacityIT` 3 项、`SourceReceiptCapacityHttpIT` 3 项；契约与 Java 由 CI 实测全绿（**225 tests, 0 failed**）。清理入口仍待设计：删除回执会让旧请求的幂等回执不可再查，因此必须是显式人工动作（[ADR-048](adr/048-metadata-retention-backup-lifecycle.md)、[验证报告第57节](VALIDATION-REPORT.md)）。
 
 ## 前一增量（第54节，2026-09-26）
 
