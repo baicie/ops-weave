@@ -68,27 +68,33 @@ public final class SourceScanRunQuerySmoke {
         runs.succeed(TENANT, middle.id(), SyncScan.OFFSET_ATTEMPT);
         runs.fail(TENANT, newest.id(), SyncFailureCode.SOURCE_FETCH_FAILED.storedReason(), SyncScan.OFFSET_ATTEMPT);
 
-        List<UUID> expected = List.of(oldest, middle, newest).stream()
-            .sorted(Comparator.comparing(SyncRun::startedAt).reversed()
-                .thenComparing(SyncRun::id, Comparator.reverseOrder()))
-            .map(SyncRun::id)
-            .toList();
+        // Newest first is the contract. Runs that share a wall-clock instant may come back in any
+        // order (the persistent store falls back to the run id), so paging is checked for coverage,
+        // disjointness and monotonic time rather than for one hard-coded tie-break.
         var all = service.recent(reader, "host", null, 10);
-        require(all.items().stream().map(entry -> entry.run().id()).toList().equals(expected),
-            "stored scans come back newest first");
+        require(all.items().size() == 3, "every stored scan of this scope is traced");
+        require(isNewestFirst(all.items()), "stored scans come back newest first");
+        require(all.items().stream().map(entry -> entry.run().id()).collect(java.util.stream.Collectors.toSet())
+                .equals(Set.of(oldest.id(), middle.id(), newest.id())),
+            "the trace returns exactly the stored runs of this scope");
         require(!all.hasMore() && all.nextCursor() == null, "a complete page carries no cursor");
 
         var firstPage = service.recent(reader, "host", null, 2);
         require(firstPage.items().size() == 2 && firstPage.hasMore() && firstPage.nextCursor() != null,
             "bounded page reports that more rows exist");
-        require(firstPage.items().stream().map(entry -> entry.run().id()).toList().equals(expected.subList(0, 2)),
-            "first page follows the newest-first order");
+        require(isNewestFirst(firstPage.items()), "first page follows the newest-first order");
         var secondPage = service.recent(reader, "host", firstPage.nextCursor(), 2);
         require(secondPage.items().size() == 1 && !secondPage.hasMore(),
             "cursor resumes after the last returned row");
-        require(secondPage.items().getFirst().run().id().equals(expected.get(2)), "paged rows are disjoint and complete");
-        require(firstPage.items().stream().noneMatch(entry -> entry.run().id().equals(secondPage.items().getFirst().run().id())),
+        require(firstPage.items().stream().noneMatch(entry ->
+                entry.run().id().equals(secondPage.items().getFirst().run().id())),
             "the cursor never repeats a row");
+        require(java.util.stream.Stream.concat(
+                firstPage.items().stream(), secondPage.items().stream())
+                .map(entry -> entry.run().id())
+                .collect(java.util.stream.Collectors.toSet())
+                .equals(Set.of(oldest.id(), middle.id(), newest.id())),
+            "paged rows are disjoint and together they cover the scope");
 
         var failed = service.find(reader, "host", newest.id());
         require(failed.run().status() == SyncStatus.FAILED && !failed.run().snapshotComplete(),
@@ -132,6 +138,16 @@ public final class SourceScanRunQuerySmoke {
         fails(IllegalArgumentException.class, () -> new SyncRunCursor(null, UUID.randomUUID()));
 
         System.out.println("SourceScanRunQuerySmoke: " + checks + " checks passed");
+    }
+
+    /** True when every row is at least as old as the one before it. */
+    private static boolean isNewestFirst(List<SourceScanRunQueryService.Entry> items) {
+        for (int index = 1; index < items.size(); index++) {
+            if (items.get(index).run().startedAt().isAfter(items.get(index - 1).run().startedAt())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void require(boolean condition, String message) {

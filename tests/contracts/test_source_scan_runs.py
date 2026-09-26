@@ -93,3 +93,33 @@ def test_an_item_run_keeps_its_own_bound():
     validate('source-scan-run',body)
     body['scanConsistency']='consistent-snapshot'
     with pytest.raises(ValidationError):validate('source-scan-run',body)
+
+def test_trace_page_states_the_storage_budget_it_holds_rows_against():
+    body=sample('source-scan-run-page')
+    assert body['retention']=={'maxRunsPerScope':1000,'maxRunsPerTenant':5000,'retained':2}
+    del body['retention']
+    with pytest.raises(ValidationError):validate('source-scan-run-page',body)
+
+@pytest.mark.parametrize('field',['maxRunsPerScope','maxRunsPerTenant','retained'])
+def test_the_trace_budget_cannot_be_reported_partially(field):
+    body=sample('source-scan-run-page');del body['retention'][field]
+    with pytest.raises(ValidationError):validate('source-scan-run-page',body)
+
+@pytest.mark.parametrize('field,value',[
+    ('maxRunsPerScope',0),('maxRunsPerScope',1001),('maxRunsPerScope','1000'),
+    ('maxRunsPerTenant',0),('maxRunsPerTenant',5001),('maxRunsPerTenant',-1),
+    ('retained',-1),('retained',1001),('retained','2'),
+])
+def test_the_trace_budget_stays_inside_the_published_defaults(field,value):
+    body=sample('source-scan-run-page');body['retention'][field]=value
+    with pytest.raises(ValidationError):validate('source-scan-run-page',body)
+
+def test_the_trace_budget_carries_no_extra_claim():
+    body=sample('source-scan-run-page');body['retention']['prunedAt']='2026-09-26T05:00:00Z'
+    with pytest.raises(ValidationError):validate('source-scan-run-page',body)
+
+@pytest.mark.parametrize('scope,tenant',[(1000,1000),(1,1),(10,5000)])
+def test_a_tighter_budget_is_a_valid_report(scope,tenant):
+    body=sample('source-scan-run-page')
+    body['retention']={'maxRunsPerScope':scope,'maxRunsPerTenant':tenant,'retained':min(scope,tenant)}
+    validate('source-scan-run-page',body)

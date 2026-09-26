@@ -4,6 +4,7 @@ import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.api.RawRecordReader;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
+import com.acme.opsweave.integration.domain.ScanRunRetention;
 import com.acme.opsweave.integration.domain.SyncRun;
 import com.acme.opsweave.integration.domain.SyncRunCursor;
 import com.acme.opsweave.integration.domain.SyncScan;
@@ -22,10 +23,16 @@ import tools.jackson.databind.json.JsonMapper;
 
 final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.RawRecordCollector, RawRecordReader {
     private final DataSource dataSource;
+    private final ScanRunRetention.Policy retention;
     private final JsonMapper json = JsonMapper.builder().build();
 
     PostgresSyncStore(DataSource dataSource) {
+        this(dataSource, ScanRunRetention.Policy.defaults());
+    }
+
+    PostgresSyncStore(DataSource dataSource, ScanRunRetention.Policy retention) {
         this.dataSource = dataSource;
+        this.retention = retention;
     }
 
     @Override
@@ -47,11 +54,107 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
                 statement.setString(6, dataMode);
                 statement.executeUpdate();
             }
+            sweep(connection, tenantId, sourceInstanceId, objectType, id);
         });
         return new SyncRun(
             id, tenantId, sourceInstanceId, objectType, SyncStatus.RUNNING, startedAt,
             null, null, 0, 0, 0, 0, false, dataMode, null, SyncScan.OFFSET_ATTEMPT
         );
+    }
+
+    /**
+     * Bounded trace storage, applied in the same transaction that opens the next run and after the
+     * new row is stored. The run being opened counts against the budget, so a scope keeps at most
+     * its budget of rows once the sweep runs. Only rows retention may delete are counted or
+     * evicted: a {@code RUNNING} run and any run a pipeline version is pinned to are outside it,
+     * so a pin can never be broken by retention and a live scan is never deleted under itself.
+     * Pruning never rewrites a stored result, never retires an object and never reconciles a
+     * missing one.
+     */
+    private void sweep(
+        Connection connection,
+        TenantId tenantId,
+        String sourceInstanceId,
+        String objectType,
+        UUID opening
+    ) throws SQLException {
+        String prunable = """
+               AND id <> ?
+               AND status <> 'RUNNING'
+               AND NOT EXISTS (
+                   SELECT 1 FROM integration.sync_pipeline_pin pin
+                    WHERE pin.tenant_id = integration.source_sync_run.tenant_id
+                      AND pin.sync_run_id = integration.source_sync_run.id
+               )
+            """;
+        try (var scoped = connection.prepareStatement("""
+            DELETE FROM integration.source_sync_run
+             WHERE tenant_id = ? AND source_instance_id = ? AND object_type = ?
+            """ + prunable + """
+               AND id NOT IN (
+                   SELECT id FROM integration.source_sync_run
+                    WHERE tenant_id = ? AND source_instance_id = ? AND object_type = ?
+                    """ + prunable + """
+                    ORDER BY started_at DESC, id DESC
+                    LIMIT ?
+               )
+            """)) {
+            scoped.setString(1, tenantId.value());
+            scoped.setString(2, sourceInstanceId);
+            scoped.setString(3, objectType);
+            scoped.setObject(4, opening);
+            scoped.setString(5, tenantId.value());
+            scoped.setString(6, sourceInstanceId);
+            scoped.setString(7, objectType);
+            scoped.setObject(8, opening);
+            scoped.setInt(9, retention.maxRunsPerScope() - 1);
+            scoped.executeUpdate();
+        }
+        try (var tenantWide = connection.prepareStatement("""
+            DELETE FROM integration.source_sync_run
+             WHERE tenant_id = ?
+            """ + prunable + """
+               AND id NOT IN (
+                   SELECT id FROM integration.source_sync_run
+                    WHERE tenant_id = ?
+                    """ + prunable + """
+                    ORDER BY started_at DESC, id DESC
+                    LIMIT ?
+               )
+            """)) {
+            tenantWide.setString(1, tenantId.value());
+            tenantWide.setObject(2, opening);
+            tenantWide.setString(3, tenantId.value());
+            tenantWide.setObject(4, opening);
+            tenantWide.setInt(5, retention.maxRunsPerTenant() - 1);
+            tenantWide.executeUpdate();
+        }
+    }
+
+    @Override
+    public int retained(TenantId tenantId, String sourceInstanceId, String objectType) {
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                SELECT count(*) FROM integration.source_sync_run
+                 WHERE tenant_id = ? AND source_instance_id = ? AND object_type = ?
+                   AND status <> 'RUNNING'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM integration.sync_pipeline_pin pin
+                        WHERE pin.tenant_id = integration.source_sync_run.tenant_id
+                          AND pin.sync_run_id = integration.source_sync_run.id
+                   )
+                """)) {
+            statement.setQueryTimeout(5);
+            statement.setString(1, tenantId.value());
+            statement.setString(2, sourceInstanceId);
+            statement.setString(3, objectType);
+            try (ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                return rows.getInt(1);
+            }
+        } catch (SQLException failed) {
+            throw new IllegalStateException("Sync run lookup failed");
+        }
     }
 
     @Override

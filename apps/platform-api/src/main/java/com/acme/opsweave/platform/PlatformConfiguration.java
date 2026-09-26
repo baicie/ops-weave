@@ -193,7 +193,7 @@ public class PlatformConfiguration {
     SourceScanRunQueryService sourceScanRunQueryService(AuthorizationService authorization, InventoryWiring wiring,
             OpsweaveProperties properties) {
         return new SourceScanRunQueryService(authorization, wiring.syncRuns(), wiring.pipelines(),
-            properties.zabbix().sourceInstanceId());
+            properties.zabbix().sourceInstanceId(), properties.scanRunRetention(null, null));
     }
 
     @Bean

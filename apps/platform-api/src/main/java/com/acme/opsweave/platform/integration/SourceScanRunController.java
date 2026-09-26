@@ -74,6 +74,11 @@ public final class SourceScanRunController {
         body.put("after", after);
         body.put("hasMore", page.hasMore());
         body.put("nextCursor", page.nextCursor());
+        body.put("retention", Map.of(
+            "maxRunsPerScope", page.retention().maxRunsPerScope(),
+            "maxRunsPerTenant", page.retention().maxRunsPerTenant(),
+            "retained", page.retention().retained()
+        ));
         body.put("items", page.items().stream().map(this::item).toList());
         return body;
     }

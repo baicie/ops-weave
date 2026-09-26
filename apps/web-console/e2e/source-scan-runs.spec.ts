@@ -90,6 +90,37 @@ for(const [name,damage] of [
   await expect(page.getByRole('alert')).not.toContainText('raw vendor detail')
 })
 
+test('the trace states the storage budget it holds rows against and never claims it pruned anything',async({page})=>{
+  const list=fixture()
+  await page.route('**/api/v1/**',route=>new URL(route.request().url()).pathname===`${root}/hosts/runs`?route.fulfill({json:list}):route.fulfill({status:404,json:{error:'NOT_FOUND'}}))
+  await enter(page);await load(page)
+  const budget=page.locator('[data-scan-run-retention]')
+  await expect(budget).toContainText('本范围 1000 条')
+  await expect(budget).toContainText('本租户 5000 条')
+  await expect(budget).toContainText('当前本范围存储 2 条')
+  await expect(budget).toContainText('读取不会清理记录')
+  await expect(budget).toContainText('不会被删除')
+})
+
+for(const [name,damage] of [
+  ['a budget above the published per-scope default',(page:any)=>{page.retention.maxRunsPerScope=1001}],
+  ['a budget above the published per-tenant default',(page:any)=>{page.retention.maxRunsPerTenant=5001}],
+  ['a scope budget larger than the tenant budget',(page:any)=>{page.retention.maxRunsPerScope=2000;page.retention.maxRunsPerTenant=1500}],
+  ['a zero scope budget',(page:any)=>{page.retention.maxRunsPerScope=0}],
+  ['a negative retained count',(page:any)=>{page.retention.retained=-1}],
+  ['a retained count above the scope budget',(page:any)=>{page.retention.retained=1001}],
+  ['a retained count smaller than the page it describes',(page:any)=>{page.retention.retained=1}],
+  ['an incomplete budget',(page:any)=>{delete page.retention.retained}],
+  ['an extra retention claim',(page:any)=>{page.retention.prunedAt='2026-09-26T05:00:00Z'}],
+  ['a missing budget',(page:any)=>{delete page.retention}],
+] as const)test(`a page with ${name} is refused and never rendered`,async({page})=>{
+  const list=fixture();damage(list)
+  await page.route('**/api/v1/**',route=>new URL(route.request().url()).pathname===`${root}/hosts/runs`?route.fulfill({json:list}):route.fulfill({status:404,json:{error:'NOT_FOUND'}}))
+  await enter(page);await page.getByRole('button',{name:'读取扫描运行',exact:true}).click()
+  await expect(page.getByRole('alert')).toContainText('扫描记录响应结构、范围或时间不正确')
+  await expect(page.locator('[data-scan-run-list]')).toHaveCount(0)
+})
+
 test('missing source permission and an unknown run keep stable explanations without raw text',async({page})=>{
   let mode='forbidden'
   await page.route('**/api/v1/**',route=>{const url=new URL(route.request().url())

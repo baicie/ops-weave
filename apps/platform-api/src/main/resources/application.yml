@@ -66,3 +66,8 @@ opsweave:
     page-size: ${OPSWEAVE_ZABBIX_PAGE_SIZE:100}
   metrics:
     victoria-url: ${OPSWEAVE_VICTORIAMETRICS_URL:}
+  # Trace storage is bounded. These may only tighten the published defaults
+  # (1000 rows per source/object-type scope, 5000 per tenant); a larger or inconsistent value is rejected.
+  scan-run-retention:
+    max-runs-per-scope: ${OPSWEAVE_SCAN_RUN_MAX_PER_SCOPE:1000}
+    max-runs-per-tenant: ${OPSWEAVE_SCAN_RUN_MAX_PER_TENANT:5000}

@@ -26,7 +26,8 @@ export type ScanRun = {
   failureSummary?: string
   pipelineVersion?: ScanPipelineRef
 }
-export type ScanRunPage = { schemaVersion:'1.0'; storage:'postgres'|'memory'; dataMode:'scan-log'; tenantId:string; sourceInstanceId:string; objectType:ScanObjectType; limit:number; after:string|null; hasMore:boolean; nextCursor:string|null; items:ScanRun[] }
+export type ScanRetention = { maxRunsPerScope: number; maxRunsPerTenant: number; retained: number }
+export type ScanRunPage = { schemaVersion:'1.0'; storage:'postgres'|'memory'; dataMode:'scan-log'; tenantId:string; sourceInstanceId:string; objectType:ScanObjectType; limit:number; after:string|null; hasMore:boolean; nextCursor:string|null; retention:ScanRetention; items:ScanRun[] }
 export type ScanRunRead = { schemaVersion:'1.0'; storage:'postgres'|'memory'; dataMode:'scan-log'; tenantId:string; sourceInstanceId:string; objectType:ScanObjectType; run:ScanRun }
 
 /** Fixed summaries mirror SyncFailureCode.safeSummary(); any other text is refused, never rendered. */
@@ -121,15 +122,31 @@ function base(value: unknown, objectType: ScanObjectType) {
   return page
 }
 
+/** The published storage budget. A stricter deployment may only lower these, never raise them. */
+const MAX_RUNS_PER_SCOPE = 1000
+const MAX_RUNS_PER_TENANT = 5000
+
+function parseRetention(value: unknown): ScanRetention {
+  exact(value, ['maxRunsPerScope', 'maxRunsPerTenant', 'retained'])
+  const retention = value as Record<string, unknown>
+  check(count(retention.maxRunsPerScope) && retention.maxRunsPerScope >= 1 && retention.maxRunsPerScope <= MAX_RUNS_PER_SCOPE)
+  check(count(retention.maxRunsPerTenant) && retention.maxRunsPerTenant >= 1 && retention.maxRunsPerTenant <= MAX_RUNS_PER_TENANT)
+  check(retention.maxRunsPerTenant >= retention.maxRunsPerScope)
+  check(count(retention.retained) && retention.retained <= MAX_RUNS_PER_SCOPE)
+  return value as unknown as ScanRetention
+}
+
 export function parseScanRunPage(value: unknown, objectType: ScanObjectType, expected: { limit: number; after: string | null }): ScanRunPage {
   const page = base(value, objectType)
-  exact(value, ['schemaVersion','storage','dataMode','tenantId','sourceInstanceId','objectType','limit','after','hasMore','nextCursor','items'])
+  exact(value, ['schemaVersion','storage','dataMode','tenantId','sourceInstanceId','objectType','limit','after','hasMore','nextCursor','retention','items'])
   check(page.limit === expected.limit && page.limit >= 1 && page.limit <= 50 && page.after === expected.after)
   check(typeof page.hasMore === 'boolean' && Array.isArray(page.items) && page.items.length <= page.limit)
   check(page.hasMore ? cursor(page.nextCursor) : page.nextCursor === null)
+  const retention = parseRetention(page.retention)
   const items = page.items.map(item => parseScanRun(item, objectType))
   check(new Set(items.map(item => item.syncRunId)).size === items.length)
-  return { ...(page as unknown as ScanRunPage), items }
+  check(retention.retained >= items.length)
+  return { ...(page as unknown as ScanRunPage), retention, items }
 }
 
 export function parseScanRunRead(value: unknown, objectType: ScanObjectType): ScanRunRead {

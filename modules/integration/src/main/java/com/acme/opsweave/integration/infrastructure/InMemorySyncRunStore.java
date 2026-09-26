@@ -1,6 +1,7 @@
 package com.acme.opsweave.integration.infrastructure;
 
 import com.acme.opsweave.integration.api.SyncRunStore;
+import com.acme.opsweave.integration.domain.ScanRunRetention;
 import com.acme.opsweave.integration.domain.SyncRun;
 import com.acme.opsweave.integration.domain.SyncRunCursor;
 import com.acme.opsweave.integration.domain.SyncScan;
@@ -16,16 +17,44 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Labeled in-memory sync log. Not a production checkpoint store. */
 public final class InMemorySyncRunStore implements SyncRunStore {
     private final ConcurrentHashMap<UUID, SyncRun> runs = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicReference<Instant> lastStartedAt =
+        new java.util.concurrent.atomic.AtomicReference<>(Instant.EPOCH);
+    private final ScanRunRetention.Policy policy;
+
+    public InMemorySyncRunStore() {
+        this(ScanRunRetention.Policy.defaults());
+    }
+
+    public InMemorySyncRunStore(ScanRunRetention.Policy policy) {
+        this.policy = policy;
+    }
+
+    /**
+     * Wall-clock start time, nudged forward when two runs would otherwise share an instant. The
+     * stored order is then a total order on the instant alone, so a retention sweep and a cursor
+     * page always agree on which run is newer.
+     */
+    private Instant nextStartedAt() {
+        Instant now = Instant.now();
+        while (true) {
+            Instant previous = lastStartedAt.get();
+            Instant next = now.isAfter(previous) ? now : previous.plusNanos(1_000);
+            if (lastStartedAt.compareAndSet(previous, next)) {
+                return next;
+            }
+        }
+    }
 
     @Override
     public SyncRun start(TenantId tenantId, String sourceInstanceId, String objectType, String dataMode) {
+        UUID opening = UUID.randomUUID();
         SyncRun run = new SyncRun(
-            UUID.randomUUID(),
+            opening,
             tenantId,
             sourceInstanceId,
             objectType,
             SyncStatus.RUNNING,
-            Instant.now(),
+            nextStartedAt(),
             null,
             null,
             0,
@@ -38,6 +67,7 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             SyncScan.OFFSET_ATTEMPT
         );
         runs.put(run.id(), run);
+        sweep(tenantId, sourceInstanceId, objectType, opening);
         return run;
     }
 
@@ -142,13 +172,11 @@ public final class InMemorySyncRunStore implements SyncRunStore {
         if (limit < 1 || limit > MAX_RECENT) {
             throw new IllegalArgumentException("Invalid run limit");
         }
-        return runs.values().stream()
+        return newestFirst(runs.values().stream()
             .filter(run -> run.tenantId().equals(tenantId)
                 && run.sourceInstanceId().equals(sourceInstanceId)
                 && run.objectType().equals(objectType))
-            .filter(run -> after == null || precedes(run, after))
-            .sorted(Comparator.comparing(SyncRun::startedAt).reversed()
-                .thenComparing(SyncRun::id, Comparator.reverseOrder()))
+            .filter(run -> after == null || precedes(run, after)))
             .limit(limit + 1L)
             .toList();
     }
@@ -157,6 +185,77 @@ public final class InMemorySyncRunStore implements SyncRunStore {
     private static boolean precedes(SyncRun run, SyncRunCursor after) {
         int byStart = run.startedAt().compareTo(after.startedAt());
         return byStart < 0 || (byStart == 0 && run.id().compareTo(after.id()) < 0);
+    }
+
+    /**
+     * Applies the retention budget in the same operation that opens a run, after the run is
+     * stored. The in-memory store has no pipeline pins, so a live {@code RUNNING} run and the run
+     * being opened now are the protected rows; the newest rows of the scope and of the tenant
+     * survive, which bounds the scope at the budget instead of the budget plus the live run.
+     */
+    private void sweep(TenantId tenantId, String sourceInstanceId, String objectType, UUID opening) {
+        prune(of(tenantId, sourceInstanceId, objectType), policy.maxRunsPerScope(), opening);
+        prune(ofTenant(tenantId), policy.maxRunsPerTenant(), opening);
+    }
+
+    /**
+     * Deletes the runs that fall outside the budget. The run being opened now counts against the
+     * budget — it is a stored row like any other — so the surviving rows are always at most
+     * {@code budget}. Rows are handed over newest-first, so the newest survivors win and the
+     * oldest evictable run goes first. Explicit loop rather than a stream suffix: the cut index is
+     * the whole point and must be trivially auditable.
+     */
+    private void prune(List<SyncRun> newestFirst, int budget, UUID opening) {
+        boolean openingCounted = false;
+        int kept = 0;
+        List<UUID> doomed = new java.util.ArrayList<>();
+        for (SyncRun run : newestFirst) {
+            if (run.id().equals(opening)) {
+                openingCounted = true;
+                continue;
+            }
+            if (!prunable(run, opening)) {
+                continue;
+            }
+            if (kept + (openingCounted ? 1 : 0) < budget) {
+                kept++;
+                continue;
+            }
+            doomed.add(run.id());
+        }
+        if (!doomed.isEmpty()) {
+            runs.keySet().removeAll(doomed);
+        }
+    }
+
+    @Override
+    public int retained(TenantId tenantId, String sourceInstanceId, String objectType) {
+        return (int) of(tenantId, sourceInstanceId, objectType).stream()
+            .filter(run -> run.status() != SyncStatus.RUNNING)
+            .count();
+    }
+
+    private List<SyncRun> of(TenantId tenantId, String sourceInstanceId, String objectType) {
+        return newestFirst(runs.values().stream()
+            .filter(run -> run.tenantId().equals(tenantId)
+                && run.sourceInstanceId().equals(sourceInstanceId)
+                && run.objectType().equals(objectType)))
+            .toList();
+    }
+
+    private List<SyncRun> ofTenant(TenantId tenantId) {
+        return newestFirst(runs.values().stream().filter(run -> run.tenantId().equals(tenantId))).toList();
+    }
+
+    private java.util.stream.Stream<SyncRun> newestFirst(java.util.stream.Stream<SyncRun> stream) {
+        // Order by the stored instant, then by run id — the same total order the cursor pages on,
+        // so a page boundary can never skip or repeat a row that shares a millisecond.
+        return stream.sorted(Comparator.comparing(SyncRun::startedAt).reversed()
+            .thenComparing(SyncRun::id, Comparator.reverseOrder()));
+    }
+
+    private static boolean prunable(SyncRun run, UUID opening) {
+        return run.status() != SyncStatus.RUNNING && !run.id().equals(opening);
     }
 
     private SyncRun required(TenantId tenantId, UUID id) {

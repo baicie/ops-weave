@@ -88,7 +88,7 @@ public final class InventoryWiring implements AutoCloseable {
                 return result;
             });
             var tools = new com.acme.opsweave.aicontrol.infrastructure.InMemoryToolReadStore();
-            return new InventoryWiring(inventory, inventory, raw, new InMemorySyncRunStore(), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
+            return new InventoryWiring(inventory, inventory, raw, new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -130,7 +130,7 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V025__item_watermark_label.sql", "V025__item_watermark_label");
         new SchemaMigrator(dataSource).apply("db/migration/V026__source_connection_check.sql", "V026__source_connection_check");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
-        PostgresSyncStore sync = new PostgresSyncStore(dataSource);
+        PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
         var wiring = new InventoryWiring(postgres, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
         wiring.ownedDataSource = dataSource; return wiring;

@@ -44,6 +44,29 @@
       "maxLength": 192,
       "pattern": "^[A-Za-z0-9_-]{0,192}$"
     },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The published trace-storage budget for this scope and how many rows it currently holds. A read never prunes.",
+      "properties": {
+        "maxRunsPerScope": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "maxRunsPerTenant": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "retained": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      "required": ["maxRunsPerScope", "maxRunsPerTenant", "retained"]
+    },
     "items": {
       "type": "array",
       "maxItems": 50,
@@ -63,6 +86,7 @@
     "after",
     "hasMore",
     "nextCursor",
+    "retention",
     "items"
   ]
 }

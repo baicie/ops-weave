@@ -7,6 +7,7 @@ import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.integration.api.PipelineVersionStore;
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.domain.PipelineVersion;
+import com.acme.opsweave.integration.domain.ScanRunRetention;
 import com.acme.opsweave.integration.domain.SourceScanRunException;
 import com.acme.opsweave.integration.domain.SourceScanRunException.Code;
 import com.acme.opsweave.integration.domain.SyncRun;
@@ -30,6 +31,7 @@ public final class SourceScanRunQueryService {
     private final SyncRunStore runs;
     private final PipelineVersionStore versions;
     private final String source;
+    private final ScanRunRetention.Policy retention;
 
     public SourceScanRunQueryService(
         AuthorizationService authorization,
@@ -37,10 +39,21 @@ public final class SourceScanRunQueryService {
         PipelineVersionStore versions,
         String source
     ) {
+        this(authorization, runs, versions, source, ScanRunRetention.Policy.defaults());
+    }
+
+    public SourceScanRunQueryService(
+        AuthorizationService authorization,
+        SyncRunStore runs,
+        PipelineVersionStore versions,
+        String source,
+        ScanRunRetention.Policy retention
+    ) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.runs = Objects.requireNonNull(runs, "runs");
         this.versions = Objects.requireNonNull(versions, "versions");
         this.source = source;
+        this.retention = Objects.requireNonNull(retention, "retention");
     }
 
     public Page recent(Principal principal, String objectType, String after, int limit) {
@@ -62,7 +75,16 @@ public final class SourceScanRunQueryService {
         String nextCursor = hasMore && !page.isEmpty()
             ? new SyncRunCursor(page.get(page.size() - 1).startedAt(), page.get(page.size() - 1).id()).encode()
             : null;
-        return new Page(items, hasMore, nextCursor);
+        return new Page(items, hasMore, nextCursor, retention(principal, type));
+    }
+
+    /**
+     * What the trace may still show for this scope. This is a read: it prunes nothing, so reading
+     * an old run never destroys the log it is reporting on, and it never reopens a finished scan.
+     */
+    private Retention retention(Principal principal, String type) {
+        int retained = runs.retained(principal.tenantId(), source, type);
+        return new Retention(retention.maxRunsPerScope(), retention.maxRunsPerTenant(), retained);
     }
 
     public Entry find(Principal principal, String objectType, UUID syncRunId) {
@@ -104,5 +126,11 @@ public final class SourceScanRunQueryService {
     /** One stored scan plus the mapping version that was pinned to it, when one was pinned. */
     public record Entry(SyncRun run, PipelineVersion.Ref pipelineVersion) {}
 
-    public record Page(List<Entry> items, boolean hasMore, String nextCursor) {}
+    /**
+     * The published budget for this scope and how many rows it currently holds. A read-only view:
+     * it does not run a sweep, and the count is the rows the budget applies to.
+     */
+    public record Retention(int maxRunsPerScope, int maxRunsPerTenant, int retained) {}
+
+    public record Page(List<Entry> items, boolean hasMore, String nextCursor, Retention retention) {}
 }

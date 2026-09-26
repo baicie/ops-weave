@@ -1,5 +1,6 @@
 package com.acme.opsweave.integration.api;
 
+import com.acme.opsweave.integration.domain.ScanRunRetention;
 import com.acme.opsweave.integration.domain.SyncRun;
 import com.acme.opsweave.integration.domain.SyncRunCursor;
 import com.acme.opsweave.sharedkernel.TenantId;
@@ -11,6 +12,12 @@ public interface SyncRunStore {
     /** Upper bound for one trace page; the store returns at most {@code limit + 1} rows. */
     int MAX_RECENT = 50;
 
+    /**
+     * Opens one scan run and, first, applies the retention budget so the stored trace stays
+     * bounded. The newest rows of the scope and of the tenant survive; a {@code RUNNING} run and a
+     * run that a pipeline version is pinned to are never deleted. Pruning is storage hygiene: it
+     * never rewrites a stored result, retires an object or reconciles a missing one.
+     */
     SyncRun start(TenantId tenantId, String sourceInstanceId, String objectType, String dataMode);
 
     void checkpoint(
@@ -43,4 +50,10 @@ public interface SyncRunStore {
         SyncRunCursor after,
         int limit
     );
+
+    /**
+     * Rows the retention policy keeps for one scope right now. Read-only: it prunes nothing, so a
+     * trace never mutates the log it is reporting on. It counts the same rows a sweep would keep.
+     */
+    int retained(TenantId tenantId, String sourceInstanceId, String objectType);
 }
