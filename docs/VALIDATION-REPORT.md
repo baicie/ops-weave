@@ -1226,12 +1226,15 @@ M2–M4 与 MVP 估算不变（两处都是构建/测试缺陷，不改变产品
 |---|---|---|
 | 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并逐个运行 main | **1108 项、40 个 main 通过**。新增 `RejectedWriteAuditSmoke` 37 项：预算默认/收紧/越界拒绝、记录往返（码/操作/actor/字段名/时间）、**拒绝原样重抛且不改写消息**、成功写不产生审计、字段名白名单丢弃未知名、actor 坏输入记为 `unknown` 且不回显、非配置来源不落库、每 scope 上限与淘汰顺序、tenant/source 隔离、记录自身拒绝重复/非法/超量字段名 |
 | Web 类型 | `apps/web-console` 的 `pnpm typecheck` | **通过**（本轮不改前端，作回归） |
-| 契约 | `contracts/schemas/v1/rejected-write-audit.schema.json` + 样例 + `tests/contracts/test_rejected_write_audit.py` | 新增 1 类 Schema、1 份样例与 34 项用例：信封闭合与必填、kind/method/reasonCode 闭集、每码对应固定摘要、摘要单行长度、actor 无控制字符/无首尾空白、**字段名只能是 `name/ip/owner/environment` 且不重复**、不允许 `fieldValues`/`vendorMessage`/`receiptId` 等额外声明、时间必须是绝对时间戳。本机无 pytest 依赖，未执行；由 CI 的 contracts job 验证 |
-| Java / 真实 PG | `PostgresRejectedWriteAttemptIT`（新增 4 项）与 `RejectedWriteAuditHttpIT`（3 项 + 嵌套 1 项） | 本机无 PostgreSQL 与 Gradle 依赖缓存（`~/.gradle` 只有 211 个 jar 且缺 Spring/JDBC/Servlet），**未在本机执行**；CI 的 java job 自带 PostgreSQL 17，覆盖：记录往返与固定摘要、六个拒绝后真实行数为 3 且读取不清理、tenant/source 隔离、HTTP 读回字段名与 `no-store`/`nosniff`、limit/未知参数 400、未认证 401 且不泄漏行内容、只有 `source.sync` 时 403 |
+| 契约 | `contracts/schemas/v1/rejected-write-audit.schema.json` + 样例 + `tests/contracts/test_rejected_write_audit.py` | 新增 1 类 Schema、1 份样例与 40 项用例：信封闭合与必填、kind/method/reasonCode 闭集、每码对应固定摘要、摘要单行长度、actor 无控制字符/无首尾空白（允许内部空格）、**字段名只能是 `name/ip/owner/environment` 且不重复**、不允许 `fieldValues`/`vendorMessage`/`receiptId` 等额外声明、时间必须是绝对时间戳。本机无 pytest 依赖，**未在本机执行**；CI 的 contracts job 实测通过（下面记录迭代过程） |
+| Java / 真实 PG | `PostgresRejectedWriteAttemptIT`（新增 5 项）与 `RejectedWriteAuditHttpIT`（3 项 + 嵌套 1 项） | 本机无 PostgreSQL 与完整 Gradle 依赖缓存（`~/.gradle` 只有 211 个 jar，缺 Spring/JDBC/Servlet），**未在本机执行**；CI 的 java job 实测 **219 tests, 0 failed**（含新增 9 项），覆盖：记录往返与固定摘要、六个拒绝后真实行数为 3 且读取不清理、tenant/source 隔离、**真实拒绝路径**（装饰器记录后原样重抛调用方自己的异常、字段名稳定排序）、HTTP 读回字段名与 `no-store`/`nosniff`、limit/未知参数 400、未认证 401 且不泄漏行内容、只有 `source.sync` 时 403 |
 | 真实环境 / 人工 | — | 未运行；真实 Zabbix/模型/IdP/TLS 与人工抽样审阅仍为环境阻塞项 |
+
+CI 迭代过程如实记录（本机只能跑领域与 typecheck，因此这些缺陷只能由 CI 暴露）：① `Properties.Inventory` 上没有 `cmdbImportSource()`——改为把配置来源作为 `InventoryWiring.open(properties, cmdbImportSource)` 的参数并从 `PlatformConfiguration` 传入；② 把审计包装器误放进构造函数第 2 个位置（那是 `InventoryWritePort`）——构造函数参数顺序改为显式传入 `sourceSnapshotsWired`/`sourceReviewsWired`；③ 契约 `reasonSummary` 的首版正则允许纯空白，随后一版又拒绝了内部空格——最终采用仓库既有的可打印文本模式 `^\S(?:[^控制字符]*\S)?$`（拒绝首尾空白与换行，允许内部空格）；④ `Jackson 3` 的 `JsonNode` 没有 `propertyNames()`——改用 `properties()`；⑤ 审计字段名顺序原本取决于调用方 Map 的迭代顺序——改为稳定排序后再落库。两次契约失败与两次编译失败都是本轮新代码/新用例的问题，没有放宽任何既有断言。
 
 保留边界：审计**不重放、不授权、不重试**，被拒的请求仍然被拒，绑定与字段状态不因记录而变化；没有 Web 页面
 （接口与契约已就绪）、没有按时间窗口的清理入口、没有跨来源汇总或拒绝次数告警；读取入口只服务配置的导入来源。
+schema 使用仓库既有的可打印文本模式，未对孤立 DEL 字符另做特例（摘要是服务端生成的固定文案，不是调用方文本）。
 `source_sync_run` 之外的其他业务/授权元数据生命周期仍按 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md)
 保持开放。M2–M4 与 MVP 估算不变（补齐的是治理缺口，不是退出门槛本身）。见
 [ADR-049](adr/049-rejected-write-audit.md)、[契约](../contracts/schemas/v1/rejected-write-audit.schema.json)。
