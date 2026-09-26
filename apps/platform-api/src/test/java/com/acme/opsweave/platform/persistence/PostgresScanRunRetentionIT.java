@@ -84,7 +84,11 @@ class PostgresScanRunRetentionIT extends OwnedInventoryTest {
         }
         assertTrue(store.find(tenant,pinned.id()).isPresent(),"a pinned run is never deleted by retention");
         assertEquals(version.ref(),wiring.pipelines().pinned(tenant,source,pinned.id()).orElseThrow(),"the pin still resolves after sweeps");
-        assertTrue(store.recent(tenant,source,"host",null,50).size()<=3,"the budget still bounds what retention may delete");
+        // A protected row is outside the budget: retention bounds the rows it may delete, so the
+        // pinned run is one extra row on top of the budget and never counts against it.
+        assertEquals(3,store.retained(tenant,source,"host"),"the budget still bounds the rows retention may delete");
+        assertEquals(4,store.recent(tenant,source,"host",null,50).size(),"the pinned run stays on top of the budget");
+        assertEquals(4L,rowsInScope(),"the scope holds exactly the budget plus the protected run");
     }
 
     @Test void budgetsArePerScopeAndPerTenant()throws Exception{

@@ -6,7 +6,7 @@
 
 ## 当前源码
 
-最新增量：真实验收执行包已补齐（第53节）。`scripts/acceptance/real-acceptance.mjs` 按顺序跑七步只读断言（连接自检 → Host 水位快照+落库标签回读 → Item 水位快照 → 受权资产 → 指定指标 `AVAILABLE` 且有样本 → Incident+关联告警 → 只读诊断保存并回读 AIInsight），任一步失败立即停止并写 JSON 报告（每步证据、退出条件映射、固定未验证项）。它只调用平台 API：不直连来源/模型/数据库，不写来源，不重试；来源是 fixture 时除非显式 `--rehearsal` 一律以退出码 2 拒绝，报告 `mode` 只写 `rehearsal`。本机演练 7/7 步通过，另验证“fixture 被拒绝”“坏凭据快速失败”两个负例。真实环境到位后按 `docs/runbooks/real-acceptance.md` 执行。M2 约93%、M3 约90%、M4 约80%、MVP 约91%。
+最新增量：扫描运行记录已被有界化（第54节）。`ScanRunRetention` 定义预算（每 tenant/source/objectType 1000 行、每租户 5000 行，配置只能收紧），两个存储适配器在**打开扫描的同一事务里、写入新行之后**清理最旧的“可删除”行；仍在 `RUNNING` 的运行与被 `sync_pipeline_pin` 钉住的运行永不删除，读取（`recent`/`retained`）不触发清理。追溯响应新增 `retention` 预算与当前条数，页面显示并拒绝越界/不一致/缺字段的预算；契约新增 `retention` 必填对象与 19 项用例，领域新增 `ScanRunRetentionSmoke`(50) 与 `ScanRunRetentionConfigSmoke`(11)，真实 PG 新增 `PostgresScanRunRetentionIT` 4 项。本机验证：领域 1071 项/39 个 main 连续三次通过、Web typecheck 通过；契约/Java/Rust/Playwright 由推送后的 CI 执行（本机无 pytest 依赖、PostgreSQL 与 Playwright 环境）。M2 约93%、M3 约90%、M4 约80%、MVP 约91%。
 
 第52节 SUM/计数器变化率与 reset 策略继续保留：只有 SUM 查询得到派生视图（按秒变化率，下降视为重置、该区间从零起算并带 `counterReset = true`，非正区间与负值跳过，原始点/单位/来源/窗口/状态不变）；契约把 `derivation` 与 `counterRates` 收紧为闭集，Web 指标页默认画变化率曲线并标出 reset 区间、可切回原始累计值。
 
@@ -43,7 +43,7 @@
 | 对账前置条件 | 只有 `hostid-watermark-snapshot`/`itemid-watermark-snapshot` 才允许 `retireMissing`；声明完成但无边界标签时以 `SOURCE_SCAN_UNVERIFIED` 失败、退休数为 0、已提交页与 Raw 保留；未读页的失败保持默认标签；PG 与内存路径都强制 | 上游漂移的修复（只能拒绝，不能补全）、offset 分页语义变更、运行记录清理/配额、真实来源验收 |
 | Host 水位快照 | 首请求前捕获最高 hostid 与总行数；水位内升序分页；只有观测行数等于捕获计数且看到水位行才完成并标注 `hostid-watermark-snapshot`；水位后新增不属于快照；删除/乱序/重复按 `SOURCE_SCAN_UNVERIFIED` 拒绝且不对账；游标携带边界；空来源是已验证空快照，边界请求失败不伪装空快照 | 真实 Zabbix 的 hostid 分配/`countOutput`/排序验收；Item/Problem 的水位边界；一致性标签持久化到运行记录；未实现边界的自定义连接器仍可完成对账 |
 | Item 扫描所有权与水位 | 与 Host 共用来源 scope 租约（externalType=item）、取租约后才请求、每页续租、目录/绑定写入与缺失对账受围栏（PG 同事务校验+复查+续租，失败整笔回滚）、结束只释放自身 token；首请求前捕获最高 itemid 与总行数，只有计数与水位双验证才完成并标注 `itemid-watermark-snapshot`，漂移按 `SOURCE_SCAN_UNVERIFIED` 拒绝 | 跨来源全局所有权、后台调度、遗留 RUNNING 自动修复、分布式 HA、“只允许已验证快照触发对账”的强规则、真实来源验收 |
-| 来源扫描运行追溯 | Host/Item 最近运行的只读分页（limit 1–50、服务端游标、hasMore/nextCursor）与按 syncRunId 单条读取；源级 source.sync、租户/来源/对象类型强隔离、未知标识 404；失败码只从平台自身前缀还原且不回显原文、钉住映射版本、持久化边界标签（V024）并在页面渲染、no-store；V023 读取索引 | 运行表自动清理/总量配额、遗留 RUNNING 的自动修复、跨来源或跨租户的全局检索、把标签用于自动决策、真实来源验收 |
+| 来源扫描运行追溯 | Host/Item 最近运行的只读分页（limit 1–50、服务端游标、hasMore/nextCursor）与按 syncRunId 单条读取；源级 source.sync、租户/来源/对象类型强隔离、未知标识 404；失败码只从平台自身前缀还原且不回显原文、钉住映射版本、持久化边界标签（V024）并在页面渲染、no-store；V023 读取索引；响应报告**保留预算**：每范围 1000 行/每租户 5000 行（配置只能收紧），打开扫描时清理最旧的已结束运行，未结束与被映射版本钉住的运行永不删除，读取不清理 | 后台清理调度、跨租户总量治理、遗留 RUNNING 的自动回收、跨来源或跨租户的全局检索、把标签或预算用于自动决策、真实来源验收 |
 | 来源绑定更正 | 新来源观测+原snapshotId+双方版本+目标登记pin，PG来源/实体/绑定锁、原字段先撤销、失败整笔回滚、原历史不迁移、原actor幂等回执/整源受权历史、Web预览/确认/未知结果查询；最多1000份回执并共享快照预算 | 已有Entity合并/alias、主Zabbix绑定或命名空间迁移、历史诊断重算、自动纠错/自动字段批准、全平台留存/HA |
 | 已登记来源快照 | 固定 import 引擎/摘要、全租户管理权限、UUID 精确解析；最多100条/100个保留绑定/1000回执，PG同事务观测/待审字段/presence、严格时间顺序、原actor幂等回执；完整缺失、部分/失败不对账，过期/登记撤销在分页前撤销保护；Web导入/回读/状态 | 厂商CMDB API、后台轮询、自动字段批准、已有Entity合并/alias、主来源TTL及通用多源权威策略、全平台容量/生产迁移HA |
 | Host 扫描所有权 | PG 来源范围租约/fencing、数据库时间、短事务续租、5分钟截止、旧写入/对账/释放隔离、过期事务回滚、稳定错误码与不可覆盖的内部 token；V020每范围一行 | 通用 Item/Problem 扫描所有权、来源一致快照、后台调度、旧RUNNING状态自动修复、生产滚动迁移/故障切换/HA |

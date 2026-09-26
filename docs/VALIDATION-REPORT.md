@@ -1151,3 +1151,30 @@ M2 保持93%、M3 从85%调整为90%（counter reset 策略与用例是 M3 此�
 保留边界：执行包用开发模式 Bearer Token 驱动平台 API，覆盖“真实来源 + 真实模型”在开发/平台开发模式下的验收；生产 OIDC 部署仍按 OIDC runbook 用浏览器流程验收。报告里的 `mode: "real"` 只说明来源不是 fixture，**不替人判断这个来源是不是目标环境**——`sourceDataMode`、`reportedVersion` 与 provider 仍需人工核对。人工抽样审阅、账单对账与 IdP/TLS 验收固定列为未验证项。
 
 M2 保持93%、M3 保持90%、M4 保持80%，**MVP约91%（±5个百分点），整体约58%**；本节是验收工具与文档，不是产品能力，因此不调整估算。真实环境一旦可用，按 [real-acceptance runbook](runbooks/real-acceptance.md) 执行并把报告附到验收记录；M1–M4 退出门槛在此之前仍未全部通过。
+
+## 54. 2026-09-26 扫描运行记录的有界保留与配额（追加）
+
+本轮与前 53 节不同：用户明确要求**先提交并推送**，再继续推进 MVP。因此本节记录的是已提交、已推送的变更，验证一部分在本机执行，另一部分由 GitHub Actions 执行（本机没有 PostgreSQL/Playwright 运行环境）。
+
+第43/49/51/53 节都把同一件事写成已知缺口：`integration.source_sync_run` 只增不减，没有自动清理、没有每来源上限、没有租户总量配额。第44节的追溯依赖这张表，“最近运行”这个读取语义也本来不需要无限历史。本节把它变成**有界存储**：预算写在领域（`ScanRunRetention`），两个存储适配器同样执行。
+
+规则：每个 `tenant + sourceInstanceId + objectType` 范围最多 `maxRunsPerScope = 1000` 行，每个租户最多 `maxRunsPerTenant = 5000` 行；配置（`opsweave.scan-run-retention.*`，环境变量 `OPSWEAVE_SCAN_RUN_MAX_PER_SCOPE/PER_TENANT`）只能收紧，越界或不一致（租户上限小于范围上限）一律按 `INVALID_REQUEST` 拒绝。清理发生在**打开一次扫描的同一事务里，且在新行写入之后**：超预算时从最旧的“可删除”行删起。仍在 `RUNNING` 的运行与被 `sync_pipeline_pin` 钉住的运行永不删除——钉子是外键，删掉它要么破坏引用、要么抹掉“这次运行按哪个映射版本走”的答案。追溯页新增 `retention`（预算与当前条数），读取本身不触发清理。
+
+| 检查 | 实际命令 / 方法 | 最终结果与边界 |
+|---|---|---|
+| 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并逐个运行 main | **1071 项、39 个 main 通过**，连续三次复跑均通过（无抖动）。新增 `ScanRunRetentionSmoke` 50 项与 `ScanRunRetentionConfigSmoke` 11 项：预算默认值/收紧/越界拒绝、范围与租户预算、六个扫描后只剩预算行、刚结束的运行不会被自己的 sweep 删掉、打开中的运行与未结束运行受保护、超过预算的范围收敛、读取不清理、内存适配器与游标分页同一全序；`SourceScanRunQuerySmoke` 改为断言“同一毫秒的运行顺序不属于契约”，改用覆盖性/不重复/时间单调断言（41 项） |
+| Web 类型 | `apps/web-console` 的 `pnpm typecheck` | **通过**。`source-scan-runs` 解析新增必填 `retention`，并拒绝越界预算、范围上限大于租户上限、负数、超过范围预算的条数、比本页还小的条数、缺字段与额外字段 |
+| 静态门禁 | `git diff --check`、`git status`、提交内容复核 | **通过**；`main`，工作区干净，未提交 `.tmp/`、`node_modules`、`target` 或凭据（`.gitignore` 覆盖） |
+| 契约 / Java / Rust / Playwright | GitHub Actions `opsweave-template`（push `86884af` 触发：contracts / rust / web / java 四个 job） | **见下**“CI 结果”一节；本机没有 pytest 依赖、PostgreSQL 与 Playwright 运行环境（Docker Desktop 未运行、pip 与直连网络不可用），因此这四项不在本机执行，不把它们写成已通过 |
+| 真实 PG 保留 | `PostgresScanRunRetentionIT`（新增，需 `OPSWEAVE_TEST_JDBC_URL`） | **新增 4 项**，本机无法执行；CI 的 java job 自带 PostgreSQL 17 与 VictoriaMetrics，覆盖：六个扫描后真实行数为 3、读取不改行数、被钉住的运行与其 pin 在多次 sweep 后仍可解析、预算按范围/来源/租户隔离 |
+
+中间修正（都是本轮真实抓到的缺陷，不是测试写法）：
+
+1. **sweep 与插入的顺序**：最初在插入新行之前清理，于是“预算”实际是“预算 + 一个刚结束的运行”，范围永远比预算多一行。改为**先写入新行、再在同一事务内清理**，并让**正在打开的运行计入预算**，范围才会收敛到预算。
+2. **可删除集合的语义**：第一版把“受保护行”也算进预算分母，导致一个含 `RUNNING` 行的范围反而更早开始删除历史。现在预算只数“可以删的行”，受保护行不算分母也不被删。
+3. **同毫秒运行的顺序**：为了让淘汰确定，曾把内存适配器的排序改成“插入序号”，但追溯的游标分页按 `started_at DESC, id DESC` 过滤，两种顺序一旦不一致就会出现“游标跳过行/重复行”——`SourceScanRunQuerySmoke` 立刻抓到。最终保留与分页一致的 `startedAt + id` 全序，改为让内存适配器**分配单调递增的开始时间**（同刻则加 1 微秒），并把“同一毫秒谁先被淘汰”从契约里剔除：契约是行数上限与受保护行。
+4. **测试自身的错误假设**：`ScanRunRetentionSmoke` 初版有 5 处断言写错了语义（把“刚结束的运行”当成会被立即淘汰、把未结束运行当成会占预算分母、把 `retained()` 当成预算值）。这些都被真实运行暴露并改写为不变量断言。
+
+保留边界：保留策略**不是修复路径**——它不改写任何存储结果、不退休对象、不补做缺失对账，失败的运行和成功的运行一样按时间淘汰；未结束的 `RUNNING` 行受保护，所以崩溃留下的遗留运行需要独立的租约/状态修复才能回收，本轮不提供自动修复。没有后台清理任务、跨租户总量治理、备份或物理擦除，也没有把预算用于自动决策。`source_sync_run` 之外的业务/授权元数据生命周期仍按 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md) 保持开放。真实 Zabbix、真实模型、真实 IdP/TLS 与人工抽样审阅仍未验收。
+
+M2 保持93%、M3 保持90%、M4 保持80%，**MVP约91%（±5个百分点），整体约58%**；本节补齐的是第43–53节反复记录的运维硬化缺口（不属于 M2–M4 退出门槛本身），因此不据此提高阶段估算。见 [ADR-047](adr/047-scan-run-retention.md)、[扫描运行契约](../contracts/source-scan-runs.md)、[操作说明](runbooks/source-scan-runs.md)。

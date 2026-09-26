@@ -2,6 +2,12 @@
 
 规划里程碑与 Issue 拆分见 [ROADMAP.md](ROADMAP.md)。本页只列**当前可启动**的工作，不把未验收能力写成已完成。
 
+## 最新增量（第54节，2026-09-26）
+
+扫描运行记录已**有界化**：`ScanRunRetention` 定义保留预算（每个 tenant/source/objectType 1000 行、每租户 5000 行；`OPSWEAVE_SCAN_RUN_MAX_PER_SCOPE/PER_TENANT` 只能收紧，越界或不一致在启动时按 `INVALID_REQUEST` 拒绝），两个存储适配器在**打开扫描的同一事务里、写入新行之后**清理最旧的“可删除”行。仍在 `RUNNING` 的运行与被 `sync_pipeline_pin` 钉住的运行永不删除（钉子是外键，删掉会破坏引用或抹掉映射版本归属）；读取（`recent`/`retained`）不触发清理。追溯响应新增 `retention`（预算 + 当前条数），页面显示并拒绝越界/不一致/缺字段的预算；契约新增必填 `retention` 与 19 项用例；领域新增 `ScanRunRetentionSmoke`(50) 与 `ScanRunRetentionConfigSmoke`(11)；真实 PG 新增 `PostgresScanRunRetentionIT`(4)。本机实测：领域 1071 项/39 个 main 连续三次通过、Web typecheck 通过；契约/Java/Rust/Playwright 由 CI 执行。中间修掉三处真实缺陷（先插入后清理的顺序、可删除集合的分母语义、同毫秒运行的排序与游标不一致）与五处测试自身的错误假设，细节见[验证报告第54节](VALIDATION-REPORT.md)与 [ADR-047](adr/047-scan-run-retention.md)。**这不是修复路径**：不改写结果、不退休对象、不补做对账、不回收遗留 `RUNNING`（需独立租约/状态修复）。元数据留存与备份生命周期只在 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md) 记录边界，未实现备份/恢复/擦除。
+
+**下一项（本地可做）**：① 为观测/快照/审核与更正回执定义租户级总量预算与显式清理入口（先契约与设计，再实现，形状复用 ADR-034 的预览→确认→回执）；② Incident 时间线分页与留存上限；③ 遗留 `RUNNING` 运行的可观测与人工标记（不做自动改写）。真实环境一旦可用，按 [real-acceptance runbook](runbooks/real-acceptance.md) 先跑 S1–S7 并附报告。
+
 ## 已关闭：M0（Zeus 迁移验收）
 
 提交 `b5404a8`。不要再安排“从零替换 React”或继续扩前端框架面。
