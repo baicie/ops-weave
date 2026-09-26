@@ -87,7 +87,7 @@ class RejectedWriteAuditHttpIT {
 
     static List<String> names(tools.jackson.databind.JsonNode node){
         List<String> result=new ArrayList<>();
-        node.propertyNames().forEachRemaining(result::add);
+        node.properties().forEach(entry -> result.add(entry.getKey()));
         Collections.sort(result);
         return result;
     }
