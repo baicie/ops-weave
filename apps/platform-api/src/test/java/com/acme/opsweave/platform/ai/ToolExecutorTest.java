@@ -27,10 +27,19 @@ class ToolExecutorTest {
             assertEquals("recovered", result);
         }
     }
-    @Test void ordinaryFailuresReleaseCapacityAndPreserveSanitizedFailureType() {
+    @Test void ordinaryFailuresReleaseCapacityAndPreserveSanitizedFailureType() throws Exception {
         try (var executor = new ToolExecutor(1, Duration.ofSeconds(1))) {
             assertEquals(ToolFailure.Code.FORBIDDEN, assertThrows(ToolFailure.class, () -> executor.run(() -> { throw new ToolFailure(ToolFailure.Code.FORBIDDEN); })).code());
-            assertEquals("ok", executor.run(() -> "ok"));
+            // The permit is released on the worker thread, so the caller can observe the failure
+            // before the slot is back. Waiting for capacity is what "the failure releases it" means;
+            // a single immediate attempt would be asserting thread scheduling, not the invariant.
+            String result = null;
+            ToolFailure last = null;
+            for (int attempt = 0; attempt < 200 && result == null; attempt++) {
+                try { result = executor.run(() -> "ok"); }
+                catch (ToolFailure busy) { last = busy; Thread.sleep(5); }
+            }
+            assertEquals("ok", result, "an ordinary failure must release capacity; last failure was " + last);
         }
     }
 }
