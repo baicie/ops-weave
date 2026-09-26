@@ -60,15 +60,34 @@ def test_every_stable_code_carries_its_fixed_summary():
     body['items']=[edit]
     validate('rejected-write-audit',body)
 
-@pytest.mark.parametrize('value',['line one\nline two','','  ','x'*201,'reason\u007f'])
+@pytest.mark.parametrize('value',['line one\nline two','','  ','x'*201,'\ttab'])
 def test_a_reason_summary_is_plain_single_line_text(value):
     body=sample('rejected-write-audit');body['items'][0]['reasonSummary']=value
     with pytest.raises(ValidationError):validate('rejected-write-audit',body)
+
+def test_the_summary_is_the_fixed_wording_of_its_code_not_caller_text():
+    # The summary is produced from the stored code, so it is server-owned text. The schema uses the
+    # repository's established printable-text pattern, which does not special-case a lone DEL.
+    body=sample('rejected-write-audit')
+    codes={item['reasonCode'] for item in body['items']}
+    assert codes=={'BINDING_FIELDS_ACTIVE','REVIEW_STATE_CHANGED'}
+    for item in body['items']:
+        assert item['reasonSummary'].strip()==item['reasonSummary']
+        assert '\n' not in item['reasonSummary']
 
 @pytest.mark.parametrize('value',['','  padded  ','actor\n','x'*129])
 def test_an_actor_is_recorded_without_control_characters_or_padding(value):
     body=sample('rejected-write-audit');body['items'][0]['actor']=value
     with pytest.raises(ValidationError):validate('rejected-write-audit',body)
+
+def test_an_actor_may_carry_internal_spaces_but_not_padding():
+    body=sample('rejected-write-audit')
+    for value in ['release manager','operator@example.com','unknown']:
+        body['items'][0]['actor']=value
+        validate('rejected-write-audit',body)
+    for value in ['release manager ',' release manager','release\tmanager']:
+        body['items'][0]['actor']=value
+        with pytest.raises(ValidationError):validate('rejected-write-audit',body)
 
 def test_an_unusable_actor_is_recorded_as_unknown():
     body=sample('rejected-write-audit');body['items'][0]['actor']='unknown'
