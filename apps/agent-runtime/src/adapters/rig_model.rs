@@ -89,6 +89,9 @@ impl HttpClientExt for BoundedHttp {
             builder.body(body).map_err(http_client::Error::Protocol)
         }
     }
+    // `async fn` cannot express the `'static` future the trait requires, and this adapter never
+    // permits multipart bodies: the request is rejected before it leaves the process.
+    #[allow(clippy::manual_async_fn)]
     fn send_multipart<U>(
         &self,
         _: Request<MultipartForm>,
