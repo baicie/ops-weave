@@ -55,6 +55,7 @@ public final class InventoryWiring implements AutoCloseable {
         SourceConnectionCheckStore sourceChecks,
         com.acme.opsweave.inventory.api.RejectedWriteAttemptStore rejectedWrites,
         String cmdbImportSource,
+        com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshotsWired,
         String label,
         RawRecordReader rawReader,
         PipelineVersionStore pipelines,
@@ -73,6 +74,7 @@ public final class InventoryWiring implements AutoCloseable {
         this.sourceChecks = sourceChecks;
         this.rejectedWrites = rejectedWrites;
         this.cmdbImportSource = cmdbImportSource == null ? "" : cmdbImportSource;
+        this.sourceSnapshotsWired = sourceSnapshotsWired;
         this.label = label;
         this.rawReader = rawReader;
         this.pipelines = pipelines;
@@ -97,9 +99,9 @@ public final class InventoryWiring implements AutoCloseable {
             var tools = new com.acme.opsweave.aicontrol.infrastructure.InMemoryToolReadStore();
             var rejected = new com.acme.opsweave.inventory.infrastructure.InMemoryRejectedWriteAttemptStore(
                 properties.rejectedWriteRetention(null));
-            return new InventoryWiring(com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
-                    inventory, rejected, java.time.Clock.systemUTC(), cmdbImportSource), inventory, raw,
-                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
+            return new InventoryWiring(inventory, com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
+                    inventory, rejected, java.time.Clock.systemUTC(), cmdbImportSource), raw,
+                new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, null, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -149,8 +151,8 @@ public final class InventoryWiring implements AutoCloseable {
             new PostgresSourceReviews(dataSource), rejected, java.time.Clock.systemUTC(), cmdbImportSource);
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
             new PostgresSourceSnapshots(dataSource), rejected, java.time.Clock.systemUTC(), cmdbImportSource);
-        var wiring = new InventoryWiring(sourceReviews, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
-        wiring.sourceSnapshotsWired = sourceSnapshots; wiring.ownedDataSource = dataSource; return wiring;
+        var wiring = new InventoryWiring(postgres, sourceReviews, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
+        wiring.ownedDataSource = dataSource; return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
 
