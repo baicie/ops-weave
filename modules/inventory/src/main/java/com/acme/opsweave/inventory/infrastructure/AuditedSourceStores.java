@@ -120,9 +120,12 @@ public final class AuditedSourceStores {
         };
     }
 
-    /** Allow-listed field names only; anything the domain does not recognize is dropped, not copied. */
+    /**
+     * Allow-listed field names only, in a stable order; anything the domain does not recognize is
+     * dropped rather than copied, and the caller's map order never decides what the audit reports.
+     */
     private static List<String> fields(Iterable<String> candidate) {
-        LinkedHashSet<String> accepted = new LinkedHashSet<>();
+        java.util.TreeSet<String> accepted = new java.util.TreeSet<>();
         for (String name : candidate) {
             if (SourceReview.FIELDS.contains(name)) {
                 accepted.add(name);

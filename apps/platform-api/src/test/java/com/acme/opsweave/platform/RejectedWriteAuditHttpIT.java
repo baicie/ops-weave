@@ -53,15 +53,14 @@ class RejectedWriteAuditHttpIT {
         assertEquals("no-store",response.headers().firstValue("Cache-Control").orElse(""));
         assertEquals("nosniff",response.headers().firstValue("X-Content-Type-Options").orElse(""));
         var body=SourceReviewJson.JSON.readTree(response.body());
-        assertEquals(Set.of("schemaVersion","storage","dataMode","tenantId","sourceInstanceId","limit","items"),names(body));
+        assertEquals(Set.of("schemaVersion","storage","dataMode","tenantId","sourceInstanceId","limit","items"),new HashSet<>(names(body)));
         assertEquals("import",body.get("dataMode").asString());
         assertEquals(TENANT,body.get("tenantId").asString());
         assertEquals("cmdb-import",body.get("sourceInstanceId").asString());
         assertEquals(20,body.get("limit").asInt());
         assertTrue(body.get("items").size()>=2);
         var first=body.get("items").get(0);
-        assertEquals(ROW_FIELDS,names(first),"an audit row carries exactly the published fields");
-        assertTrue(Set.of("FIELD_REVIEW","BINDING_CORRECTION").contains(first.get("kind").asString()));
+        assertEquals(new HashSet<>(ROW_FIELDS),new HashSet<>(names(first)),"an audit row carries exactly the published fields");        assertTrue(Set.of("FIELD_REVIEW","BINDING_CORRECTION").contains(first.get("kind").asString()));
         assertTrue(Set.of("stage-review","decide-review","correct-binding","ingest-snapshot").contains(first.get("method").asString()));
         var code=RejectedWriteAttempt.Code.valueOf(first.get("reasonCode").asString());
         assertEquals(code.summary(),first.get("reasonSummary").asString(),"the summary is the fixed one for the recorded code");
