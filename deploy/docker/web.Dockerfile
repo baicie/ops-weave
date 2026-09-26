@@ -6,6 +6,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web-console/package.json apps/web-console/package.json
 RUN corepack prepare --activate && pnpm install --frozen-lockfile
 COPY apps/web-console apps/web-console
+# The console imports the published pipeline-definition example, so the build needs contracts too.
+COPY contracts contracts
 RUN pnpm build:web
 
 FROM nginx:1.28-alpine
