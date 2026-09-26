@@ -1165,8 +1165,9 @@ M2 保持93%、M3 保持90%、M4 保持80%，**MVP约91%（±5个百分点），
 | 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并逐个运行 main | **1071 项、39 个 main 通过**，连续三次复跑均通过（无抖动）。新增 `ScanRunRetentionSmoke` 50 项与 `ScanRunRetentionConfigSmoke` 11 项：预算默认值/收紧/越界拒绝、范围与租户预算、六个扫描后只剩预算行、刚结束的运行不会被自己的 sweep 删掉、打开中的运行与未结束运行受保护、超过预算的范围收敛、读取不清理、内存适配器与游标分页同一全序；`SourceScanRunQuerySmoke` 改为断言“同一毫秒的运行顺序不属于契约”，改用覆盖性/不重复/时间单调断言（41 项） |
 | Web 类型 | `apps/web-console` 的 `pnpm typecheck` | **通过**。`source-scan-runs` 解析新增必填 `retention`，并拒绝越界预算、范围上限大于租户上限、负数、超过范围预算的条数、比本页还小的条数、缺字段与额外字段 |
 | 静态门禁 | `git diff --check`、`git status`、提交内容复核 | **通过**；`main`，工作区干净，未提交 `.tmp/`、`node_modules`、`target` 或凭据（`.gitignore` 覆盖） |
-| 契约 / Java / Rust / Playwright | GitHub Actions `opsweave-template`（push `86884af` 触发：contracts / rust / web / java 四个 job） | **见下**“CI 结果”一节；本机没有 pytest 依赖、PostgreSQL 与 Playwright 运行环境（Docker Desktop 未运行、pip 与直连网络不可用），因此这四项不在本机执行，不把它们写成已通过 |
-| 真实 PG 保留 | `PostgresScanRunRetentionIT`（新增，需 `OPSWEAVE_TEST_JDBC_URL`） | **新增 4 项**，本机无法执行；CI 的 java job 自带 PostgreSQL 17 与 VictoriaMetrics，覆盖：六个扫描后真实行数为 3、读取不改行数、被钉住的运行与其 pin 在多次 sweep 后仍可解析、预算按范围/来源/租户隔离 |
+| 契约 / Java / Rust / Playwright | GitHub Actions `opsweave-template`（push `86884af` 触发：contracts / rust / web / java 四个 job） | **四个 job 全绿**：`contracts` 28s、`rust` 1m45s、`web` 2m21s（含 Playwright 全量）、`java` 2m33s（PostgreSQL 17 + VictoriaMetrics，**210 tests, 0 failed**，含本节新增的 `PostgresScanRunRetentionIT`）。本机没有 pytest 依赖、PostgreSQL 与 Playwright 运行环境（Docker Desktop 未运行、pip 与直连网络不可用），因此这四项**不在本机执行**，只按 CI 的真实结果记录 |
+| 真实 PG 保留 | `PostgresScanRunRetentionIT`（新增 4 项，随上面的 java job 执行） | **通过**。真实 PG 上：六个扫描后本范围真实行数为 3（不只是报告值）、读取两次不改行数、被映射版本钉住的运行与其 pin 在多次 sweep 后仍可解析（受保护行**在预算之外**，因此范围是预算 + 1 行，已按此断言）、预算按范围/来源/租户隔离 |
+| 首次 CI 失败与修正 | push `86884af` 的 java job | **1 项失败，是本轮新增测试的期望写错**：`retentionNeverBreaksAPinnedMappingVersion` 断言“含被钉住运行的范围不超过预算”，而受保护行本来就在预算之外。产品逻辑未改，只修断言并补齐“预算 + 1 行”的真实期望 |
 
 中间修正（都是本轮真实抓到的缺陷，不是测试写法）：
 
@@ -1178,3 +1179,32 @@ M2 保持93%、M3 保持90%、M4 保持80%，**MVP约91%（±5个百分点），
 保留边界：保留策略**不是修复路径**——它不改写任何存储结果、不退休对象、不补做缺失对账，失败的运行和成功的运行一样按时间淘汰；未结束的 `RUNNING` 行受保护，所以崩溃留下的遗留运行需要独立的租约/状态修复才能回收，本轮不提供自动修复。没有后台清理任务、跨租户总量治理、备份或物理擦除，也没有把预算用于自动决策。`source_sync_run` 之外的业务/授权元数据生命周期仍按 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md) 保持开放。真实 Zabbix、真实模型、真实 IdP/TLS 与人工抽样审阅仍未验收。
 
 M2 保持93%、M3 保持90%、M4 保持80%，**MVP约91%（±5个百分点），整体约58%**；本节补齐的是第43–53节反复记录的运维硬化缺口（不属于 M2–M4 退出门槛本身），因此不据此提高阶段估算。见 [ADR-047](adr/047-scan-run-retention.md)、[扫描运行契约](../contracts/source-scan-runs.md)、[操作说明](runbooks/source-scan-runs.md)。
+
+## 55. 2026-09-26 推送后暴露的两个真实缺陷（部署与测试）（追加）
+
+用户要求“先推送”，于是 `main` 上的 CI 与 deploy job 第一次真正执行了第34–54节这批未推送的改动。两个缺陷只有在推送后才可能暴露，因此单独记录。
+
+**一、web 镜像从未构建成功。** deploy job 的 `docker build -f deploy/docker/web.Dockerfile` 在 `pnpm build:web` 处失败：
+
+```text
+src/api/pipelines.ts(2,22): error TS2307: Cannot find module '../../../../contracts/examples/pipeline-definition.json'
+```
+
+`pipelines.ts` 直接 import 已发布的 `contracts/examples/pipeline-definition.json`，而 web 镜像只 `COPY apps/web-console`，构建上下文里没有 `contracts/`；agent 镜像早就 `COPY contracts contracts`，web 镜像漏了。**web 的 CI job 为什么没抓到**：它 `pnpm install` 后构建整个仓库（含 `contracts/`），只有镜像构建才暴露缺文件。修正是给 `web.Dockerfile` 加一行 `COPY contracts contracts`，并在注释里写明原因。这一缺陷在第一次推送前就存在（`f183b47` 的 deploy 也因它失败），不是本轮引入。
+
+**二、`ToolExecutorTest` 的既有断言在 CI 上抖动。** push `c4833c2`（只改了 Dockerfile，没有 Java 改动）的 java job 出现 1 项失败：
+
+```text
+ToolExecutorTest > ordinaryFailuresReleaseCapacityAndPreserveSanitizedFailureType() FAILED
+210 tests completed, 1 failed
+```
+
+读 `ToolExecutor.run` 可以确认这是**测试断言而非产品缺陷**：许可由 worker 线程在 `finally` 中释放，而失败通过 `CompletableFuture` 先返回给调用方，所以“失败之后立刻再取一次”实际在断言线程调度顺序，而不是“失败会释放容量”这个不变量。同文件另一个用例本来就用带重试的循环等待恢复。修正为最多 200 次、每次 5ms 的重试并在失败信息里带上最后一次异常类型，不变量不变。
+
+| 检查 | 实际命令 / 方法 | 最终结果与边界 |
+|---|---|---|
+| 四个 job（`c2739b8`） | GitHub Actions `opsweave-template` | **contracts 28s、rust 1m45s、web 2m28s、java 2m36s 全绿**；java 210 tests 0 failed（含新增 `PostgresScanRunRetentionIT` 4 项），web 含 Playwright 全量 |
+| deploy job | 同一 run 的 `deploy`（四 job 全绿后才启动） | 镜像构建阶段已通过（Dockerfile 修正生效）；主机部署步骤为 `docker save` 四个镜像经 SSH 流式加载 + compose 起栈 + 四个健康检查，**在本机观测窗口内仍在运行**，因此本节不声称部署成功——部署结果以该 job 的最终状态为准 |
+| 本机 | 无 PostgreSQL/Playwright 环境（Docker Desktop 未运行、pip 与直连网络不可用） | 只跑了纯领域与 Web typecheck；契约/Java/Playwright 全部按 CI 真实结果记录，未在本机复跑 |
+
+M2–M4 与 MVP 估算不变（两处都是构建/测试缺陷，不改变产品能力）。这两个缺陷说明“本机全绿”不等于“可交付”：CI 与镜像构建覆盖了本机无法执行的部分，本轮把它们的真实结果留在这里而不是留在口头结论里。
