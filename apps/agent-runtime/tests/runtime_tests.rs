@@ -72,6 +72,8 @@ fn app(mode: Mode) -> axum::Router {
             provider: "mock".into(),
             model: None,
             max_concurrency: 2,
+            platform_url: None,
+            runtime_key: None,
         })
         .unwrap(),
     )

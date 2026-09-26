@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "knowledgeMode": {
+      "const": "current"
+    },
+    "evidence": {
+      "$ref": "../v2/evidence.schema.json"
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "incidentVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "entityIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "maxItems": 5,
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "queryWindow": {
+      "$ref": "tool-time-window.schema.json"
+    },
+    "dataModes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "labeled-fixture",
+          "zabbix-jsonrpc",
+          "unknown"
+        ]
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "CURRENT_KNOWLEDGE_ONLY",
+          "LOGS_NOT_CONNECTED",
+          "CHANGES_NOT_CONNECTED",
+          "ENTITY_MAPPING_MISSING",
+          "RECOVERY_EVENT_UNAVAILABLE",
+          "METRIC_INGEST_TIME_UNAVAILABLE",
+          "METRIC_NOT_FOUND",
+          "UNSUPPORTED_METRIC_KIND",
+          "NO_ASSOCIATED_ENTITIES",
+          "METRIC_OR_ENTITY_NOT_FOUND",
+          "METRIC_POINTS_PARTIAL",
+          "METRIC_NO_DATA",
+          "METRIC_STALE"
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": {
+        "const": "CURRENT_KNOWLEDGE_ONLY"
+      }
+    },
+    "data": {
+      "type": "object"
+    },
+    "policyVersion": {
+      "const": "readonly-diagnosis-v1"
+    },
+    "producerTool": {
+      "enum": [
+        "incident.get@2.0.0",
+        "metric.summary@2.0.0"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "knowledgeMode",
+    "evidence",
+    "sessionId",
+    "incidentVersion",
+    "entityIds",
+    "queryWindow",
+    "dataModes",
+    "warnings",
+    "data",
+    "policyVersion",
+    "producerTool"
+  ],
+  "allOf": [
+    {
+      "properties": {
+        "evidence": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "kind": {
+              "enum": [
+                "incident",
+                "metric"
+              ]
+            },
+            "sourceRef": {
+              "type": "string",
+              "pattern": "^/api/v1/ai/evidence/[0-9a-f-]{36}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "properties": {
+              "kind": {
+                "const": "incident"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "incident-tool-data.schema.json"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "properties": {
+              "kind": {
+                "const": "metric"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "metric-tool-data.schema.json"
+          }
+        }
+      }
+    }
+  ]
+}

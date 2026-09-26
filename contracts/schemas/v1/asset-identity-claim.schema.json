@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asset-identity-claim",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expectedEntityVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740990
+    },
+    "value": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$(?![\\s\\S])"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+    },
+    "expectedNamespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "requestId",
+    "expectedEntityVersion",
+    "value",
+    "reason",
+    "expectedNamespace"
+  ]
+}

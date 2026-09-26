@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source-review v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "baseVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "ACCEPTED",
+        "REJECTED",
+        "REVOKED"
+      ]
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_.:-]{1,128}$"
+    },
+    "externalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ingestedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "ip": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        }
+      },
+      "required": [],
+      "minProperties": 1
+    },
+    "primaryAtImport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "ip": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        }
+      },
+      "required": []
+    },
+    "mappingDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "mappingId": {
+      "const": "cmdb-host-import"
+    },
+    "mappingRevision": {
+      "const": 1
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+    },
+    "dataMode": {
+      "const": "import"
+    },
+    "rawRecordRef": {
+      "type": "string",
+      "pattern": "^source-review:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "decisions": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "enum": [
+              "ACCEPT",
+              "REJECT",
+              "REVOKE"
+            ]
+          },
+          "choices": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "enum": [
+                  "PRIMARY",
+                  "SUPPLEMENTAL"
+                ]
+              },
+              "ip": {
+                "enum": [
+                  "PRIMARY",
+                  "SUPPLEMENTAL"
+                ]
+              },
+              "owner": {
+                "enum": [
+                  "PRIMARY",
+                  "SUPPLEMENTAL"
+                ]
+              },
+              "environment": {
+                "enum": [
+                  "PRIMARY",
+                  "SUPPLEMENTAL"
+                ]
+              }
+            },
+            "required": []
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entityVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "requestId",
+          "action",
+          "choices",
+          "reason",
+          "actor",
+          "at",
+          "entityVersion"
+        ]
+      }
+    },
+    "identity": {
+      "$ref": "asset-identity-pin.schema.json"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "entityId",
+    "baseVersion",
+    "version",
+    "status",
+    "sourceInstanceId",
+    "externalId",
+    "observedAt",
+    "ingestedAt",
+    "expiresAt",
+    "values",
+    "primaryAtImport",
+    "mappingDigest",
+    "mappingId",
+    "mappingRevision",
+    "actor",
+    "dataMode",
+    "rawRecordRef",
+    "decisions"
+  ]
+}

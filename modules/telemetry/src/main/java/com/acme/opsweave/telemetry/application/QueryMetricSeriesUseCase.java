@@ -12,6 +12,7 @@ import com.acme.opsweave.telemetry.api.MetricQueryPort;
 import com.acme.opsweave.telemetry.domain.MetricDefinition;
 import com.acme.opsweave.telemetry.domain.MetricSeriesQuery;
 import com.acme.opsweave.telemetry.domain.MetricSeriesResult;
+import com.acme.opsweave.telemetry.domain.MetricType;
 import java.time.Clock;
 import java.util.Objects;
 
@@ -56,7 +57,17 @@ public final class QueryMetricSeriesUseCase {
             return Result.invalid();
         }
         try {
-            return Result.available(definition.unit(), series.query(query));
+            var page = series.query(query);
+            if (!page.entityId().equals(entityId) || !page.metricKey().equals(metricKey)
+                || page.from() != from || page.till() != till
+                || page.series().stream().anyMatch(row -> !row.unit().equals(definition.unit()))) {
+                return Result.unavailable(MetricQueryException.Code.INVALID_RESPONSE);
+            }
+            if (definition.metricType() == MetricType.SUM) {
+                // Counters get an explicit rate view with reset handling; gauges stay raw.
+                page = page.withCounterRates();
+            }
+            return Result.available(definition.unit(), page);
         } catch (MetricQueryException failed) {
             return Result.unavailable(failed.code());
         }

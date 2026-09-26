@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.acme.opsweave.identity.infrastructure.OidcPrincipalResolver;
 import org.junit.jupiter.api.Test;
 
-class OidcAdapterPlaceholderTest {
+class OidcAdapterBoundaryTest {
     @Test
-    void oidcModeRefusesToStart() {
+    void oidcModeDoesNotAcceptDevelopmentBearer() {
         var properties = new OpsweaveProperties(
             new OpsweaveProperties.Auth(
                 "oidc",
@@ -24,8 +24,8 @@ class OidcAdapterPlaceholderTest {
             new OpsweaveProperties.Zabbix("closed", "", "env:OPSWEAVE_ZABBIX_TOKEN", "zabbix-1", 100),
             new OpsweaveProperties.Inventory("memory", "", "", "")
         );
-        var thrown = assertThrows(IllegalStateException.class, () -> new PlatformConfiguration().principalResolver(properties));
-        assertTrue(thrown.getMessage().contains("OIDC"));
+        var resolver = new PlatformConfiguration().principalResolver(properties);
+        assertTrue(resolver.resolve(new com.acme.opsweave.identity.api.BearerCredentials("test-dev-token-please-do-not-use-elsewhere")).isEmpty());
     }
 
     @Test

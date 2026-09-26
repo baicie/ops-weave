@@ -6,10 +6,14 @@ import java.util.Objects;
 /** Wire values are stable; this is not a complete IAM catalog. */
 public enum Permission {
     ENTITY_READ("entity.read"),
+    ENTITY_MANAGE("entity.manage"),
     METRIC_READ("metric.read"),
     INCIDENT_READ("incident.read"),
+    INCIDENT_MANAGE("incident.manage"),
     EVIDENCE_READ("evidence.read"),
     AI_DIAGNOSE("ai.diagnose"),
+    AI_INSIGHT_READ("ai.insight.read"),
+    AI_RETENTION_MANAGE("ai.retention.manage"),
     SKILL_READ("skill.read"),
     SKILL_MANAGE("skill.manage"),
     SOURCE_SYNC("source.sync");

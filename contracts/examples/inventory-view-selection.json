@@ -1,0 +1,7 @@
+{
+  "q": "demo-host",
+  "type": "host",
+  "lifecycle": "ACTIVE",
+  "after": null,
+  "entityId": "d72a8c09-458b-4098-b9d5-89e2d58a7d4f"
+}

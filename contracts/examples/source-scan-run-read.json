@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "dataMode": "scan-log",
+  "tenantId": "tenant-demo",
+  "sourceInstanceId": "zabbix-1",
+  "objectType": "host",
+  "run": {
+    "syncRunId": "8a2b4c6d-1e3f-4a5b-8c7d-9e0f1a2b3c4d",
+    "objectType": "host",
+    "status": "SUCCEEDED",
+    "startedAt": "2026-09-26T05:09:00.123456Z",
+    "completedAt": "2026-09-26T05:09:02.654321Z",
+    "cursor": "2|10085|2|10085|2",
+    "pages": 2,
+    "fetched": 2,
+    "accepted": 2,
+    "rejected": 0,
+    "snapshotComplete": true,
+    "dataMode": "labeled-fixture",
+    "scanConsistency": "hostid-watermark-snapshot",
+    "pipelineVersion": {
+      "id": "zabbix-host-v1",
+      "revision": 1,
+      "digest": "sha256:8b0f0b7c9d5e4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b"
+    }
+  }
+}

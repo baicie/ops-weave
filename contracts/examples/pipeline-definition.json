@@ -6,19 +6,52 @@
     "objectType": "host"
   },
   "nodes": [
-    { "id": "source", "type": "Source" },
-    { "id": "parse", "type": "Parse" },
-    { "id": "map", "type": "Map" },
-    { "id": "validate", "type": "Validate" },
-    { "id": "resolve", "type": "EntityResolve" },
-    { "id": "write", "type": "WriteObservation" }
+    {
+      "id": "source",
+      "type": "Source"
+    },
+    {
+      "id": "parse",
+      "type": "Parse"
+    },
+    {
+      "id": "map",
+      "type": "Map"
+    },
+    {
+      "id": "validate",
+      "type": "Validate"
+    },
+    {
+      "id": "resolve",
+      "type": "EntityResolve"
+    },
+    {
+      "id": "write",
+      "type": "WriteObservation"
+    }
   ],
   "edges": [
-    { "from": "source", "to": "parse" },
-    { "from": "parse", "to": "map" },
-    { "from": "map", "to": "validate" },
-    { "from": "validate", "to": "resolve" },
-    { "from": "resolve", "to": "write" }
+    {
+      "from": "source",
+      "to": "parse"
+    },
+    {
+      "from": "parse",
+      "to": "map"
+    },
+    {
+      "from": "map",
+      "to": "validate"
+    },
+    {
+      "from": "validate",
+      "to": "resolve"
+    },
+    {
+      "from": "resolve",
+      "to": "write"
+    }
   ],
-  "errorPolicy": "failFast"
+  "errorPolicy": "skipRecord"
 }

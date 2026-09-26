@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "browser-session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "mode",
+    "dataMode",
+    "authenticated",
+    "csrfToken",
+    "loginPath",
+    "sessionId",
+    "expiresAt",
+    "principal"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "mode": {
+      "const": "oidc"
+    },
+    "dataMode": {
+      "enum": [
+        "oidc",
+        "oidc-protocol-test"
+      ]
+    },
+    "authenticated": {
+      "type": "boolean"
+    },
+    "csrfToken": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_-]{32,254}={0,2}$(?![\\s\\S])"
+    },
+    "loginPath": {
+      "const": "/api/v1/auth/login/opsweave"
+    },
+    "sessionId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "expiresAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "principal": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subjectId",
+            "tenantId",
+            "permissions"
+          ],
+          "properties": {
+            "subjectId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$(?![\\s\\S])"
+            },
+            "tenantId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$(?![\\s\\S])"
+            },
+            "permissions": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 12,
+              "items": {
+                "enum": [
+                  "entity.read",
+                  "entity.manage",
+                  "metric.read",
+                  "incident.read",
+                  "incident.manage",
+                  "evidence.read",
+                  "ai.diagnose",
+                  "ai.insight.read",
+                  "ai.retention.manage",
+                  "skill.read",
+                  "skill.manage",
+                  "source.sync"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "authenticated": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "principal": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "sessionId": {
+            "type": "null"
+          },
+          "expiresAt": {
+            "type": "null"
+          },
+          "principal": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

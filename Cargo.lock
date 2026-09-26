@@ -4530,9 +4530,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
+ "bytes",
  "chrono",
  "http-body-util",
  "jsonschema",
+ "reqwest 0.12.28",
+ "reqwest 0.13.5",
  "rig",
  "rmcp",
  "serde",

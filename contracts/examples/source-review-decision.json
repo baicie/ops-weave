@@ -1,0 +1,11 @@
+{
+  "requestId": "61234567-1234-4567-8123-123456789abc",
+  "action": "ACCEPT",
+  "expectedEntityVersion": 1,
+  "expectedReviewVersion": 1,
+  "choices": {
+    "name": "SUPPLEMENTAL",
+    "owner": "SUPPLEMENTAL"
+  },
+  "reason": "人工核对外部资产编号和目标归属后确认字段"
+}

@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "identity-grants",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "grants"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "grants": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer",
+          "externalSubject",
+          "subjectId",
+          "tenantId",
+          "revision",
+          "enabled",
+          "permissions",
+          "scope"
+        ],
+        "properties": {
+          "issuer": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048,
+            "pattern": "^(https://[^\\s?#]+|http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]+[^\\s?#]*)$(?![\\s\\S])"
+          },
+          "externalSubject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+          },
+          "subjectId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$(?![\\s\\S])"
+          },
+          "tenantId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$(?![\\s\\S])"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 12,
+            "items": {
+              "enum": [
+                "entity.read",
+                "entity.manage",
+                "metric.read",
+                "incident.read",
+                "incident.manage",
+                "evidence.read",
+                "ai.diagnose",
+                "ai.insight.read",
+                "ai.retention.manage",
+                "skill.read",
+                "skill.manage",
+                "source.sync"
+              ]
+            }
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tenantWide",
+              "resources"
+            ],
+            "properties": {
+              "tenantWide": {
+                "type": "boolean"
+              },
+              "resources": {
+                "type": "array",
+                "maxItems": 2000,
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "id"
+                  ],
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "entity",
+                        "incident",
+                        "metric",
+                        "source",
+                        "evidence",
+                        "ai-insight",
+                        "skill"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_.:/%*-]{1,128}$(?![\\s\\S])"
+                    }
+                  }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "tenantWide": {
+                      "const": true
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "resources": {
+                      "maxItems": 0
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "resources": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

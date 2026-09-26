@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "policies": [
+    {
+      "tenantId": "retention-fixture",
+      "version": "fixture-v1",
+      "insightDays": 30,
+      "evidenceDays": 7,
+      "auditDays": 90,
+      "batchSize": 100,
+      "heldIncidents": [],
+      "allowPurge": false
+    }
+  ]
+}

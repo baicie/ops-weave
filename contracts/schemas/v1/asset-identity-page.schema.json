@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asset-identity-page",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$(?![\\s\\S])"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "$ref": "asset-identity.schema.json"
+      }
+    },
+    "after": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "format": "uuid"
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 25
+    },
+    "nextCursor": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "format": "uuid"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "storage",
+    "tenantId",
+    "entityId",
+    "namespace",
+    "items",
+    "after",
+    "limit",
+    "nextCursor"
+  ]
+}

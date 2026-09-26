@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "knowledgeMode": {
+      "const": "current"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "incidentVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "queryWindow": {
+      "$ref": "tool-time-window.schema.json"
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "builtAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "savedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "incident.diagnose"
+        },
+        "version": {
+          "const": "2.0.0"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ]
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "mock-deterministic",
+            "rig-openai"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "provider",
+        "name"
+      ]
+    },
+    "evidenceIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "entityIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "minItems": 0,
+      "maxItems": 5,
+      "uniqueItems": true
+    },
+    "dataModes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "labeled-fixture",
+          "zabbix-jsonrpc",
+          "unknown"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+      },
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "insight": {
+      "$ref": "insight-draft.schema.json"
+    },
+    "verification": {
+      "const": "reference_integrity_only"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "knowledgeMode",
+    "id",
+    "tenantId",
+    "subjectId",
+    "sessionId",
+    "incidentId",
+    "incidentVersion",
+    "queryWindow",
+    "question",
+    "asOf",
+    "builtAt",
+    "completedAt",
+    "savedAt",
+    "expiresAt",
+    "skill",
+    "model",
+    "evidenceIds",
+    "entityIds",
+    "dataModes",
+    "warnings",
+    "insight",
+    "verification"
+  ]
+}

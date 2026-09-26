@@ -1,0 +1,70 @@
+{
+  "id": "metric.summary",
+  "version": "2.0.0",
+  "description": "Current-knowledge authorized read; pinned read session and shared budget required. No historical availability claim.",
+  "effect": "read",
+  "requiredPermissions": [
+    "ai.diagnose",
+    "incident.read",
+    "entity.read",
+    "metric.read",
+    "evidence.read"
+  ],
+  "requiredCapabilities": [
+    "metric"
+  ],
+  "timeoutMs": 15000,
+  "maxResultBytes": 32768,
+  "executor": "native",
+  "implementationStatus": "implemented",
+  "implementationRef": "apps/platform-api/src/main/java/com/acme/opsweave/platform/ai/ToolController.java",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "incidentId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "metric": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "timeRange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "maxPoints": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 500
+      }
+    },
+    "required": [
+      "incidentId",
+      "metric",
+      "timeRange",
+      "maxPoints"
+    ]
+  },
+  "outputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$ref": "../schemas/v1/tool-result.schema.json"
+  }
+}

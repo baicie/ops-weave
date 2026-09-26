@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asset-identity-receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "action": {
+      "enum": [
+        "ASSERT",
+        "REVOKE"
+      ]
+    },
+    "identity": {
+      "$ref": "asset-identity.schema.json"
+    },
+    "entityVersion": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "action",
+    "identity",
+    "entityVersion"
+  ],
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "status": {
+                "const": "REVOKED"
+              }
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "action": {
+            "const": "ASSERT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "status": {
+                "const": "ACTIVE"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

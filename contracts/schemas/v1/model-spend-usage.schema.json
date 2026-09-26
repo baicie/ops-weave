@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "inputTokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 81920
+    },
+    "outputTokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2048
+    },
+    "cachedInputTokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 81920
+    },
+    "source": {
+      "enum": [
+        "mock-no-call",
+        "provider-reported"
+      ]
+    }
+  },
+  "required": [
+    "inputTokens",
+    "outputTokens",
+    "cachedInputTokens",
+    "source"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "const": "mock-no-call"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "inputTokens": {
+            "const": 0
+          },
+          "outputTokens": {
+            "const": 0
+          },
+          "cachedInputTokens": {
+            "const": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "inputTokens": {
+            "minimum": 1
+          }
+        }
+      }
+    }
+  ]
+}

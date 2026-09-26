@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "not-persisted",
+  "dataMode": "labeled-fixture",
+  "sourceInstanceId": "zabbix-1",
+  "sourceContract": "zabbix-7.0-event-v1",
+  "query": {
+    "from": 1789991940,
+    "till": 1789995540,
+    "afterEventId": null,
+    "limit": 25
+  },
+  "items": [
+    {
+      "schemaVersion": "1.0",
+      "tenantId": "tenant-demo",
+      "sourceInstanceId": "zabbix-1",
+      "problemEventId": "30001",
+      "triggerId": "40001",
+      "title": "Fixture: CPU threshold exceeded",
+      "severity": 3,
+      "occurredAt": "2026-09-21T12:00:00Z",
+      "observedAt": "2026-09-25T00:00:00Z",
+      "hostIds": [
+        "10084"
+      ],
+      "suppressed": false,
+      "recoveryEventId": "30003",
+      "recoveredAt": "2026-09-21T12:10:00Z",
+      "state": "RECOVERED",
+      "gaps": []
+    }
+  ],
+  "nextAfterEventId": null
+}

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "request": {
+    "requestKey": "88888888-1111-4111-8111-111111111111",
+    "kind": "MERGE",
+    "sourceIncidentId": "55555555-5555-3555-8555-555555555555",
+    "expectedSourceVersion": 1,
+    "targetIncidentId": "66666666-6666-3666-8666-666666666666",
+    "expectedTargetVersion": 1,
+    "problemKeys": [],
+    "title": null,
+    "reason": "Fixture: operator confirmed both problems belong to the same investigation."
+  },
+  "actor": "fixture-operator",
+  "sourceVersion": 2,
+  "targetVersion": 2,
+  "movedProblems": [
+    {
+      "sourceInstanceId": "zabbix-1",
+      "problemEventId": "30001"
+    }
+  ],
+  "occurredAt": "2026-09-25T00:01:00Z"
+}

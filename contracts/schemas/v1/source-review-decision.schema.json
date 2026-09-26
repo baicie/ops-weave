@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source-review-decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "action": {
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "REVOKE"
+      ]
+    },
+    "expectedEntityVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "expectedReviewVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
+    "choices": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "PRIMARY",
+            "SUPPLEMENTAL"
+          ]
+        },
+        "ip": {
+          "enum": [
+            "PRIMARY",
+            "SUPPLEMENTAL"
+          ]
+        },
+        "owner": {
+          "enum": [
+            "PRIMARY",
+            "SUPPLEMENTAL"
+          ]
+        },
+        "environment": {
+          "enum": [
+            "PRIMARY",
+            "SUPPLEMENTAL"
+          ]
+        }
+      },
+      "required": []
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+    }
+  },
+  "required": [
+    "requestId",
+    "action",
+    "expectedEntityVersion",
+    "expectedReviewVersion",
+    "choices",
+    "reason"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": [
+              "REJECT",
+              "REVOKE"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "choices": {
+            "maxProperties": 0
+          }
+        }
+      }
+    }
+  ]
+}

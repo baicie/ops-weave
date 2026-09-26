@@ -1,0 +1,13 @@
+# Asset identity contract semantics
+
+Canonical wire schemas and examples are `schemas/v1/asset-identity*.schema.json` and `examples/asset-identity*.json`; HTTP bindings are in `openapi/platform-draft.yaml`. Identity is constructed by the trusted authentication boundary. These human-only APIs do not grant a model or service credential inventory mutation permissions.
+
+`asset-uuid` is an operator-confirmed canonical lowercase UUID from an authoritative asset register, scoped by trusted tenant and operator-configured namespace. It is not an IP/name match or an assertion of presence. There is at most one active target for a tenant/namespace/value. An operator must verify the mapping before registration; the UUID format alone does not establish authority.
+
+The claim requestId becomes the registry record ID. `expectedEntityVersion` and `expectedNamespace` pin the target/configuration reviewed by the user. A claim/revoke response is an immutable receipt for that actor-bound command, not necessarily the current registry state. Retrying the original claim after revocation returns its original ACTIVE receipt; use the page/resolve endpoints to read current state. Reusing a request ID with another actor, target, namespace or command is a conflict.
+
+ACTIVE records have version 1 and no revocation; REVOKED records have version 2 and a complete revocation audit entry. Revocation time cannot precede assertion time. Register/revoke advances Entity version atomically, without rewriting Entity ID, ExternalLink, metric or Incident identifiers. Each entity has at most 16 active and 1000 retained registry records. Pages are UUID-ordered current views, not consistent cross-page snapshots.
+
+Resolve reads only active records, then checks the target's permissions. Missing and hidden targets return 404. Returned entityVersion must still match the explicit entity read before preparing a browser import. A pin contains registry ID, namespace, value and version 1. Optional `source-review-import.identity` is a server-checked binding precondition; it cannot supply tenant, actor, source or permission. Stage and ACCEPT revalidate an active matching pin under the entity lock. Old stored reviews without this optional field retain their manual-target semantics. Historical review pins remain readable after revocation; an idempotent history read does not reauthorize a new acceptance.
+
+A registry record referenced by an active accepted source review cannot be revoked. Explicitly revoke the source fields first, then revoke the identity using the new entity version. Concurrent conflicts must roll back both registry and entity state. No implicit migration, source presence, existing-entity merge, rebind or attribute rollback is permitted by this contract.

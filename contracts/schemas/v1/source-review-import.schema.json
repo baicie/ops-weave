@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source-review-import v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expectedEntityVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "externalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "ip": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+        }
+      },
+      "required": [],
+      "minProperties": 1
+    },
+    "mappingDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "identity": {
+      "$ref": "asset-identity-pin.schema.json"
+    }
+  },
+  "required": [
+    "requestId",
+    "expectedEntityVersion",
+    "externalId",
+    "observedAt",
+    "values",
+    "mappingDigest"
+  ]
+}

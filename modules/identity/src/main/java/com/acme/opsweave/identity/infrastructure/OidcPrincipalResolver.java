@@ -7,15 +7,15 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Production OIDC adapter placeholder. Deliberately refuses to resolve.
- * A missing IdP must not fall back to a mock or demo principal.
+ * Raw bearer OIDC boundary stays closed. Authorization-code verification and
+ * operator grant mapping live in the platform BFF adapter; no mock fallback.
  */
 public final class OidcPrincipalResolver implements PrincipalResolver {
     @Override
     public Optional<Principal> resolve(BearerCredentials credentials) {
         Objects.requireNonNull(credentials, "credentials");
         throw new UnsupportedOperationException(
-            "OIDC principal adapter is not implemented; refusing mock fallback"
+            "Raw OIDC bearer resolution is disabled; use the verified platform BFF session"
         );
     }
 }

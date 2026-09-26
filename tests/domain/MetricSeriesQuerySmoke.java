@@ -37,7 +37,12 @@ public final class MetricSeriesQuerySmoke {
         }
         reject(() -> new MetricSeriesQuery(new TenantId("tenant-demo"), entity, "up", 1_000, 5_000, 10, 10));
         reject(() -> new MetricSeriesQuery(new TenantId("tenant-demo"), entity, "up{label=\"x\"}", 1_000, 1_010, 10, 10));
-        System.out.println("MetricSeriesQuerySmoke: 6 checks passed");
+        var unknown = MetricSeriesResult.compose(query, List.of(), true);
+        if (unknown.status().kind() != MetricSeriesResult.Status.Kind.PARTIAL || unknown.status().fresh()
+            || unknown.status().lastPointAtMillis() != null || !unknown.status().partial()) {
+            throw new AssertionError("An exhausted scan without in-window points is partial, not confirmed no data");
+        }
+        System.out.println("MetricSeriesQuerySmoke: 7 checks passed");
     }
 
     private static MetricSeries series(String source, String item, long firstAt, BigDecimal first, long secondAt, BigDecimal second) {

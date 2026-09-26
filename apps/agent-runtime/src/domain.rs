@@ -97,6 +97,78 @@ pub struct RunResult {
     pub insight: InsightDraft,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CurrentDiagnoseRequest {
+    pub run_id: String,
+    pub incident_id: String,
+    pub question: String,
+    pub time_range: TimeRange,
+    pub knowledge_mode: String,
+}
+/// Canonical current-knowledge context. Documents retain structured data and its actual capture times.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CurrentContext {
+    pub schema_version: String,
+    pub knowledge_mode: String,
+    pub run_id: String,
+    pub tenant_id: String,
+    pub incident_id: String,
+    pub session_id: String,
+    pub time_range: TimeRange,
+    pub as_of: DateTime<Utc>,
+    pub built_at: DateTime<Utc>,
+    pub evidence: Vec<serde_json::Value>,
+    pub missing_data: Vec<String>,
+}
+pub struct PlatformSnapshot {
+    pub(crate) document: serde_json::Value,
+    pub(crate) evidence: Evidence,
+}
+impl PlatformSnapshot {
+    pub fn document(&self) -> &serde_json::Value {
+        &self.document
+    }
+    pub fn evidence(&self) -> &Evidence {
+        &self.evidence
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InsightSkillRef {
+    pub id: String,
+    pub version: String,
+    pub digest: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InsightModelRef {
+    pub provider: String,
+    pub name: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InsightSubmission {
+    pub run_id: String,
+    pub session_id: String,
+    pub question: String,
+    pub as_of: DateTime<Utc>,
+    pub built_at: DateTime<Utc>,
+    pub completed_at: DateTime<Utc>,
+    pub skill: InsightSkillRef,
+    pub model: InsightModelRef,
+    pub evidence_ids: Vec<String>,
+    pub insight: InsightDraft,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedInsight {
+    pub storage: String,
+    pub record: serde_json::Value,
+}
+
 /// Persist this separately from model conversation history in a durable implementation.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

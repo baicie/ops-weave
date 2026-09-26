@@ -4,12 +4,346 @@ info:
   version: 0.1.0-draft
   description: >
     Identity-scoped business endpoints. Tenant and permissions are taken from the
-    trusted principal, never from query or body. OIDC is not implemented.
+    trusted principal, never from query or body. Explicit OIDC mode uses the authorization-code BFF;
+    dev mode accepts only its configured loopback credential. Cookie requests require exact Origin
+    and X-CSRF-TOKEN on unsafe methods; GET session metadata supplies the masked token.
     Zabbix Host ingest is available only when an explicit source mode is configured.
+    All API responses use Cache-Control no-store and an X-OpsWeave-Request-Id UUID.
+    The optional client request ID is correlation metadata only, not identity or idempotency.
 paths:
+  /api/v1/integrations/cmdb/binding-corrections:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: correctSourceBinding
+      description: >
+        Explicit human correction with a fresh single source observation; no historical ownership rewrite.
+        Tenant-wide entity.read/entity.manage/source.sync, configured PostgreSQL source/namespace required.
+        At most 16 KiB. Expected old snapshot, both entity versions and current target identity pin are
+        rechecked under the source, sorted entity and external-binding locks. Revoke old active fields first.
+        Transaction replaces only current presence, updates both affected projections, retains prior binding
+        in the correction receipt, and imports one fresh observation plus pending fields. Old snapshots,
+        observations, links, telemetry and Incident/evidence references remain on their original entities.
+        Normal snapshot freshness/order/budget still applies. 1000 correction receipts per tenant/source.
+        Same actor/input/request returns original result; no automatic retry or fallback.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v1/source-binding-correction-input.schema.json'}
+      responses:
+        '200':
+          description: Immutable correction receipt and new pending source snapshot
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-binding-correction-receipt.schema.json'}
+        '400': {description: Invalid input, repeated keys, trailing JSON or size/time bounds}
+        '403': {description: Missing tenant-wide authority}
+        '409': {description: Version/binding/pin/request conflict, active fields or retained-record limit; entire correction rolled back}
+        '503': {description: Storage/configuration/lease unavailable; query original request for unknown result}
+  /api/v1/integrations/cmdb/binding-corrections/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getSourceBindingCorrectionReceipt
+      description: Same current tenant-wide authority and configured source/namespace. Only original actor can recover the request receipt. 404 does not prove an unknown write failed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Original immutable correction receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-binding-correction-receipt.schema.json'}
+        '404': {description: Missing or hidden receipt}
+  /api/v1/entities/{entityId}/source-binding-corrections:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getEntitySourceBindingCorrections
+      description: Tenant-wide source managers can audit corrections involving this entity as previous or target. Original actors retained; historical ownership is never rewritten. UUID-ordered live page, no cross-page snapshot guarantee.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: after, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 25, default: 25}}
+      responses:
+        '200':
+          description: Bounded correction history with original actors and ownership
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-binding-correction-page.schema.json'}
+        '403': {description: Missing tenant-wide authority}
+        '404': {description: Missing or hidden entity}
+  /api/v1/integrations/cmdb/snapshots/config:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getSourceSnapshotConfig
+      description: PostgreSQL and operator-configured CMDB import source/identity namespace required. Tenant-wide entity.read/entity.manage/source.sync required. Explicit import, not a connected vendor API.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Fixed mapping and registered UUID resolver configuration
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-snapshot-config.schema.json'}
+        '403': {description: Missing permission or tenant-wide scope}
+        '503': {description: Import source, identity namespace or PostgreSQL unavailable}
+  /api/v1/integrations/cmdb/snapshots:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: ingestSourceSnapshot
+      description: >
+        Explicit human import, at most 100 records and 128 KiB. Trusted tenant-wide entity.read,
+        entity.manage and source.sync authorize the configured source. Resolves only active
+        operator-confirmed scoped UUIDs; unresolved or conflicting identities roll back the whole batch.
+        Source lock and sorted entity locks atomically retain input/observations, pending field reviews,
+        seven-day source presence and actor-bound receipt. Complete input marks missing bindings absent;
+        partial or failed input never reconciles absence. Strictly increasing observedAt per source.
+        At most 100 bindings and 1000 immutable receipts per source/tenant, no automatic cleanup/retry.
+        Same actor and identical request return the original receipt. No identity/source/fence override.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v1/source-snapshot-input.schema.json'}
+      responses:
+        '200':
+          description: Durable original receipt; fields remain pending human review
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-snapshot-receipt.schema.json'}
+        '400': {description: Invalid, oversized, duplicate-key or out-of-time input}
+        '403': {description: Missing tenant-wide authority}
+        '409': {description: Identity unresolved/binding conflict/outdated snapshot/reused request/mapping changed/storage budget exhausted; entire batch rolled back}
+        '503': {description: Configuration/storage/lease unavailable; unknown writes require original receipt lookup}
+  /api/v1/integrations/cmdb/snapshots/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getSourceSnapshotReceipt
+      description: Same current tenant-wide authority, configured source/namespace and original actor required. No replay. Unknown or hidden receipt returns 404, not proof of an unsuccessful write.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Original immutable import receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-snapshot-receipt.schema.json'}
+        '404': {description: Missing or hidden receipt}
+  /api/v1/entities/{entityId}/source-presence:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getEntitySourcePresence
+      description: Current entity.read scope required. Last imported source confirmation, absence, expiry or identity revocation. Empty means no retained source assertion, never confirmed absence. Query and identity overrides rejected.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Source assertion evaluated at database read time; lifecycle filters use the same expiry/revocation rule
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/source-presence-page.schema.json'}
+        '403': {description: Entity read not authorized}
+        '404': {description: Missing or hidden entity}
+  /api/v1/ai/retention:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: previewAiRetention
+      description: >
+        PostgreSQL and operator-owned policy file only, disabled by default. Requires ai.retention.manage
+        and tenant-wide scope. A 120-second preview binds actor, tenant, policy digest, cutoff and up to
+        100 expired rows per kind. Held Incidents are excluded. No query parameters or model delegation.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Explicit bounded content cleanup preview; logical bytes are not reclaimed disk space
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/ai-retention-preview.schema.json'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/retention/runs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: applyAiRetention
+      description: >
+        Explicit human confirmation of an unexpired preview. Requires tenant-wide ai.retention.manage
+        and allowPurge in trusted configuration. Atomically scrubs selected expired insight/evidence
+        bodies, removes aged tool audit rows and saves an actor-bound receipt. Rechecks policy before
+        commit. No scheduler, automatic next batch or model tool. Preserves primary keys, scopes,
+        reference edges, session metadata and model cost ledger. Same actor and identical requestId/body
+        return the original receipt, even after configuration changes; a different body returns 409.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v1/ai-retention-apply.schema.json'}
+      responses:
+        '200':
+          description: Persisted cleanup receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/ai-retention-receipt.schema.json'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/retention/runs/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getAiRetentionReceipt
+      description: Current tenant-wide retention authority and original actor required. Reads an existing receipt without executing cleanup. Unknown receipts return 404, not proof that an uncertain write failed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Original persisted cleanup receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/ai-retention-receipt.schema.json'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/service/ingestion/items/{itemId}/history:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: readServiceItemHistory
+      description: >
+        Disabled by default. Dedicated OAuth client_credentials RFC 9068 RS256 at+jwt access token,
+        exact issuer/audience opsweave-history/scope opsweave.history.read; maximum 900 second lifetime.
+        Verified client_id and sub map through operator-owned history-service-grants to tenant, entity,
+        source, item, metric and closed past time bounds. JWT tenant/permission claims never grant access.
+        Direct TLS required except explicit loopback protocol tests. Browser cookies, Origin,
+        forwarding headers, identity overrides, unknown/duplicate query and GET body are rejected.
+        At most four concurrent requests and an operator-bounded per-client rate up to 120/minute.
+        Human sync, Tool, diagnosis and runtime routes never accept this credential. No redirects or retries.
+      security: [{historyService: []}]
+      parameters:
+        - {name: itemId, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}}
+        - {name: from, in: query, required: true, schema: {type: integer, minimum: 0, maximum: 9999999999}}
+        - {name: till, in: query, required: true, schema: {type: integer, minimum: 0, maximum: 9999999999}}
+        - {name: limit, in: query, required: true, schema: {type: integer, minimum: 1, maximum: 500}}
+        - {name: afterClock, in: query, schema: {type: integer, minimum: 0, maximum: 9999999999}}
+        - {name: afterNs, in: query, schema: {type: integer, minimum: 0, maximum: 999999999}}
+      responses:
+        '200':
+          description: Authorized normalized source page, retaining fixture/live and persistence markers
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/metric-history-page.schema.json'}
+        '400': {description: Invalid query or client identity override}
+        '401': {description: Disabled service authentication, invalid JWT, browser credential or unsafe transport}
+        '403': {description: Client not granted, revoked, expired or outside granted item/time/count bounds}
+        '404': {description: Missing or hidden entity or metric binding}
+        '429': {description: Shared concurrency or per-client request budget exhausted}
+        '503': {description: Invalid/unavailable operator grants or source failure; no fallback}
+  /api/v1/auth/session:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: browserSession
+      description: Explicit OIDC mode only; anonymous or current revalidated identity metadata. No provider tokens. Unknown query is rejected; may set a CSRF session cookie.
+      security: []
+      responses:
+        '200':
+          description: Cookie session metadata and masked CSRF token
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/browser-session.schema.json'}
+        '401': {description: Expired, revoked or unavailable identity grant; session invalidated}
+  /api/v1/auth/login/opsweave:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: beginOidcLogin
+      description: Fixed provider, callback and post-login inventory route. Authorization code with state, nonce and S256 PKCE. No arbitrary return URL or query allowed.
+      security: []
+      responses:
+        '302': {description: Redirect to the configured authorization endpoint}
+        '400': {description: Invalid query}
+  /api/v1/auth/callback:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: finishOidcLogin
+      description: Provider code callback bound to the pending browser session, state, nonce and PKCE; 180 second login deadline. Fixed issuer/audience/RS256/JWKS verification; operator grant mapping only. Successful login rotates the session cookie and CSRF token. No client-generated identity accepted.
+      security: []
+      parameters:
+        - {name: code, in: query, schema: {type: string, maxLength: 4096}}
+        - {name: state, in: query, schema: {type: string, maxLength: 4096}}
+        - {name: iss, in: query, schema: {type: string, maxLength: 4096}}
+        - {name: error, in: query, schema: {type: string, maxLength: 4096}}
+        - {name: error_description, in: query, schema: {type: string, maxLength: 4096}}
+        - {name: session_state, in: query, schema: {type: string, maxLength: 4096}}
+      responses:
+        '302': {description: Fixed inventory landing page after verified login}
+        '401': {description: Invalid callback or provider unavailable; no fallback}
+        '403': {description: Verified provider subject has no enabled platform grant}
+  /api/v1/auth/logout:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: logoutBrowserSession
+      description: Requires exact Origin and the masked X-CSRF-TOKEN. Invalidates this platform session and all its Runtime delegations. Does not claim provider logout.
+      security: [{browserSession: []}]
+      responses:
+        '200':
+          description: Platform session invalidated
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/browser-logout.schema.json'}
+        '403': {description: Origin or CSRF denied; logout not confirmed}
+  /api/v1/entities/{entityId}/observations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageEntityObservations
+      description: >
+        Authorized retained observations only, not a complete source event log or reconstructed Entity asOf.
+        At most 31 days of observed time; ingestedAt must be no later than asOf. Reuse the returned
+        cutoff across pages. ID ascending, live view rather than a transaction snapshot. Unknown/repeated
+        parameters rejected. Fields bounded to 16 KiB per entry, no raw payload dereferencing.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: from, in: query, required: true, schema: {type: integer, minimum: 0}}
+        - {name: till, in: query, required: true, schema: {type: integer, minimum: 0}}
+        - {name: asOf, in: query, schema: {type: string, format: date-time}}
+        - {name: source, in: query, schema: {type: string, maxLength: 128}}
+        - {name: after, in: query, schema: {type: string, maxLength: 128}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 25}}
+      responses:
+        '200':
+          description: Retained history and explicit precision/missing-field markers
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/observation-page.schema.json'}
+        '400': {description: Invalid or unbounded query}
+        '401': {description: Unauthenticated}
+        '403': {description: Entity permission or scope denied}
+        '404': {description: Entity unavailable in the trusted tenant}
+        '503': {description: Storage or response budget failure; no empty fallback}
   /api/v1/entities:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     get:
       operationId: listEntities
+      deprecated: true
+      description: >
+        Compatibility read for at most 100 authorized entities. Uses the same bounded,
+        scope-before-pagination query as /entities/page. Rejects all query parameters.
+        More than 100 visible rows returns 422 rather than silently truncating a complete list.
+        New consumers must use /entities/page.
       security:
         - bearerAuth: []
       responses:
@@ -19,7 +353,38 @@ paths:
           description: Unauthenticated
         '403':
           description: Forbidden
+        '422':
+          description: PAGED_READ_REQUIRED; use /api/v1/entities/page
+  /api/v1/entities/page:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageEntities
+      description: >
+        Tenant and entity authorization are applied before cursor pagination. UUID ascending
+        live view, not a snapshot. q is a literal case-insensitive name/IP substring, never SQL.
+        Unknown or repeated parameters are rejected. No total count is returned.
+        Attributes have a conservative 16 KiB read budget and depth limit 8; oversized data fails closed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: q, schema: {type: string, maxLength: 100, default: ''}}
+        - {in: query, name: type, schema: {type: string, pattern: '^$|^[a-z][a-z0-9-]{0,63}$', default: ''}}
+        - {in: query, name: lifecycle, schema: {type: string, enum: ['', DISCOVERED, ACTIVE, INACTIVE, DELETED, ARCHIVED], default: ''}}
+        - {in: query, name: after, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      responses:
+        '200':
+          description: Bounded authorized entities; nextCursor is null on the last page
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-page.schema.json}
+        '400': {description: Invalid filter or cursor}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read}
+        '503': {description: Inventory unavailable or read budget exceeded; no fixture fallback}
   /api/v1/entities/{entityId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     get:
       operationId: getEntity
       security:
@@ -45,20 +410,293 @@ paths:
         '404':
           description: Not found in the principal tenant
   /api/v1/integrations/zabbix/hosts/sync:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     post:
       operationId: syncZabbixHosts
+      description: >
+        An omitted body pins the built-in zabbix-host-default revision 1, never latest.
+        An explicit version must already be published in the principal tenant and configured source.
+        Its digest is verified and its immutable run pin is stored before fetching.
+        Host inventory writes and missing-host reconciliation require an internal source-scoped lease
+        (tenant, configured source, host type), renewable for 30 seconds with a five minute run deadline.
+        PostgreSQL serializes acquisition, takeover and every write using a monotonically increasing fence.
+        Busy or expired scans fail without retries. Request bodies cannot supply lease/fence/identity.
+        This protects overlapping scans; offset paging still is not a consistent upstream snapshot.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [pipelineVersion]
+              properties:
+                pipelineVersion: {$ref: ../schemas/v1/pipeline-ref.schema.json}
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Host page ingested through the published PipelineDefinition
+          description: Host scan ingested through the published version; response includes pipelineVersion (id, revision, digest)
         '401':
           description: Unauthenticated
         '403':
           description: Forbidden
+        '400':
+          description: Invalid version reference or unknown request field
+        '404':
+          description: Requested version has not been published in the configured tenant and source
+        '409':
+          description: Digest mismatch or immutable version conflict
         '503':
-          description: Source is closed or the live fetch failed; inventory is not reconciled
+          description: Source closed, ingestion failed, or host scan lease busy/lost/expired; committed partial writes may remain. A status failure after successful reconciliation cannot undo that reconciliation.
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/host-sync-failure.schema.json'}
+  /api/v1/integrations/zabbix/hosts/pipeline/versions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: publishHostPipelineVersion
+      description: >
+        Requires source.sync on the configured source. Accepts the fixed six-node host chain
+        and allowlisted Map displayNameField only. Same id/revision/digest is idempotent;
+        different content at that id/revision is a conflict. The built-in revision 1 is reserved.
+        Maximum JSON body is 16384 bytes. No request can set tenant, permissions, endpoint or engine.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/pipeline-definition.schema.json}
+      responses:
+        '200':
+          description: Immutable published version
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-version.schema.json}
+        '400': {description: Invalid definition}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing source permission or scope}
+        '409': {description: Immutable version conflict}
+        '503': {description: Version store unavailable}
+  /api/v1/integrations/zabbix/hosts/pipeline/versions/{id}/{revision}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getHostPipelineVersion
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string}}
+        - {in: path, name: revision, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200':
+          description: Published version in the principal tenant and configured source
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-version.schema.json}
+        '400': {description: Invalid revision}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing source permission or scope}
+        '404': {description: Version absent}
+        '503': {description: Store unavailable or stored content fails digest verification}
+  /api/v1/integrations/zabbix/hosts/pipeline/preview:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: previewHostPipeline
+      description: >
+        Evaluate an unpublished draft against retained Raw from a completed or failed host sync.
+        Requires source.sync and entity.read for each displayed entity, including object scope.
+        Reads at most 100 records, 64 KiB JSON per record, with two evaluations per process.
+        Reports truncation, missing and oversized Raw explicitly. Does not fetch the source or write inventory.
+        Comparing original and candidate mappings is not a diff against current inventory.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/pipeline-preview-request.schema.json}
+      responses:
+        '200':
+          description: Bounded dry-run evaluation, including data gaps
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-evaluation.schema.json}
+        '400': {description: Invalid definition or budget}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing source or entity permission/scope}
+        '404': {description: Run or original version absent in the authorized source}
+        '409': {description: Run still running, legacy lineage unavailable or digest mismatch}
+        '503': {description: Storage unavailable or concurrency budget exhausted}
+  /api/v1/integrations/zabbix/hosts/pipeline/drafts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: saveHostPipelineDraft
+      description: >-
+        Save a private working copy in the authenticated tenant, subject and configured source scope.
+        expectedEditVersion=0 creates; otherwise an atomic compare-and-swap requires the current edit version.
+        A conflict or uncertain response must be resolved by reading the draft, never by silently overwriting it.
+        Saving neither publishes a version nor changes any sync. Published versions remain immutable.
+        Limit 16 KiB; only the fixed Host definition is supported.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/pipeline-draft-save.schema.json}
+      responses:
+        '200':
+          description: Saved working copy with incremented editVersion
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-draft.schema.json}
+        '400': {description: Invalid definition or edit version}
+        '401': {description: Authentication required}
+        '403': {description: Source access denied}
+        '409': {description: DRAFT_CONFLICT; reload before resolving changes}
+        '503': {description: Storage unavailable; no fallback}
+    get:
+      operationId: listRecentHostPipelineDrafts
+      description: Recent owned draft headers ordered by update time, ID and revision descending. A truncated list is not the complete draft inventory; older drafts remain readable by ID and revision.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Bounded recent draft headers
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-draft-list.schema.json}
+        '400': {description: Invalid limit}
+        '401': {description: Authentication required}
+        '403': {description: Source access denied}
+        '503': {description: Storage unavailable}
+  /api/v1/integrations/zabbix/hosts/pipeline/drafts/{id}/{revision}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getHostPipelineDraft
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_-]{0,63}$'}}
+        - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 2147483647}}
+      responses:
+        '200':
+          description: Owned verified working copy
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-draft.schema.json}
+        '400': {description: Invalid ID or revision}
+        '401': {description: Authentication required}
+        '403': {description: Source access denied}
+        '404': {description: No draft in this scope}
+        '503': {description: Storage unavailable or verification failed}
+  /api/v1/integrations/zabbix/hosts/pipeline/replay-runs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: executeHostPipelineReplayRun
+      description: >-
+        Persist a bounded read-only evaluation. Identity comes from authentication. The request key is scoped
+        to tenant, source and initiating subject; reuse with different parameters returns 409. Successful
+        results are immutable. An explicit identical POST may resume a failed or expired attempt (120 second
+        lease, at most 3 attempts); an active duplicate returns 202 without executing. A third expired attempt
+        is marked FAILED on identical POST without evaluation. This synchronous API has no background worker.
+        Entity permissions are checked again before returning stored reports. No inventory, actions or notifications.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/pipeline-replay-run-request.schema.json}
+      responses:
+        '200':
+          description: Completed or previously completed evaluation
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-replay-run.schema.json}
+        '202':
+          description: An identical request is still executing; GET does not trigger execution
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-replay-run.schema.json}
+        '400': {description: Invalid or unbounded request}
+        '401': {description: Authentication required}
+        '403': {description: Source or entity access denied}
+        '404': {description: Source run or version unavailable}
+        '409': {description: Key conflict, lease lost, evaluation conflict or result too large}
+        '503': {description: Evaluation or storage unavailable; inspect history before explicit retry}
+    get:
+      operationId: listHostPipelineReplayRuns
+      description: Header-only history for the authenticated tenant, configured source and initiating subject. Ordered by creation time and ID descending.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: before, in: query, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Scoped history with opaque next-page cursor
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-replay-history.schema.json}
+        '400': {description: Invalid cursor or limit}
+        '401': {description: Authentication required}
+        '403': {description: Source access denied}
+        '404': {description: Cursor unavailable in this scope}
+        '503': {description: Storage unavailable}
+  /api/v1/integrations/zabbix/hosts/pipeline/replay-runs/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getHostPipelineReplayRun
+      description: Read stored result without re-evaluating Raw records; current entity permissions still apply. GET never renews a lease or retries.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Owned replay record and optional report
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-replay-run.schema.json}
+        '400': {description: Invalid ID}
+        '401': {description: Authentication required}
+        '403': {description: Source or current entity access denied}
+        '404': {description: Replay unavailable in this scope}
+        '503': {description: Storage unavailable}
+  /api/v1/integrations/zabbix/hosts/pipeline/replay:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: replayHostPipeline
+      description: >
+        Uses the same retained-Raw evaluator as preview, with an explicitly published target version
+        and purpose. dryRun defaults to true; false is rejected. No notification, action, inventory
+        write, source fetch, retirement or checkpoint advancement is reachable. This is a synchronous
+        bounded evaluation, not a durable replay job. Old runs without a pin are never assigned invented lineage.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/pipeline-replay-request.schema.json}
+      responses:
+        '200':
+          description: Bounded dry-run report
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/pipeline-evaluation.schema.json}
+        '400': {description: Invalid request or write replay requested}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing source or entity permission/scope}
+        '404': {description: Run or version absent}
+        '409': {description: Run still running, lineage unavailable or digest mismatch}
+        '503': {description: Storage unavailable or concurrency budget exhausted}
   /api/v1/integrations/zabbix/items/{itemId}/history:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     get:
       operationId: readZabbixNumericHistory
       description: >
@@ -120,11 +758,96 @@ paths:
                 properties:
                   error:
                     enum: [SOURCE_UNAVAILABLE, SOURCE_FETCH_FAILED, INVALID_SOURCE_RESPONSE, UNSUPPORTED_HISTORY, METADATA_CHANGED, HISTORY_SECOND_LIMIT, HISTORY_BUSY]
+  /api/v1/integrations/zabbix/problems:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: readZabbixProblems
+      description: >
+        Source-administrator read requiring source.sync on the configured source.
+        Zabbix 7.0 event.get contract: problems active during an inclusive UTC seconds
+        window of at most 24 hours. Limit 1..100, numeric event ID cursor, at most two
+        upstream calls per page, process-local concurrency two, no retry or fallback.
+        Observed fields are current source observations, not a historical asOf snapshot.
+        Recovery ID without a readable recovery event stays RECOVERY_UNKNOWN with an
+        explicit gap. Global-correlation closures are rejected in this slice.
+        Does not persist alerts or incidents. Unknown and duplicate parameters are rejected.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: from, required: true, schema: {type: integer, minimum: 0, maximum: 9999999999}}
+        - {in: query, name: till, required: true, schema: {type: integer, minimum: 0, maximum: 9999999999}}
+        - {in: query, name: afterEventId, schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      responses:
+        '200':
+          description: Read-only page; sourceContract declares the adapter contract, not a detected server version
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/external-problem-page.schema.json}
+        '400': {description: Invalid window, future till, cursor, limit or parameter}
+        '401': {description: Unauthenticated}
+        '403': {description: Source permission denied}
+        '503': {description: Closed source, transport failure, invalid or unsupported response, or concurrency limit}
+  /api/v1/integrations/zabbix/problems/ingest:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: ingestZabbixProblemPage
+      description: >
+        Explicit bounded page import requiring source.sync. The caller selects only a window and cursor;
+        identity, source, data mode and connector are server controlled. Fetch failure writes nothing.
+        Occurrence, initial Incident, entity links and timeline are written in one transaction.
+        Duplicate tenant/source/problem IDs reuse the Incident. Empty pages do not close or delete anything.
+        Source recovery is distinct from human Incident status. No notification, diagnostic trigger or action.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/problem-ingest-request.schema.json}
+      responses:
+        '200':
+          description: Committed page result with the next explicit source cursor
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/problem-ingest-result.schema.json}
+        '400': {description: Invalid or oversized request}
+        '401': {description: Unauthenticated}
+        '403': {description: Source permission denied}
+        '409': {description: Conflicting occurrence identity, recovery or source mode; entire page rolled back}
+        '503': {description: Source or store failed; no fallback}
+  /api/v1/incidents:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageIncidents
+      description: >
+        Requires incident.read and entity.read. Tenant, Incident scope and all associated entity
+        scopes are applied before the UUID cursor LIMIT. Unmapped or entity-less incidents require
+          tenant-wide entity visibility. Merged archives are excluded. No cross-page snapshot or total count is promised.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: status, schema: {type: string, enum: ['', OPEN, INVESTIGATING, MITIGATED, RESOLVED, CLOSED], default: ''}}
+        - {in: query, name: after, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      responses:
+        '200':
+          description: Authorized bounded Incident headers
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/incident-page.schema.json}
+        '400': {description: Invalid query}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing read permission}
+        '503': {description: Store unavailable}
   /api/v1/incidents/{incidentId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     get:
       operationId: getIncident
       security:
         - bearerAuth: []
+        - browserSession: []
       parameters:
         - in: path
           name: incidentId
@@ -134,16 +857,138 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Authorized Incident
+          description: Authorized Incident, associated problems, entity links, gaps and timeline; fresh permission check
           content:
             application/json:
               schema:
-                $ref: ../schemas/v1/incident.schema.json
+                $ref: ../schemas/v1/incident-detail.schema.json
         '401':
           description: Unauthenticated
         '403':
           description: Forbidden
+        '404': {description: Missing Incident or associated entity scope is not visible}
+        '503': {description: Store unavailable, inconsistent snapshot, or read budget exceeded}
+  /api/v1/incidents/{incidentId}/problem-observations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: readIncidentProblemObservations
+      description: >
+        Immutable normalized inputs before recovery merging, with first reception time and historical entity mapping.
+        Requires incident.read and entity.read. Current Incident and historical entity scope are checked before LIMIT.
+        History follows current occurrence ownership; archived merged sources have no owned occurrence history.
+        Version is rechecked with ownership in one storage snapshot. No backfill from live projection and no vendor raw payload.
+        Window is inclusive observed time, at most 31 days; asOf fixes firstReceivedAt cutoff across pages.
+        eventId requires source. Unknown or duplicate parameters and future asOf are rejected. No execution or notification.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: incidentId, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: version, required: true, schema: {type: integer, minimum: 1, maximum: 9007199254740991}}
+        - {in: query, name: from, required: true, schema: {type: integer, minimum: 0, maximum: 253402300799}}
+        - {in: query, name: till, required: true, schema: {type: integer, minimum: 0, maximum: 253402300799}}
+        - {in: query, name: asOf, schema: {type: string, format: date-time}}
+        - {in: query, name: source, schema: {type: string, maxLength: 128}}
+        - {in: query, name: eventId, schema: {type: string, maxLength: 20}}
+        - {in: query, name: after, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 25, default: 25}}
+      responses:
+        '200':
+          description: Bounded retained normalized observations for the current ownership and version
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/problem-observation-page.schema.json}
+        '400': {description: Invalid or unbounded query}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing read permission}
+        '404': {description: Current Incident or associated entity scope is not visible}
+        '409': {description: Incident version changed; refresh detail and restart pagination}
+        '503': {description: Store unavailable or inconsistent retained metadata}
+  /api/v1/incidents/{incidentId}/transitions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: transitionIncident
+      description: >
+        Explicit human workflow requiring incident.manage plus current Incident and entity read access.
+        Optimistic version and requestKey prevent lost updates and duplicate timeline entries.
+        A key is bound to actor, expectedVersion and target; same-key retries return the original result.
+        RESOLVED requires every linked problem to have a known recovery. No production action tool is exposed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: incidentId, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/incident-transition-request.schema.json}
+      responses:
+        '200':
+          description: Persisted status transition result
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/incident-transition-result.schema.json}
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Read or manage permission denied}
+        '404': {description: Missing or hidden Incident}
+        '409': {description: Version or key conflict, illegal transition, or unresolved problems}
+        '503': {description: Persistence or record budget failure}
+  /api/v1/incidents/reorganizations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: reorganizeIncidents
+      description: >
+        Explicit human merge/split, requiring incident.manage and read access to both Incident and entity scopes.
+        Merge moves all current problems to an OPEN/INVESTIGATING target and archives the source without changing its human status.
+        Split moves a proper subset to a new OPEN Incident; at least one problem must remain.
+        Expected versions, occurrence ownership and actor-bound requestKey are checked in the same bounded transaction.
+        Current ownership governs later observations. Association changes invalidate earlier evidence and insights.
+        Body is at most 16 KiB. No query identity, implicit approval, model tool or automatic action is accepted.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/incident-reorganization-request.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/reorganizationResult'}
+        default: {$ref: '#/components/responses/reorganizationFailure'}
+  /api/v1/incidents/reorganizations/{requestKey}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getIncidentReorganization
+      description: Reads the immutable receipt after fresh authorization of both current Incident and entity scopes. No mutation on GET.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: requestKey, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/components/responses/reorganizationResult'}
+        default: {$ref: '#/components/responses/reorganizationFailure'}
+  /api/v1/incidents/{incidentId}/reorganizations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageIncidentReorganizations
+      description: >
+        Authorized receipt history, including merged archives. Both Incident and linked entity scopes are applied before LIMIT.
+        UUID cursor order, not chronological order or a cross-page snapshot. Receipts do not replace complete source observation history.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: incidentId, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: after, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 25, default: 20}}
+      responses:
+        '200':
+          description: Bounded page of currently visible association changes
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/incident-reorganization-page.schema.json}
+        default: {$ref: '#/components/responses/reorganizationFailure'}
   /api/v1/entities/{entityId}/metrics/{metricKey}/series:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     get:
       operationId: queryMetricSeries
       description: >
@@ -152,18 +997,26 @@ paths:
         The caller cannot submit PromQL or MetricsQL. The window is at most 3600
         seconds and at most 500 points. Distinct sources stay in separate series.
         NO_DATA is an empty successful read. Storage failure is 503, not an empty array.
-        partial means the scan budget was exceeded; fresh then describes only the returned points.
+        partial means the scan or returned-point budget was exceeded; fresh then
+        describes only the returned points. PARTIAL may have no points and must
+        not be presented as confirmed NO_DATA. Times in points are milliseconds;
+        from/till are inclusive epoch seconds. Each series retains its dataMode.
       security:
         - bearerAuth: []
+        - browserSession: []
       parameters:
         - {in: path, name: entityId, required: true, schema: {type: string, format: uuid}}
         - {in: path, name: metricKey, required: true, schema: {type: string}}
-        - {in: query, name: from, required: true, schema: {type: integer}}
-        - {in: query, name: till, required: true, schema: {type: integer}}
+        - {in: query, name: from, required: true, schema: {type: integer, minimum: 0, maximum: 9999999999}}
+        - {in: query, name: till, required: true, schema: {type: integer, minimum: 0, maximum: 9999999999}}
         - {in: query, name: maxPoints, required: false, schema: {type: integer, minimum: 1, maximum: 500, default: 500}}
       responses:
         '200':
           description: Series page with an explicit status kind
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/metric-series-page.schema.json
         '400':
           description: Invalid window, metric key, or point budget
         '401':
@@ -174,9 +1027,398 @@ paths:
           description: Entity or metric definition is absent in the principal tenant
         '503':
           description: Time-series store is closed or the response was rejected
+  /api/v1/ai/read-sessions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: createToolReadSession
+      description: >
+        Trusted caller identity; current-knowledge sampling window only, at most one hour and five linked entities.
+        Pins Incident version and entity scope. Sixty-second session, four shared calls, four active sessions per subject.
+        Requires ai.diagnose, incident.read, evidence.read and all linked entity.read scopes. No model-supplied identity.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/tool-read-session-request.schema.json}
+      responses:
+        '200':
+          description: Server-owned identity, scope and budget; not a bearer credential
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/tool-read-session.schema.json}
+        '400': {description: Invalid or historical knowledge request}
+        '401': {description: Unauthenticated}
+        '403': {description: Permission denied}
+        '404': {description: Missing or hidden Incident}
+        '429': {description: Active session or executor capacity reached}
+        '503': {description: Store unavailable or linked object budget exceeded}
+        '504': {description: Executor deadline exceeded}
+  /api/v1/tools/incident.get/2.0.0:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: executeIncidentReadTool
+      description: Captures an immutable current Incident observation; rechecks pinned version and current permissions before publication.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {$ref: '#/components/parameters/readSession'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/incident-tool-request.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/toolResult'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/tools/metric.summary/2.0.0:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: executeMetricSummaryTool
+      description: >
+        Reads only session-linked entities and the exact pinned sampling window, at most 500 total samples.
+        Gauge statistics remain separate per entity, source and dimensions. Missing samples are not zeros.
+        Historical ingestion time is unavailable; availability is actual snapshot capture time.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {$ref: '#/components/parameters/readSession'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/metric-tool-request.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/toolResult'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/tools/evidence.get/2.0.0:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: recheckToolEvidence
+      description: Reauthorizes a live evidence snapshot from this session and consumes one shared call; changed Incident input rejects the run.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {$ref: '#/components/parameters/readSession'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/evidence-tool-request.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/toolResult'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/evidence/{evidenceId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: readEvidenceSnapshot
+      description: Tenant-scoped immutable snapshot, freshly authorized against current Incident and original linked entity/metric scopes, with current expiry and metadata-only audit.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: evidenceId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Snapshot with explicit source modes, missing data, capture time and local source reference
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/platform-evidence.schema.json}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/diagnoses:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: diagnoseCurrentIncident
+      description: >
+        Loopback development BFF. Forwards the authenticated caller to a fixed Rust Runtime origin,
+        one model call with four bounded evidence reads/rechecks. Java returns its freshly authorized
+        saved result. Client supplies a stable runId; no automatic model retry. Current knowledge only.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/current-diagnose-request.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/aiInsight'}
+        default:
+          description: 400 invalid input; 401/403 authentication/authorization; 404 missing; 409 changed input; 410 expired; 429 busy; 503 unavailable; 504 bounded dispatch deadline. Lookup runId after uncertain outcome.
+  /api/v1/ai/model-calls/reservations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: reserveModelSpend
+      description: >
+        Runtime-only admission after two native reads. Trusted actor, bound session and current resource permissions are checked.
+        PostgreSQL serializes tenant-wide configured USD estimates; provider/model/rates and limits are server-owned.
+        A run ID receives one permit only. Duplicate reservation is 409, including a retry after an unknown response.
+        Unknown charges remain reserved across UTC days and process restarts. No automatic refund or model retry.
+      security: [{bearerAuth: [], runtimeKey: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/model-spend-reserve.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/modelSpend'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/model-calls/reports:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: reportModelUsage
+      description: >
+        Runtime attests SDK-reported usage before output parsing/rechecks/result saving. Actor/session/run must match.
+        The first report fixes usage, report time and the original rate snapshot; an identical report returns the original receipt.
+        Cached input is conservatively priced at the full input rate. Estimates are not provider invoices.
+        OIDC delegation permits one report after its one reservation, within its unchanged 65-second lifetime.
+      security: [{bearerAuth: [], runtimeKey: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/model-spend-report.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/modelSpend'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/model-calls/{runId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readModelSpend
+      description: >
+        Owner-only read with fresh Incident and linked resource authorization. Does not call a model.
+        A usage receipt does not prove successful diagnosis. Missing receipt never proves zero cost.
+        RESERVED or UNCERTAIN has null usage/estimatedMicros and continues to account its full reserved amount.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200': {$ref: '#/components/responses/modelSpend'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/insights:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: saveCurrentInsight
+      description: >
+        Runtime-only local submission, requiring both user authorization and process attestation.
+        Pinned Skill digest/model policy, completed session budget, both fresh rechecks and current Incident version are verified.
+        Paid-model submissions also require the matching reported model-spend receipt.
+        Idempotent by tenant/runId/subject/request digest; result and evidence associations commit together.
+      security: [{bearerAuth: [], runtimeKey: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/insight-submission.schema.json}
+      responses:
+        '200': {$ref: '#/components/responses/aiInsight'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/insights/{runId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: readSavedInsight
+      description: Fresh user, Incident, linked entity/metric and evidence authorization. Result expires with its earliest evidence; expired snapshots return 410. No model execution on GET.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/components/responses/aiInsight'}
+        default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/entities/{entityId}/identity-keys:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: entityId, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageAssetIdentities
+      description: Operator-confirmed asset UUID registry for one authorized Host and the configured namespace. Requires entity.read, entity.manage and configured CMDB source.sync before pagination. Disabled unless namespace and import source are configured; retained revoked records remain visible.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: after, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 25, default: 25}}
+      responses:
+        '200':
+          description: Bounded ID-ordered identity history; not a presence assertion
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/asset-identity-page.schema.json}
+        default: {description: 400 invalid query; 401/403 denied; 404 missing; 503 disabled or unavailable}
+    post:
+      operationId: assertAssetIdentity
+      description: Explicitly register a manually verified canonical asset UUID. Namespace and actor derive from server context; expectedNamespace pins the reviewed configuration. One active target per tenant/namespace/value, at most 16 active and 1000 retained keys per entity. Changes entity version atomically and preserves telemetry IDs. Actor-bound same-command retry returns its original receipt.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/asset-identity-claim.schema.json}
+      responses:
+        '200':
+          description: Immutable registration receipt
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/asset-identity-receipt.schema.json}
+        default: {description: 400 invalid input; 401/403 denied; 404 missing; 409 changed namespace/version or key conflict; 503 disabled/budget/store failure}
+  /api/v1/entities/{entityId}/identity-keys/{identityId}/revocations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: entityId, required: true, schema: {type: string, format: uuid}}
+      - {in: path, name: identityId, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: revokeAssetIdentity
+      description: Same human resource permissions as registration. Requires reviewed namespace/current entity version and actor-bound idempotency key. A dependent active source review must be explicitly revoked first. Invalidates pending pinned imports; does not delete history, merge entities or alter telemetry links.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/asset-identity-revoke.schema.json}
+      responses:
+        '200':
+          description: Immutable revocation receipt
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/asset-identity-receipt.schema.json}
+        default: {description: 400 invalid input; 401/403 denied; 404 missing entity; 409 stale namespace/version/key or dependent active fields; 503 disabled or unavailable}
+  /api/v1/inventory/resolve-identity:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: resolveRegisteredAssetIdentity
+      description: Read-only exact lookup in the trusted tenant and configured namespace. Requires human entity.read/entity.manage/configured source.sync and masks hidden targets as 404. Only active operator-confirmed UUIDs resolve; no name/IP matching, automatic asset creation or existing-entity merge. Result pins can bind a supplemental import; imports and acceptance revalidate under the entity lock.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/asset-identity-resolve-request.schema.json}
+      responses:
+        '200':
+          description: Authorized target with active identity and current entity version
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/asset-identity-resolution.schema.json}
+        default: {description: 400 invalid input; 401/403 denied; 404 missing or hidden mapping; 503 disabled or unavailable}
+  /api/v1/entities/{entityId}/source-reviews:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: entityId, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageSourceReviews
+      description: Human-only entity.read + entity.manage + configured source.sync scope, applied before pagination. Import source must be explicitly configured. Last known supplemental fields carry expiry; import does not assert presence.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: after, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 25, default: 25}}
+      responses:
+        '200':
+          description: Bounded ID-ordered review page and currently active review for this configured source
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/source-review-page.schema.json}
+        default: {description: 400 invalid input; 401/403 identity or scope denied; 404 entity missing; 503 import not configured or store unavailable}
+    post:
+      operationId: stageSourceReview
+      description: Fixed CMDB import, at most four fields and 16 KiB body. Actor and source derive from trusted server context. Optional identity pin must reference an active operator-confirmed UUID on this entity and configured namespace; revalidated on acceptance. Tenant-wide requestId is immutable; no entity projection changes until acceptance.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/source-review-import.schema.json}
+      responses:
+        '200':
+          description: Staged review or same-request current review
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/source-review.schema.json}
+        default: {description: 400 invalid import; 401/403 denied; 404 missing; 409 changed version or reused id; 503 unavailable}
+  /api/v1/entities/{entityId}/source-reviews/{reviewId}/decisions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: entityId, required: true, schema: {type: string, format: uuid}}
+      - {in: path, name: reviewId, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: decideSourceReview
+      description: Accept or reject pending review; revoke only the active acceptance. Requires current entity/review versions, per-field choice, reason and actor-bound requestId. Same key and identical command returns original receipt even after later changes. Entity lock and unique source binding fence concurrent decisions and ingestion.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/source-review-decision.schema.json}
+      responses:
+        '200':
+          description: Immutable decision receipt
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/source-review.schema.json}
+        default: {description: 400 invalid request; 401/403 denied; 404 missing; 409 changed version, expired import, active binding or reused key; 503 unavailable}
 components:
+  parameters:
+    clientRequestId:
+      in: header
+      name: X-OpsWeave-Request-Id
+      required: false
+      description: Optional single UUID; malformed or duplicate values return 400. Server generates one if absent and echoes a canonical UUID on every API response. Never grants permissions or suppresses duplicate writes.
+      schema: {type: string, format: uuid}
+      example: 6c8d4385-c206-4b59-8c2e-f9d34f8b3500
+    readSession:
+      in: header
+      name: X-OpsWeave-Read-Session
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    reorganizationResult:
+      description: Persisted actor-bound receipt; retries with the same request and actor return this original result
+      content:
+        application/json:
+          schema: {$ref: ../schemas/v1/incident-reorganization-result.schema.json}
+    reorganizationFailure:
+      description: >
+        400 invalid body/query; 401 unauthenticated; 403 permission denied; 404 missing or hidden Incident/receipt;
+        409 changed versions/ownership, conflicting request key or unsupported state; 503 store/budget failure.
+        An uncertain submission must be resolved by requestKey before starting a different adjustment.
+    aiInsight:
+      description: Persisted result with trusted identity, pinned Skill/model, explicit source modes, missing data and evidence references; reference integrity does not establish causation.
+      content:
+        application/json:
+          schema: {$ref: ../schemas/v1/ai-insight-result.schema.json}
+    toolResult:
+      description: Bounded evidence result persisted atomically with execution audit; always preserves incomplete context warnings
+      content:
+        application/json:
+          schema: {$ref: ../schemas/v1/tool-result.schema.json}
+    modelSpend:
+      description: Server-owned configured price estimate and explicit provider or mock usage; never a provider invoice
+      content:
+        application/json:
+          schema: {$ref: ../schemas/v1/model-spend-result.schema.json}
+    toolFailure:
+      description: >
+        400 invalid request; 401 unauthenticated; 403 denied; 404 absent/hidden session or evidence;
+        409 pinned input changed; 410 expired; 429 shared budget or capacity exhausted;
+        503 store/read budget failure; 504 fifteen-second executor deadline. No fallback to fixture or empty success.
   securitySchemes:
-    bearerAuth:
+    historyService:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: Dedicated OAuth client_credentials access token profile described in ../history-service-identity.md. Never accepted as a browser or Runtime credential.
+    runtimeKey:
+      type: apiKey
+      in: header
+      name: X-OpsWeave-Runtime-Key
+      description: Explicit local process attestation only; does not grant user permissions and is never exposed to Web/model.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Explicit loopback dev credential, or short-lived server-only Runtime delegation on allowlisted endpoints. Raw provider bearer JWTs are not accepted.
+    browserSession:
+      type: apiKey
+      in: cookie
+      name: __Host-opsweave
+      description: OIDC BFF HttpOnly Secure SameSite=Lax host cookie. Explicit loopback protocol tests use opsweave-test-session. Unsafe methods also require X-CSRF-TOKEN and the configured Origin.

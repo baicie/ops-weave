@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "from": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 253402300799
+    },
+    "till": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 253402300799
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^([A-Za-z0-9][A-Za-z0-9._-]{0,127})?$"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^([1-9][0-9]{0,19})?$"
+    },
+    "after": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 25
+    }
+  },
+  "required": [
+    "version",
+    "from",
+    "till",
+    "asOf",
+    "source",
+    "eventId",
+    "after",
+    "limit"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "eventId": {
+            "minLength": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

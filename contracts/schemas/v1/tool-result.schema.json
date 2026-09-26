@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": [
+        "ok",
+        "partial"
+      ]
+    },
+    "data": {
+      "$ref": "platform-evidence.schema.json"
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "maxItems": 1,
+      "minItems": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "CURRENT_KNOWLEDGE_ONLY",
+          "LOGS_NOT_CONNECTED",
+          "CHANGES_NOT_CONNECTED",
+          "ENTITY_MAPPING_MISSING",
+          "RECOVERY_EVENT_UNAVAILABLE",
+          "METRIC_INGEST_TIME_UNAVAILABLE",
+          "METRIC_NOT_FOUND",
+          "UNSUPPORTED_METRIC_KIND",
+          "NO_ASSOCIATED_ENTITIES",
+          "METRIC_OR_ENTITY_NOT_FOUND",
+          "METRIC_POINTS_PARTIAL",
+          "METRIC_NO_DATA",
+          "METRIC_STALE"
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "truncated": {
+      "const": false
+    }
+  },
+  "required": [
+    "status",
+    "data",
+    "evidenceRefs",
+    "warnings",
+    "truncated"
+  ]
+}

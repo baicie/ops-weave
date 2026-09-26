@@ -5,6 +5,30 @@
 > 技术方向：Java 平台业务 + Rust Agent Runtime + Zeus / Zeus UI 前端。  
 > 范围：从当前初始化工程，推进到真实只读诊断 MVP、可恢复 Agent、配置式 Skill 和受控试点。  
 > 本文是实施建议，不表示功能已经完成。M0—M7 为规划里程碑，不是已有 Git Tag；未获取团队人数、投入强度和生产规模，因此不指定完成日期。  
+> 2026-09-26 最新增量：第52节补齐 M3 此前唯一的本地缺失项——SUM/计数器变化率与 reset 策略：下降区间按零重计并带 `counterReset`、原始点保留、契约收紧为闭集（`counter-rate` + `reset-counts-from-zero`），Web 指标页默认画变化率曲线并标出 reset 区间、可切回原始累计值（ADR-010 + 指标查询验收手册）。M3 约85%→90%，MVP 约91%；变化率是平台推导视图，真实采样/模型/身份与人工审阅仍缺。
+
+> 2026-09-26 前一增量：第51节补齐只读的来源连接自检（“已声明支持版本”的第一步）：POST 执行一次有界 probe 并写回执、GET 读取最近回执，fixture 保持标注且不声明版本、JSON-RPC 记录来源自报版本、不可达不带版本、抛异常失败关闭，V026 每 tenant/source 保留 100 份（ADR-045 + runbook）。M2 保持约93%。
+
+> 2026-09-26 前一增量：第50节为 M4 的模型请求边界补上可复核证据——密钥只在 `Authorization` 头且不出现在请求体，提问与知识以具名不可信字段随真实发布的技能提示发出，失败无重试无回退且 provider 报错不落库（Rust all-features 43→44）。
+
+> 2026-09-26 增量：第49节把“只有已验证快照才允许对账”提升为用例层强制不变量——未实现边界的连接器即使声明完成也不能退休任何对象（`SOURCE_SCAN_UNVERIFIED`、退休数 0、已提交页保留），并审计确认 Problem/历史采集没有缺失对账（ADR-043）。
+
+> 2026-09-26 增量：第48节让 Item 采集也走 itemid 水位快照（首请求前捕获最高 itemid 与总行数，计数与水位双验证才完成并标注 `itemid-watermark-snapshot`，漂移按 `SOURCE_SCAN_UNVERIFIED` 拒绝对账），水位算法抽成 Host/Item 共享实现，V025 扩展标签闭集（ADR-042）。
+
+> 2026-09-26 增量：第47节把扫描边界标签持久化到运行记录（V024，默认 `offset-scan-attempt`），追溯接口与页面返回并渲染它，旧行保留默认值（ADR-041）；同时把前端失败摘要映射与 Java 枚举对齐并补上 `SOURCE_SCAN_UNVERIFIED`。
+
+> 2026-09-26 增量：第46节让 Host 扫描在首个分页请求前捕获最高 hostid 与总行数作为边界，只有观测行数等于捕获计数且看到水位行才完成并标注 `hostid-watermark-snapshot`，否则以 `SOURCE_SCAN_UNVERIFIED` 拒绝且不对账（ADR-040）。
+
+> 2026-09-26 增量：第45节让 Item 扫描与 Host 共用来源 scope 租约，目录/绑定写入与缺失对账全部受围栏，失去/过期/被接管即整笔回滚并映射为 SOURCE_SCAN_* 稳定码（ADR-039）；同时修正 V023 读取索引未登记（迁移列表与 processResources，此前从未创建）。第44节的扫描运行只读追溯、第43节的绑定更正、第42节的显式快照/第二来源确认、Host持久租约、AI正文留存和配置估算费用继续保留。
+
+> 2026-09-26 增量：第44节补齐来源扫描运行的只读追溯：Host/Item 最近运行分页与按 syncRunId 单条读取，源级 source.sync、跨租户/跨来源/跨对象类型 404、失败码只还原平台自身前缀、钉住映射版本（ADR-038）。
+
+> 2026-09-26 前一增量：第43节补齐来源绑定的人工更正，以新观测、原snapshotId、双方版本和目标UUID pin原子更正当前绑定，旧观测/指标/Incident归属保留，网页预览/回执/历史可追溯（ADR-037）。M2约90%，MVP约89%。
+
+> 2026-09-25 前一增量：人工核对的资产 UUID 登记/定位、导入 pin、原子回执与依赖撤销已通过本机浏览器/Java/PG 链（第 38 节、ADR-032）；Worker/OIDC 链继续回归。M2 粗估 85%，MVP 等权约 84%；通用来源自动 Resolver/连续 presence、已有实体合并、费用/留存，以及真实提供方/TLS/来源/模型仍未完成。
+> 2026-09-25 增量：独立 Worker client_credentials JWT、运维资源/时间/数量预算、撤销/故障不推进游标与密钥轮换续采已通过本机 Java/Worker/PG/VM 链；OIDC BFF/委托/浏览器链继续通过（第 37 节、ADR-031）。当时 M1 粗估 90%，MVP 等权约 83%。
+> 2026-09-25 增量：资产/Incident 筛选与选中资源、指标实际窗口已通过 URL 恢复/刷新后重授权验收（第 35 节、ADR-029）；规范化告警历史和 CMDB 字段审核继续通过整链回归。M1 粗估 65%，MVP 等权约 78%；真实来源/模型/登录门槛未通过。继续生产身份适配与通用跨源 Resolver/presence。旧章节中的下一步以最新实现状态为准。
+> 2026-09-25 增量：受控时序查询 API 与指标页已经实现，查询链回归与实际验证见 `VALIDATION-REPORT.md` 第 21 节。下文早期快照中“下一步查询 API/指标页”已被此增量替代；下一业务验收是厂商 Zabbix 与 PipelineVersion/Preview/Replay。
 > 落点：本文保存在 `docs/ROADMAP.md`。兼容性基线见 `docs/FRONTEND-COMPATIBILITY.md`。默认分支 `b5404a8`：M0 前端迁移验收关闭（本地 Playwright + GitHub Actions `opsweave-template` 四 job 通过）。中文 IME / 完整键盘矩阵仍未测，不阻塞进入 M1。不再安排一次 React→Zeus 迁移。
 
 ## 1. 当前起点：不要重复建设已经提交的迁移
@@ -135,6 +159,10 @@ Zeus / Zeus UI 只修复验收暴露的问题。验证对象/数组作为 proper
 
 从本机 Demo token 进入真实平台身份；前端使用统一请求层，不把权限判断散落在组件中。
 
+2026-09-25 OW-R05 的公共 HTTP 与开发生命周期切片已通过本机验证（ADR-025、第 31 节）：六个业务页面共用凭据和请求预算，清除/替换/到期/401/403 丢弃旧数据，Java 逐请求授权并回传请求 UUID/禁止缓存头。仍是 loopback Bearer 开发模式，30 分钟只是客户端保留期限，未实现生产 Cookie/OIDC/CSRF 或后端 Token 撤销；M1 不关闭。
+
+第 35 节补齐核心只读选择恢复（ADR-029）：资产/Incident 服务端筛选、UUID 游标与选中对象、指标及实际时间窗口写入 URL；刷新/前进后退丢弃结果，不自动读取或执行操作，服务端重新授权，旧响应与会话边界继续验证。历史子面板和写操作输入不纳入该读取协议；生产身份仍是 M1 未完成门槛。
+
 ### 前端交付
 
 沿用现有页面骨架，完善布局、导航、空状态、错误状态、加载状态和不可用能力说明。建立统一 API client：请求取消、超时、错误归一化、请求追踪标识、分页和旧响应丢弃规则。资源筛选与时间范围可还原；hash 路由暂时可以保留，不把实现新 Router 当作产品前置。
@@ -161,7 +189,7 @@ Java identity/application 定义主体、租户、资源范围与权限决策。
 
 资产页展示来自外部系统的真实对象，并能解释数据从哪里来。接入必须先有可版本化、可预览、可重放的确定性流水线；**Integration Copilot 写进本阶段规划，但不作为本阶段开工项，更不是退出条件。**
 
-仓库里目前没有 `PipelineDefinition`、`integration.pipeline.*` 或 Copilot 实现。不要把 Connector SPI 骨架当成流水线已完成。
+2026-09-25 已实现 Host 六节点 `PipelineDefinition`、不可变发布版本、固定版本同步、基于历史 Raw 的 Preview / dry-run Replay API 及表单页面。PostgreSQL、HTTP 和浏览器本机验证见验证报告第 22 节。持久只读重放记录、幂等/显式恢复与历史页面已补齐（验证报告第 23 节、ADR-018）；私有持久草稿与并发保存保护也已补齐（第 24 节、ADR-019）；尚无后台重放调度、写入型历史修复或 Copilot，不等于 M2 完整退出。
 
 ### 顺序（必须遵守）
 
@@ -204,6 +232,8 @@ DataSource 配置、连接测试、分页、同步游标、完整快照标志。
 
 确定性转换必须有测试：重复同步不新增重复 Entity；非法/缺失字段进入校验失败而非猜测补全。
 
+2026-09-25 观测追溯基础已实现（ADR-026、第 32 节）：同 tenant/observation ID 不可覆盖，迟到旧观测留存且不回退当前投影，来源/映射/Raw/双时间可受权分页查看；旧记录精度和字段缺失明确保留。普通 writer 拒绝隐式 ExternalLink 重分配及未经字段权威处理的多来源写入；第 33 节补齐固定 CMDB 导入的人工字段确认/拒绝/撤销与唯一生效绑定（ADR-027），补充 Observation 保留原值，普通同步保留字段权威，撤销恢复最新主来源。现有 Zabbix ID/Link 不搬移；通用跨源 Resolver、已有实体合并和持续二来源 presence 仍未实现，此切片不代表多源治理全部完成。
+
 ### M2.5 Preview / Replay / Version
 
 发布前可对样本 Raw 做 Preview，展示将写入的 Observation/Entity 而不落库（或写入明确标注的预览隔离）。Replay 默认只修复数据，不发通知、不触发动作。只有来源扫描完整且成功才进行对账。
@@ -242,6 +272,8 @@ DataSource 配置、连接测试、分页、同步游标、完整快照标志。
 
 资产列表、服务端分页/筛选、详情、来源字段、冲突提示、同步任务、数据新鲜度和流水线版本/预览结果。先使用简单表格也可以；高级 Data Grid 尚未验收时不阻塞。
 
+2026-09-25：OW-R08 服务端筛选/UUID 游标分页与新授权详情读取已完成本机验证；范围在 PostgreSQL 查询前生效，详情包含来源实例/采集模式/映射摘要，切换身份清除旧数据。见验证报告第 25 节。旧兼容全量读取、厂商来源验收及多源冲突流程仍待收尾。MVP 100% 目标保持进行中，见 [MVP-CHECKLIST.md](MVP-CHECKLIST.md)。
+
 ### 验收（M2 退出，不含 Copilot）
 
 - [ ] 一条已声明支持版本的来源（默认 Zabbix Host）经已发布 PipelineVersion 完成分页、游标、完整快照。
@@ -274,11 +306,15 @@ DataSource 配置、连接测试、分页、同步游标、完整快照标志。
 
 能从一个 Incident 跳到相关实体及同时间窗口指标；重复告警不重复新建 Incident；恢复语义正确；时区、缺失点、counter reset 等有用例。日志/变更尚未接入时页面明确缺失。
 
+2026-09-25 本机增量：已验证外部问题/恢复原子幂等入库、PG Incident、受权分页/详情、人工状态和幂等重试、时间线/缺口及同窗口指标跳转（ADR-021、第 27 节）；人工合并/拆分已通过第 30 节，合并前规范化输入历史通过第 34 节（ADR-028）。历史保留首次接收/映射与精确时间，查询服从当前归属和实体范围，未留存厂商原文。数据来源明确为 fixture；真实厂商采样/告警仍未验收，M3 不关闭。
+
 ## 9. M4：真实只读诊断 MVP
 
 ### 目标
 
 Rust 从受控平台 API 获取真实数据，模型结果能够回到产品中被审阅。
+
+2026-09-25 本机进展：Java 当前知识会话、三个 v2 Tool、PG 证据/审计，Rust 当前知识单次模型流程和新 Skill 2.0.0、Java AIInsight 原子幂等保存/回读及网页结果/证据链已通过本机 PG/VM 联调。来源为显式 fixture，模型为 mock；真实 Rig/Zabbix/OIDC、人工审阅和费用/留存仍未验收。当前知识与历史 asOf 边界见 ADR-022/023，实际检查见验证报告第 29 节，不关闭 M4 退出条件。
 
 ### Java 工作
 
@@ -458,16 +494,16 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | OW-R02 | `test(web): cover diagnose page and Web Component interop` | ops-weave | 完成 | R01 | Playwright 7 passed；CI web job 含 `pnpm test:web` |
 | OW-R03 | `fix(interop): upstream reproducible Zeus / Zeus UI defects` | 实际责任仓库 | 消费端已规避 | R02 | `wc/auto` 注册已在 OpsWeave 落地；上游最小复现可另开，不阻塞 M1 |
 | OW-R04 | `feat(identity): define verified principal and resource scopes` | ops-weave | 本机切片 | 无 | Dev Principal、资源范围、允许/拒绝矩阵已落地；生产 OIDC/Keycloak 未接 |
-| OW-R05 | `feat(web): centralize API lifecycle and session cleanup` | ops-weave | P0 | R04 | 取消、超时、旧响应、退出/换租户清理；会话方案一致 |
-| OW-R11 | `feat(integration): define PipelineDefinition and versioned catalog` | ops-weave | P0，进行中 | R04 | 已有 Host 线性定义与 JSON Schema；Preview/不可变发布指针仍缺；尚无 Copilot |
+| OW-R05 | `feat(web): centralize API lifecycle and session cleanup` | ops-weave | 本机切片通过 | R04 | 共享开发凭据、取消/超时/大小/并发、旧响应、401/403/清除/到期、请求 UUID/no-store；核心资产/Incident/指标 URL 选择和时间范围恢复通过第 35 节，生产会话仍缺 |
+| OW-R11 | `feat(integration): define PipelineDefinition and versioned catalog` | ops-weave | 本机切片已验证 | R04 | Host 固定六节点、不可变版本/digest、每次同步固定版本、Raw Preview/dry-run Replay 和表单页面已有 HTTP/PG/浏览器验证；持久只读记录/幂等/恢复已补齐；私有持久草稿/并发冲突保护已补齐；后台调度及写入型修复仍缺 |
 | OW-R06 | `feat(inventory): persist entities, observations and external links` | ops-weave | 本地切片已验证 | R04 | Host Entity、Raw、Observation、ExternalLink/SyncRun 已有 PostgreSQL 与失败扫描保护；生产 RLS/备份仍缺 |
 | OW-R07 | `feat(integration): synchronize Zabbix hosts via published pipeline` | ops-weave | P0，进行中 | R11/R06 | fixture 与 JSON-RPC 客户端已通；尚未对厂商 Zabbix 发 `host.get` |
 | OW-R08 | `feat(web): deliver authorized inventory list and detail` | ops-weave | 部分完成 | R05/R06 | 资产页已有开发身份下的列表/同步/失败保留数据；服务端筛选分页、完整详情与生产会话仍缺 |
 | OW-R09 | `feat(integration): add CMDB mapping and cross-source reconciliation` | ops-weave | P1 | R07、CMDB 契约 | 二来源匹配/冲突/权威字段、成功快照对账、重放无副作用 |
-| OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | 进行中 | R06/R07 | 指标目录/绑定、History、VM 批写与 checkpoint 已有本机切片；查询/指标页、告警幂等/恢复、Incident 仍缺 |
+| OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | 进行中 | R06/R07 | 指标链、告警幂等/恢复、PG Incident/人工状态/时间线页面及同窗口跳转本机通过；人工合并/拆分与真实来源仍缺 |
 | OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-当前启动顺序：不要加深 IAM。指标目录、History 读取、单流 Worker 的 VictoriaMetrics 批写/回读确认与持久 checkpoint 已提供；当前采集仅为显式启用的本机开发切片。下一步是受控时序查询与指标页，再补真实来源验收和 PipelineVersion。不要先做 R12，也不要再迁前端框架。
+当前启动顺序：不要加深 IAM。指标目录、History、单流 Worker、受控查询/指标页与 Host 版本化流水线 API/页面已有本机切片。下一步在获得真实 Zabbix 配置后完成来源验收；等待配置期间推进 R08 资产服务端筛选/分页/详情。写入型历史修复需要独立的幂等/影响范围与恢复设计。不要先做 R12，也不要再迁前端框架。
 
 ### Issue 描述模板
 
@@ -523,7 +559,7 @@ docs/runbooks/                         # 同步、恢复、升级与故障处置
 
 **让 OpsWeave 的真实业务推动 Zeus 与 Zeus UI 成熟，而不是等框架和组件库“全部完成”后才开始产品。**
 
-M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定，History 可由默认关闭的 Worker 批写 VictoriaMetrics、回读确认后提交游标。下一步是指标查询 API 和页面，采样点不进 PostgreSQL。不要先做 Integration Copilot。
+M0 已关闭。Host 同步按页写入 PostgreSQL，完成态是一次 offset 扫描尝试。Item 映射成指标目录和来源绑定，History 可由默认关闭的 Worker 批写 VictoriaMetrics、回读确认后提交游标。指标查询 API/页面和 Host 版本化映射、持久只读重放已有本机验证，下一步仍是可达厂商来源验收；采样点不进 PostgreSQL。不要先做 Integration Copilot。
 
 ---
 

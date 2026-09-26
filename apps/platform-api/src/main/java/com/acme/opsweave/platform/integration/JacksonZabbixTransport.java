@@ -52,15 +52,7 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
 
     @Override
     public List<Map<String, Object>> readHostArray(String responseJson) {
-        JsonNode root = mapper.readTree(responseJson);
-        if (root == null || !root.isObject() || !"2.0".equals(root.path("jsonrpc").asText())
-            || !root.path("id").isIntegralNumber() || root.path("id").asLong() != 1) {
-            throw new IllegalStateException("Invalid Zabbix JSON-RPC envelope");
-        }
-        JsonNode error = root.get("error");
-        if (error != null && !error.isNull()) {
-            throw new IllegalStateException("Zabbix JSON-RPC error");
-        }
+        JsonNode root = envelope(responseJson);
         JsonNode result = root.get("result");
         if (result == null || !result.isArray()) {
             throw new IllegalStateException("Zabbix JSON-RPC did not return an array");
@@ -71,6 +63,43 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
             hosts.add(toMap(node));
         }
         return List.copyOf(hosts);
+    }
+
+    @Override
+    public long readCount(String responseJson) {
+        JsonNode root = envelope(responseJson);
+        JsonNode result = root.get("result");
+        if (result == null || !result.isIntegralNumber()) {
+            throw new IllegalStateException("Zabbix JSON-RPC did not return a count");
+        }
+        return result.asLong();
+    }
+
+    @Override
+    public String readText(String responseJson) {
+        JsonNode root = envelope(responseJson);
+        JsonNode result = root.get("result");
+        if (result == null || !result.isTextual()) {
+            throw new IllegalStateException("Zabbix JSON-RPC did not return a text result");
+        }
+        String text = result.asText();
+        if (!text.matches("[ -~]{1,32}")) {
+            throw new IllegalStateException("Zabbix JSON-RPC text result is out of bounds");
+        }
+        return text;
+    }
+
+    private JsonNode envelope(String responseJson) {
+        JsonNode root = mapper.readTree(responseJson);
+        if (root == null || !root.isObject() || !"2.0".equals(root.path("jsonrpc").asText())
+            || !root.path("id").isIntegralNumber() || root.path("id").asLong() != 1) {
+            throw new IllegalStateException("Invalid Zabbix JSON-RPC envelope");
+        }
+        JsonNode error = root.get("error");
+        if (error != null && !error.isNull()) {
+            throw new IllegalStateException("Zabbix JSON-RPC error");
+        }
+        return root;
     }
 
     /** Cancel during receipt, before an untrusted body can grow without bound. */

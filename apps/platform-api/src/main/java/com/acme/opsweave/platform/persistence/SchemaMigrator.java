@@ -22,7 +22,14 @@ final class SchemaMigrator {
         }
         String sql = read(classpathResource);
         try (Connection connection = dataSource.getConnection()) {
-            connection.setAutoCommit(true);
+            connection.setAutoCommit(false);
+            try (var lock = connection.createStatement()) {
+                lock.execute("SET LOCAL lock_timeout = '10s'");
+                lock.execute("SET LOCAL statement_timeout = '30s'");
+                lock.execute("SELECT pg_advisory_xact_lock(hashtextextended('opsweave-platform-schema',0))");
+            }
+            // Another starter may have completed this migration while this connection waited.
+            if (applied(connection, migrationId)) { connection.commit(); return; }
             for (String statement : statements(sql)) {
                 try (Statement command = connection.createStatement()) {
                     command.execute(statement);
@@ -34,9 +41,14 @@ final class SchemaMigrator {
                 mark.setString(1, migrationId);
                 mark.executeUpdate();
             }
+            connection.commit(); // DDL and migration marker succeed or roll back together.
         } catch (SQLException failed) {
             throw new IllegalStateException("Inventory schema migration failed");
         }
+    }
+    private boolean applied(Connection connection, String migrationId) throws SQLException {
+        try (var catalog=connection.createStatement();var rows=catalog.executeQuery("SELECT to_regclass('integration.schema_migration')")) { if(!rows.next()||rows.getString(1)==null)return false; }
+        try(var s=connection.prepareStatement("SELECT 1 FROM integration.schema_migration WHERE id=?")){s.setString(1,migrationId);try(var rows=s.executeQuery()){return rows.next();}}
     }
 
     private boolean applied(String migrationId) {

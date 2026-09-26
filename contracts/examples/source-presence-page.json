@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "dataMode": "import",
+  "tenantId": "tenant-demo",
+  "entityId": "11111111-1111-4111-8111-111111111111",
+  "evaluatedAt": "2026-09-26T00:00:02Z",
+  "items": [
+    {
+      "tenantId": "tenant-demo",
+      "entityId": "11111111-1111-4111-8111-111111111111",
+      "sourceInstanceId": "cmdb-import",
+      "externalId": "cmdb-asset-1",
+      "identity": {
+        "id": "42b6ec26-6ced-431e-90ea-559fe0c609d2",
+        "namespace": "enterprise-assets",
+        "value": "a2e021a0-96aa-4fdd-b5cf-5a6b9113d690",
+        "version": 1
+      },
+      "observedAt": "2026-09-26T00:00:00Z",
+      "ingestedAt": "2026-09-26T00:00:01Z",
+      "expiresAt": "2026-10-03T00:00:00Z",
+      "present": true,
+      "snapshotId": "92222222-2222-4222-8222-222222222222",
+      "status": "PRESENT"
+    }
+  ]
+}

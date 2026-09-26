@@ -1,0 +1,38 @@
+{
+  "id": "evidence.get",
+  "version": "2.0.0",
+  "description": "Current-knowledge authorized read; pinned read session and shared budget required. No historical availability claim.",
+  "effect": "read",
+  "requiredPermissions": [
+    "ai.diagnose",
+    "incident.read",
+    "entity.read",
+    "evidence.read"
+  ],
+  "requiredCapabilities": [
+    "evidence"
+  ],
+  "timeoutMs": 15000,
+  "maxResultBytes": 32768,
+  "executor": "native",
+  "implementationStatus": "implemented",
+  "implementationRef": "apps/platform-api/src/main/java/com/acme/opsweave/platform/ai/ToolController.java",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "evidenceId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "evidenceId"
+    ]
+  },
+  "outputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$ref": "../schemas/v1/tool-result.schema.json"
+  }
+}

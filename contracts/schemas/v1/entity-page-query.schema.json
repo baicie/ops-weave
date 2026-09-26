@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "q": {
+      "type": "string",
+      "maxLength": 100,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^$|^[a-z][a-z0-9-]{0,63}$"
+    },
+    "lifecycle": {
+      "enum": [
+        "",
+        "DISCOVERED",
+        "ACTIVE",
+        "INACTIVE",
+        "DELETED",
+        "ARCHIVED"
+      ]
+    },
+    "after": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "q",
+    "type",
+    "lifecycle",
+    "after",
+    "limit"
+  ]
+}

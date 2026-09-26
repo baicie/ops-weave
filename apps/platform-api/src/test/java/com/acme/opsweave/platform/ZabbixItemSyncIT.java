@@ -9,7 +9,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.UUID;
+import com.acme.opsweave.inventory.domain.SourceScan;
+import com.acme.opsweave.integration.domain.SyncFailureCode;
+import com.acme.opsweave.platform.persistence.InventoryWiring;
+import com.acme.opsweave.sharedkernel.TenantId;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
@@ -37,6 +43,9 @@ class ZabbixItemSyncIT {
     @LocalServerPort
     int port;
 
+    @Autowired
+    InventoryWiring wiring;
+
     @Test
     void fixtureItemSyncPublishesCpuUserDefinition() throws Exception {
         assertEquals(401, call("GET", "/api/v1/metrics/definitions", null).statusCode());
@@ -50,7 +59,7 @@ class ZabbixItemSyncIT {
         assertEquals(1, syncBody.get("rejected").asInt());
         assertEquals(2, syncBody.get("pages").asInt());
         assertTrue(syncBody.get("snapshotComplete").asBoolean());
-        assertEquals("offset-scan-attempt", syncBody.get("scanConsistency").asString());
+        assertEquals("itemid-watermark-snapshot", syncBody.get("scanConsistency").asString());
         assertEquals("labeled-fixture", syncBody.get("dataMode").asString());
         assertFalse(synced.body().contains("history"));
 
@@ -79,6 +88,27 @@ class ZabbixItemSyncIT {
         assertEquals("user", binding.get("fixedDimensions").get("mode").asString());
         assertEquals("multiply:0.01", binding.get("valueTransform").asString());
         assertEquals("ACTIVE", binding.get("lifecycle").asString());
+    }
+
+    @Test
+    void aForeignItemLeaseReturnsBusyWithoutWritingOrRetiring() throws Exception {
+        var tenant = new TenantId("tenant-demo");
+        var holder = wiring.writer().beginScan(new SourceScan.Scope(tenant, "zabbix-1", "item"), UUID.randomUUID());
+        HttpResponse<String> blocked = call("POST", "/api/v1/integrations/zabbix/items/sync", TOKEN);
+        assertEquals(503, blocked.statusCode(), blocked.body());
+        JsonNode body = mapper.readTree(blocked.body());
+        assertEquals("source_unavailable", body.get("error").asString());
+        assertEquals("SOURCE_SCAN_BUSY", body.get("failureCode").asString());
+        assertEquals(SyncFailureCode.SOURCE_SCAN_BUSY.safeSummary(), body.get("summary").asString());
+        assertFalse(body.get("snapshotComplete").asBoolean());
+        assertEquals(0, body.get("pages").asInt());
+        assertEquals(0, body.get("accepted").asInt());
+        assertEquals("offset-scan-attempt", body.get("scanConsistency").asString(),
+            "a scan that never read a page makes no method claim");
+        assertTrue(body.hasNonNull("syncRunId"));
+        wiring.writer().renewScan(holder);
+        wiring.writer().releaseScan(holder);
+        assertEquals(200, call("POST", "/api/v1/integrations/zabbix/items/sync", TOKEN).statusCode());
     }
 
     private HttpResponse<String> call(String method, String path, String token) throws Exception {

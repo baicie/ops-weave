@@ -9,9 +9,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("'${opsweave.auth.mode:closed}' != 'oidc'")
 public class SecurityConfiguration {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, TrustedPrincipalFilter principalFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, TrustedPrincipalFilter principalFilter, com.acme.opsweave.platform.identity.HistoryServiceFilter historyServiceFilter) throws Exception {
         return http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
@@ -23,6 +24,7 @@ public class SecurityConfiguration {
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable())
             .addFilterBefore(principalFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(historyServiceFilter, TrustedPrincipalFilter.class)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, exception) ->
                     TrustedPrincipalFilter.write(response, 401, "unauthenticated"))

@@ -19,31 +19,44 @@ public final class PlatformHistoryReader implements SourceReader {
         "entityId", "metricKey", "unit", "dimensions", "mappingRevision", "definitionVersion", "bindingVersion",
         "from", "till", "points", "nextCursor", "windowComplete");
     private final LoopbackHttp http;
-    private final String token;
+    private final HistoryAuthorization authorization;
+    private final String pathPrefix;
     private final String expectedDataMode;
     private final String checkpointIdentity;
-    private final JsonMapper json = JsonMapper.builder().build();
+    private final JsonMapper json = JsonMapper.builder().enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
 
     public PlatformHistoryReader(URI origin, String token, String expectedDataMode) {
-        this.http = new LoopbackHttp(origin);
-        if (token == null || token.length() < 32 || !Set.of("labeled-fixture", "zabbix-jsonrpc").contains(expectedDataMode)) {
+        this(origin, development(token), expectedDataMode, true, false);
+    }
+    public PlatformHistoryReader(URI origin, HistoryAuthorization authorization, String expectedDataMode, boolean loopbackTest) {
+        this(origin, authorization, expectedDataMode, loopbackTest, true);
+    }
+    private static HistoryAuthorization development(String token) {
+        if (token == null || token.length() < 32 || token.length() > 4096 || token.chars().anyMatch(Character::isWhitespace)) throw new IllegalArgumentException("Invalid explicit development credential");
+        return () -> "Bearer " + token;
+    }
+    private PlatformHistoryReader(URI origin, HistoryAuthorization authorization, String expectedDataMode, boolean loopbackTest, boolean service) {
+        this.http = new LoopbackHttp(origin, loopbackTest);
+        if (authorization == null || !Set.of("labeled-fixture", "zabbix-jsonrpc").contains(expectedDataMode)) {
             throw new IllegalArgumentException("History worker requires an explicit credential and source mode");
         }
-        this.token = token;
+        this.authorization = authorization;
+        this.pathPrefix = service ? "/api/v1/service/ingestion/items/" : "/api/v1/integrations/zabbix/items/";
         this.expectedDataMode = expectedDataMode;
-        this.checkpointIdentity = origin.toASCIIString() + "#" + expectedDataMode;
+        this.checkpointIdentity = origin.toASCIIString() + "#" + expectedDataMode + (service ? "#client-credentials-v1#" + authorization.checkpointIdentity() : "");
     }
 
     @Override public String checkpointIdentity() { return checkpointIdentity; }
 
     @Override
     public Slice read(HistoryStream stream, HistoryWindow window) {
-        String path = "/api/v1/integrations/zabbix/items/" + stream.itemId() + "/history?from=" + window.from()
+        String path = pathPrefix + stream.itemId() + "/history?from=" + window.from()
             + "&till=" + window.till() + "&limit=" + window.limit();
         if (window.after() != null) path += "&afterClock=" + window.after().clock() + "&afterNs=" + window.after().ns();
         String body;
         try {
-            var response = http.request("GET", path, null, Map.of("Authorization", "Bearer " + token));
+            var response = http.request("GET", path, null, Map.of("Authorization", authorization.authorization()));
+            if (response.statusCode() == 401) authorization.unauthorized();
             if (response.statusCode() != 200) throw new Failure(Code.SOURCE_FAILED);
             body = response.body();
         } catch (RuntimeException failed) { throw new Failure(Code.SOURCE_FAILED); }

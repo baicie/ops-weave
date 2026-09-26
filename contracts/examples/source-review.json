@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "id": "51234567-1234-4567-8123-123456789abc",
+  "tenantId": "tenant-demo",
+  "entityId": "d72a8c09-458b-4098-b9d5-89e2d58a7d4f",
+  "baseVersion": 1,
+  "version": 1,
+  "status": "PENDING",
+  "sourceInstanceId": "cmdb-import-dev",
+  "externalId": "cmdb-host-10084",
+  "observedAt": "2026-09-25T00:00:00Z",
+  "ingestedAt": "2026-09-25T00:01:00Z",
+  "expiresAt": "2026-10-02T00:00:00Z",
+  "values": {
+    "name": "CMDB imported host",
+    "owner": "Platform Team"
+  },
+  "primaryAtImport": {
+    "name": "demo-host-01"
+  },
+  "mappingDigest": "sha256:c8c61f0ddd773a03128464f25babc956e850a46e52baaf39568f03816fd1a4bf",
+  "mappingId": "cmdb-host-import",
+  "mappingRevision": 1,
+  "actor": "dev-importer",
+  "dataMode": "import",
+  "rawRecordRef": "source-review:51234567-1234-4567-8123-123456789abc",
+  "decisions": []
+}

@@ -1,0 +1,22 @@
+{
+  "syncRunId": "3f1c0f2e-8a1b-4a52-9d0f-5f3a2b7c9e10",
+  "objectType": "host",
+  "status": "FAILED",
+  "startedAt": "2026-09-26T05:10:00.123456Z",
+  "completedAt": "2026-09-26T05:10:01.654321Z",
+  "cursor": null,
+  "pages": 0,
+  "fetched": 0,
+  "accepted": 0,
+  "rejected": 0,
+  "snapshotComplete": false,
+  "dataMode": "labeled-fixture",
+  "scanConsistency": "hostid-watermark-snapshot",
+  "failureCode": "SOURCE_FETCH_FAILED",
+  "failureSummary": "Source request failed. Existing entities were kept.",
+  "pipelineVersion": {
+    "id": "zabbix-host-v1",
+    "revision": 1,
+    "digest": "sha256:8b0f0b7c9d5e4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b"
+  }
+}

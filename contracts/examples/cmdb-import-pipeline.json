@@ -1,0 +1,67 @@
+{
+  "definition": {
+    "id": "cmdb-host-import",
+    "revision": 1,
+    "source": {
+      "type": "cmdb-import",
+      "objectType": "host"
+    },
+    "nodes": [
+      {
+        "id": "source",
+        "type": "Source",
+        "config": {}
+      },
+      {
+        "id": "parse",
+        "type": "Parse",
+        "config": {}
+      },
+      {
+        "id": "map",
+        "type": "Map",
+        "config": {}
+      },
+      {
+        "id": "validate",
+        "type": "Validate",
+        "config": {}
+      },
+      {
+        "id": "resolve",
+        "type": "EntityResolve",
+        "config": {}
+      },
+      {
+        "id": "write",
+        "type": "WriteObservation",
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "from": "source",
+        "to": "parse"
+      },
+      {
+        "from": "parse",
+        "to": "map"
+      },
+      {
+        "from": "map",
+        "to": "validate"
+      },
+      {
+        "from": "validate",
+        "to": "resolve"
+      },
+      {
+        "from": "resolve",
+        "to": "write"
+      }
+    ],
+    "errorPolicy": "failFast"
+  },
+  "digest": "sha256:c8c61f0ddd773a03128464f25babc956e850a46e52baaf39568f03816fd1a4bf",
+  "engine": "cmdb-host-import-v1"
+}

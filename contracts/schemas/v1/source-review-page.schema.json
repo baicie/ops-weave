@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source-review-page v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "dataMode": {
+      "const": "import"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?=.*\\S)[\\s\\S]+$"
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_.:-]{1,128}$"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "$ref": "source-review.schema.json"
+      }
+    },
+    "active": {
+      "anyOf": [
+        {
+          "$ref": "source-review.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "after": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 25
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mapping": {
+      "$ref": "cmdb-import-pipeline.schema.json"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "storage",
+    "dataMode",
+    "tenantId",
+    "entityId",
+    "sourceInstanceId",
+    "items",
+    "active",
+    "after",
+    "limit",
+    "nextCursor",
+    "mapping"
+  ]
+}

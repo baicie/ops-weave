@@ -7,6 +7,7 @@ import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.domain.PipelineDefinition;
 import com.acme.opsweave.integration.domain.SyncStatus;
+import com.acme.opsweave.integration.domain.SyncScan;
 import com.acme.opsweave.integration.domain.ZabbixHostMapper;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
 import com.acme.opsweave.integration.infrastructure.InMemoryRawRecordStore;
@@ -24,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class ZabbixHostMappingSmoke {
+    private static int checks = 0;
+
     public static void main(String[] args) {
         var pipeline = PipelineDefinition.zabbixHostV1();
         require(pipeline.executionOrder().size() == 6, "linear host pipeline");
@@ -91,7 +94,8 @@ public final class ZabbixHostMappingSmoke {
         require(outcome.accepted() == 2, "two hosts accepted");
         require(outcome.retired() == 1, "absent host retired only after a complete snapshot");
         require(outcome.snapshotComplete(), "snapshot complete");
-        require("offset-scan-attempt".equals(outcome.scanConsistency()), "completed scan is an offset attempt");
+        require("hostid-watermark-snapshot".equals(outcome.scanConsistency()),
+            "the fixture walk completes as a bounded hostid-watermark snapshot");
         require("labeled-fixture".equals(outcome.dataMode()), "fixture remains labeled");
         require(runs.find(tenant, outcome.syncRunId()).orElseThrow().status() == SyncStatus.SUCCEEDED, "sync run succeeded");
         require("INACTIVE".equals(inventory.find(tenant, staleId).orElseThrow().lifecycle()), "stale host inactive");
@@ -124,19 +128,26 @@ public final class ZabbixHostMappingSmoke {
         require(failed.pages() == 1, "failed scan keeps the completed page count");
         require(failed.fetched() == 1, "failed scan keeps the fetched count");
         require(failed.accepted() == 1, "failed scan keeps the accepted count");
-        require("offset-scan-attempt".equals(failed.scanConsistency()), "failed scan remains an offset attempt");
+        require("hostid-watermark-snapshot".equals(failed.scanConsistency()),
+            "a failed bounded walk keeps its method label without claiming completion");
 
         var emptyStore = seeded(tenant, staleKey, staleId, "obs-empty", "raw-empty");
         var emptied = ingest(new StaticPageConnector(true), emptyStore, new InMemorySyncRunStore(), 1).execute(principal, null);
-        require(emptied.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, "empty snapshot completes");
-        require(emptied.retired() == 1, "empty complete snapshot retires previously seen hosts");
-        require("INACTIVE".equals(emptyStore.find(tenant, staleId).orElseThrow().lifecycle()), "empty snapshot host inactive");
+        require(emptied.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.UNAVAILABLE,
+            "a connector that cannot prove its bound is not accepted as complete");
+        require("SOURCE_SCAN_UNVERIFIED".equals(emptied.reasonCode()), "an unproven walk reports UNVERIFIED");
+        require(emptied.retired() == 0, "an unproven walk retires nothing");
+        require("ACTIVE".equals(emptyStore.find(tenant, staleId).orElseThrow().lifecycle()), "an unproven walk keeps the host active");
 
         var writeStore = seeded(tenant, staleKey, staleId, "obs-write", "raw-write");
         var writeFailed = new IngestZabbixHostsUseCase(
             new AuthorizeUseCase(),
             new FixtureZabbixHostConnector(),
             new InventoryWritePort() {
+                public com.acme.opsweave.inventory.domain.SourceScan.Token beginScan(com.acme.opsweave.inventory.domain.SourceScan.Scope scope, java.util.UUID id) { return writeStore.beginScan(scope, id); }
+                public void renewScan(com.acme.opsweave.inventory.domain.SourceScan.Token scan) { writeStore.renewScan(scan); }
+                public void releaseScan(com.acme.opsweave.inventory.domain.SourceScan.Token scan) { writeStore.releaseScan(scan); }
+                public void upsert(com.acme.opsweave.inventory.domain.SourceScan.Token scan, Entity entity, com.acme.opsweave.inventory.domain.Observation observation, ExternalLink link) { throw new IllegalStateException("inventory unavailable"); }
                 @Override
                 public void upsert(
                     com.acme.opsweave.inventory.domain.Entity entity,
@@ -153,7 +164,7 @@ public final class ZabbixHostMappingSmoke {
             },
             new InMemoryRawRecordStore(),
             new InMemorySyncRunStore(),
-            PipelineDefinition.zabbixHostV1(),
+            new com.acme.opsweave.integration.infrastructure.InMemoryPipelineVersionStore(),
             "labeled-fixture",
             "memory",
             "zabbix-1",
@@ -165,8 +176,8 @@ public final class ZabbixHostMappingSmoke {
 
         var stalledStore = seeded(tenant, staleKey, staleId, "obs-stall", "raw-stall");
         var stalled = ingest(new StaticPageConnector(false), stalledStore, new InMemorySyncRunStore(), 1).execute(principal, null);
-        require("PAGE_NOT_ADVANCED".equals(stalled.reasonCode()), "stalled cursor failure code");
-        require("ACTIVE".equals(stalledStore.find(tenant, staleId).orElseThrow().lifecycle()), "stalled cursor does not retire");
+        require("SOURCE_SCAN_UNVERIFIED".equals(stalled.reasonCode()), "a walk without a snapshot proof reports UNVERIFIED");
+        require("ACTIVE".equals(stalledStore.find(tenant, staleId).orElseThrow().lifecycle()), "an unverified walk does not retire");
 
         var rawStore = seeded(tenant, staleKey, staleId, "obs-raw", "raw-raw");
         var rawRuns = new InMemorySyncRunStore();
@@ -178,7 +189,7 @@ public final class ZabbixHostMappingSmoke {
                 throw new IllegalStateException("raw store unavailable");
             },
             rawRuns,
-            PipelineDefinition.zabbixHostV1(),
+            new com.acme.opsweave.integration.infrastructure.InMemoryPipelineVersionStore(),
             "labeled-fixture",
             "memory",
             "zabbix-1",
@@ -220,12 +231,13 @@ public final class ZabbixHostMappingSmoke {
             );
         }
         var drifted = ingest(new DriftingHostConnector(), drift, new InMemorySyncRunStore(), 1).execute(principal, null);
-        require(drifted.snapshotComplete(), "offset drift still ends the scan attempt");
+        require(!drifted.snapshotComplete(), "an offset drift never completes a snapshot");
+        require("SOURCE_SCAN_UNVERIFIED".equals(drifted.reasonCode()), "an unproven walk reports UNVERIFIED");
         require("offset-scan-attempt".equals(drifted.scanConsistency()), "drift is not a consistent snapshot");
         require("ACTIVE".equals(lifecycle(drift, tenant, "1")), "host returned on page 1 stays active");
-        require("INACTIVE".equals(lifecycle(drift, tenant, "2")), "host skipped by an offset shift is not protected");
+        require("ACTIVE".equals(lifecycle(drift, tenant, "2")), "a host the offset shift skipped is no longer wrongly retired");
         require("ACTIVE".equals(lifecycle(drift, tenant, "3")), "host returned after the shift stays active");
-        System.out.println("Zabbix host mapping smoke: 46 checks passed");
+        System.out.println("Zabbix host mapping smoke: " + checks + " checks passed");
     }
 
     private static IngestZabbixHostsUseCase ingest(
@@ -240,7 +252,7 @@ public final class ZabbixHostMappingSmoke {
             inventory,
             new InMemoryRawRecordStore(),
             runs,
-            PipelineDefinition.zabbixHostV1(),
+            new com.acme.opsweave.integration.infrastructure.InMemoryPipelineVersionStore(),
             "labeled-fixture",
             "memory",
             "zabbix-1",
@@ -334,7 +346,8 @@ public final class ZabbixHostMappingSmoke {
             return new Page(
                 java.util.List.of(new RawRecord("10084", Instant.parse("2026-09-21T12:00:00Z"), Map.of("name", "still-there"))),
                 null,
-                true
+                true,
+                SyncScan.HOSTID_WATERMARK
             );
         }
     }
@@ -383,5 +396,6 @@ public final class ZabbixHostMappingSmoke {
         if (!ok) {
             throw new AssertionError(reason);
         }
+        checks++;
     }
 }

@@ -22,7 +22,7 @@ public final class ZabbixHistoryController {
         this.history = history;
     }
 
-    @GetMapping("/api/v1/integrations/zabbix/items/{itemId}/history")
+    @GetMapping({"/api/v1/integrations/zabbix/items/{itemId}/history", "/api/v1/service/ingestion/items/{itemId}/history"})
     public ResponseEntity<?> read(@PathVariable String itemId, @RequestParam long from, @RequestParam long till,
                                  @RequestParam(required = false) Long afterClock, @RequestParam(required = false) Integer afterNs,
                                  @RequestParam(defaultValue = "100") int limit) {

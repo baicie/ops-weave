@@ -1,0 +1,6 @@
+{
+  "storage": "postgres",
+  "incidentId": "55555555-5555-3555-8555-555555555555",
+  "status": "INVESTIGATING",
+  "version": 2
+}

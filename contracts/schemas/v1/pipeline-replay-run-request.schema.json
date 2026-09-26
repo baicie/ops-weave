@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "syncRunId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "targetVersion": {
+      "$ref": "pipeline-ref.schema.json"
+    },
+    "purpose": {
+      "enum": [
+        "VALIDATE_MAPPING",
+        "COMPARE_VERSION"
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 100
+    },
+    "dryRun": {
+      "const": true,
+      "default": true
+    },
+    "requestKey": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "syncRunId",
+    "targetVersion",
+    "purpose",
+    "requestKey"
+  ]
+}

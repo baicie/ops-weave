@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "enum": [
+        "PREVIEW",
+        "REPLAY"
+      ]
+    },
+    "purpose": {
+      "enum": [
+        "VALIDATE_MAPPING",
+        "COMPARE_VERSION"
+      ]
+    },
+    "dryRun": {
+      "const": true
+    },
+    "writesPerformed": {
+      "const": false
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "syncRunId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sourceRunStatus": {
+      "enum": [
+        "SUCCEEDED",
+        "FAILED"
+      ]
+    },
+    "dataMode": {
+      "enum": [
+        "labeled-fixture",
+        "zabbix-jsonrpc"
+      ]
+    },
+    "originalVersion": {
+      "$ref": "pipeline-ref.schema.json"
+    },
+    "targetVersion": {
+      "$ref": "pipeline-ref.schema.json"
+    },
+    "fetched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retained": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "missingRaw": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "oversized": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accepted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rejected": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "changed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wouldFailFast": {
+      "type": "boolean"
+    },
+    "rows": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "rawRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "ACCEPTED",
+              "MISSING_HOST_ID",
+              "INVALID_HOST",
+              "RAW_TOO_LARGE"
+            ]
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "entityId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ip": {
+                    "type": "string"
+                  },
+                  "lifecycle": {
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE"
+                    ]
+                  }
+                },
+                "required": [
+                  "entityId",
+                  "name",
+                  "ip",
+                  "lifecycle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "entityId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ip": {
+                    "type": "string"
+                  },
+                  "lifecycle": {
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE"
+                    ]
+                  }
+                },
+                "required": [
+                  "entityId",
+                  "name",
+                  "ip",
+                  "lifecycle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "changed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rawRef",
+          "status",
+          "previous",
+          "candidate",
+          "changed"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "ACCEPTED"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "candidate": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "entityId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ip": {
+                      "type": "string"
+                    },
+                    "lifecycle": {
+                      "enum": [
+                        "ACTIVE",
+                        "INACTIVE"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entityId",
+                    "name",
+                    "ip",
+                    "lifecycle"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "candidate": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "MISSING_HOST_ID",
+                    "RAW_TOO_LARGE"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "previous": {
+                  "type": "null"
+                },
+                "candidate": {
+                  "type": "null"
+                },
+                "changed": {
+                  "const": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "mode",
+    "purpose",
+    "dryRun",
+    "writesPerformed",
+    "sourceInstanceId",
+    "syncRunId",
+    "sourceRunStatus",
+    "dataMode",
+    "originalVersion",
+    "targetVersion",
+    "fetched",
+    "retained",
+    "missingRaw",
+    "truncated",
+    "oversized",
+    "accepted",
+    "rejected",
+    "changed",
+    "wouldFailFast",
+    "rows"
+  ]
+}

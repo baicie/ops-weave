@@ -24,8 +24,34 @@ import org.springframework.test.context.TestPropertySource;
     "opsweave.inventory.store=memory"
 })
 class EntityReadDeniedIT {
+    @Test void problemObservationsRequireIncidentAndEntityRead() throws Exception {
+        var request=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/api/v1/incidents/11111111-1111-1111-1111-111111111111/problem-observations?version=1&from=0&till=60"))
+            .timeout(Duration.ofSeconds(10)).header("Authorization","Bearer test-dev-token-please-do-not-use-elsewhere").GET().build();
+        assertEquals(403,HttpClient.newHttpClient().send(request,HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
+    @Test void sourceReviewReadAndWritesRequireEntityManagement() throws Exception {
+        for (String method : new String[]{"GET", "POST"}) {
+            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/entities/11111111-1111-1111-1111-111111111111/source-reviews"))
+                .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer test-dev-token-please-do-not-use-elsewhere").method(method,HttpRequest.BodyPublishers.ofString("{}"));
+            assertEquals(403,HttpClient.newHttpClient().send(request.build(),HttpResponse.BodyHandlers.ofString()).statusCode());
+        }
+    }
+    @Test void observationsRequireEntityReadPermission() throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/entities/11111111-1111-1111-1111-111111111111/observations?from=0&till=60"))
+            .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer test-dev-token-please-do-not-use-elsewhere").GET().build();
+        assertEquals(403, HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
     @LocalServerPort
     int port;
+
+    @Test
+    void sourceSyncDoesNotGrantMetricQueryAccess() throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port
+            + "/api/v1/entities/11111111-1111-1111-1111-111111111111/metrics/up/series?from=0&till=60"))
+            .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer test-dev-token-please-do-not-use-elsewhere")
+            .GET().build();
+        assertEquals(403, HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
 
     @Test
     void entityReadWithoutPermissionIsForbidden() throws Exception {
@@ -36,5 +62,12 @@ class EntityReadDeniedIT {
             .build();
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(403, response.statusCode(), response.body());
+    }
+
+    @Test
+    void pagedReadWithoutPermissionIsForbidden() throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/entities/page"))
+            .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer test-dev-token-please-do-not-use-elsewhere").GET().build();
+        assertEquals(403, HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
     }
 }

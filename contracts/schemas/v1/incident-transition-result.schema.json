@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "OPEN",
+        "INVESTIGATING",
+        "MITIGATED",
+        "RESOLVED",
+        "CLOSED"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 2
+    }
+  },
+  "required": [
+    "storage",
+    "incidentId",
+    "status",
+    "version"
+  ]
+}

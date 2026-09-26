@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}(?![\\s\\S])"
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}(?![\\s\\S])"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "inputBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 73728
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}(?![\\s\\S])"
+    },
+    "policy": {
+      "$ref": "model-spend-policy.schema.json"
+    },
+    "reservedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deadlineAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reportedAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "usage": {
+      "anyOf": [
+        {
+          "$ref": "model-spend-usage.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "enum": [
+        "RESERVED",
+        "UNCERTAIN",
+        "REPORTED"
+      ]
+    },
+    "currency": {
+      "const": "USD"
+    },
+    "reservedMicros": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000000
+    },
+    "estimatedMicros": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "accountedMicros": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000000
+    },
+    "maxInputTokens": {
+      "const": 81920
+    },
+    "maxOutputTokens": {
+      "const": 2048
+    },
+    "maxInputBytes": {
+      "const": 73728
+    },
+    "accounting": {
+      "const": "configured-price-estimate"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "tenantId",
+    "subjectId",
+    "runId",
+    "sessionId",
+    "inputDigest",
+    "inputBytes",
+    "incidentId",
+    "policy",
+    "reservedAt",
+    "deadlineAt",
+    "reportedAt",
+    "usage",
+    "state",
+    "currency",
+    "reservedMicros",
+    "estimatedMicros",
+    "accountedMicros",
+    "maxInputTokens",
+    "maxOutputTokens",
+    "maxInputBytes",
+    "accounting"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "REPORTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "usage": {
+            "$ref": "model-spend-usage.schema.json"
+          },
+          "estimatedMicros": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "reportedAt": {
+            "const": null
+          },
+          "usage": {
+            "const": null
+          },
+          "estimatedMicros": {
+            "const": null
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "policy": {
+            "properties": {
+              "provider": {
+                "const": "mock-deterministic"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reservedMicros": {
+            "const": 0
+          },
+          "accountedMicros": {
+            "const": 0
+          },
+          "estimatedMicros": {
+            "enum": [
+              null,
+              0
+            ]
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "mock-no-call"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "usage": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "provider-reported"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

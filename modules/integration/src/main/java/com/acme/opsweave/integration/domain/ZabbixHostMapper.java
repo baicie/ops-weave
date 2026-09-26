@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public final class ZabbixHostMapper {
@@ -42,7 +43,9 @@ public final class ZabbixHostMapper {
         pipeline.executionOrder();
         String hostId = requiredText(payload.get("hostid"), "hostid");
         String technical = firstNonBlank(text(payload.get("host")), hostId);
-        String name = firstNonBlank(text(payload.get("name")), technical);
+        String nameField = pipeline.executionOrder().get(2).config().getOrDefault("displayNameField", "name");
+        String name = firstNonBlank(text(payload.get(nameField)), technical);
+        var version = PipelineVersion.of(pipeline);
         String status = enabledStatus(payload.get("status"));
         String ip = primaryIp(payload.get("interfaces"));
         ExternalObjectKey key = new ExternalObjectKey(tenantId, sourceInstanceId, "host", hostId, GENERATION);
@@ -52,8 +55,12 @@ public final class ZabbixHostMapper {
         attributes.put("ip", ip);
         attributes.put("status", status);
         attributes.put("source", "zabbix");
+        attributes.put("sourceInstanceId", sourceInstanceId);
         attributes.put("lastSeen", observedAt.toString());
         attributes.put("rawReference", rawRecordRef);
+        attributes.put("pipelineId", pipeline.id());
+        attributes.put("pipelineRevision", pipeline.revision());
+        attributes.put("pipelineDigest", version.digest());
         Entity entity = new Entity(
             entityId,
             tenantId,
@@ -64,13 +71,15 @@ public final class ZabbixHostMapper {
             observedAt,
             attributes
         );
+        var observedFields = new LinkedHashMap<>(attributes);
+        observedFields.put("entityName", name); observedFields.put("entityType", "host"); observedFields.put("lifecycle", entity.lifecycle().name());
         Observation observation = new Observation(
-            UUID.nameUUIDFromBytes((rawRecordRef + '|' + pipeline.revision()).getBytes(StandardCharsets.UTF_8)).toString(),
+            UUID.nameUUIDFromBytes((rawRecordRef + '|' + version.digest()).getBytes(StandardCharsets.UTF_8)).toString(),
             key,
             entityId,
             observedAt,
             ingestedAt,
-            attributes,
+            observedFields,
             rawRecordRef,
             pipeline.revision()
         );
@@ -132,5 +141,19 @@ public final class ZabbixHostMapper {
         return left.isBlank() ? right : left;
     }
 
-    public record MappedHost(Entity entity, Observation observation, ExternalLink link) {}
+    public record MappedHost(Entity entity, Observation observation, ExternalLink link) {
+        /** Mode comes from the configured connector, never from an upstream host field. */
+        public MappedHost withDataMode(String dataMode) {
+            if (!Set.of("labeled-fixture", "zabbix-jsonrpc").contains(dataMode)) {
+                throw new IllegalArgumentException("Unknown host data mode");
+            }
+            var attributes = new LinkedHashMap<>(entity.attributes());
+            attributes.put("dataMode", dataMode);
+            var fields = new LinkedHashMap<>(observation.fields()); fields.put("dataMode", dataMode);
+            return new MappedHost(new Entity(entity.id(), entity.tenantId(), entity.entityType(), entity.name(),
+                entity.lifecycle(), entity.version(), entity.lastSeen(), attributes),
+                new Observation(observation.id(), observation.key(), observation.entityId(), observation.observedAt(),
+                    observation.ingestedAt(), fields, observation.rawRecordRef(), observation.mappingRevision()), link);
+        }
+    }
 }

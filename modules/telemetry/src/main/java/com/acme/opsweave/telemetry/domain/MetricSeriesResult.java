@@ -19,14 +19,21 @@ public record MetricSeriesResult(
     long from,
     long till,
     List<MetricSeries> series,
-    Status status
+    Status status,
+    String derivation
 ) {
     public MetricSeriesResult {
         Objects.requireNonNull(entityId, "entityId");
         Objects.requireNonNull(metricKey, "metricKey");
         series = List.copyOf(series);
         Objects.requireNonNull(status, "status");
+        if (derivation != null && !derivation.equals(DERIVATION_COUNTER_RATE)) {
+            throw new IllegalArgumentException("Invalid derivation");
+        }
     }
+
+    /** The only derived view the platform produces today; raw pages keep {@code derivation == null}. */
+    public static final String DERIVATION_COUNTER_RATE = "counter-rate";
 
     public static MetricSeriesResult compose(MetricSeriesQuery query, List<MetricSeries> raw, boolean scannedBeyondCap) {
         long startMillis = Math.multiplyExact(query.from(), 1000);
@@ -61,9 +68,30 @@ public record MetricSeriesResult(
         normalized = trimmed;
         Long last = flat.isEmpty() ? null : flat.getLast().sample().timestampMillis();
         boolean fresh = last != null && last >= Math.multiplyExact(query.till() - query.freshnessSeconds(), 1000L);
-        Status.Kind kind = flat.isEmpty() ? Status.Kind.NO_DATA : truncated ? Status.Kind.PARTIAL : fresh ? Status.Kind.AVAILABLE : Status.Kind.STALE;
+        Status.Kind kind = truncated ? Status.Kind.PARTIAL : flat.isEmpty() ? Status.Kind.NO_DATA : fresh ? Status.Kind.AVAILABLE : Status.Kind.STALE;
         return new MetricSeriesResult(query.entityId(), query.metricKey(), query.from(), query.till(), normalized,
-            new Status(kind, last, fresh, truncated));
+            new Status(kind, last, fresh, truncated), null);
+    }
+
+    /**
+     * Returns the same page with a derived counter view: every series keeps its raw points and gains the
+     * per-second rates of {@link CounterRatePolicy}. Callers decide when a metric is a counter; this
+     * method never changes raw values, status or scope.
+     */
+    public MetricSeriesResult withCounterRates() {
+        List<MetricSeries> derived = series.stream()
+            .map(row -> new MetricSeries(
+                row.sourceInstanceId(),
+                row.dataMode(),
+                row.externalItemId(),
+                row.mappingRevision(),
+                row.unit(),
+                row.dimensions(),
+                row.points(),
+                CounterRatePolicy.derive(row.points())
+            ))
+            .toList();
+        return new MetricSeriesResult(entityId, metricKey, from, till, derived, status, DERIVATION_COUNTER_RATE);
     }
 
     public record MetricSeries(
@@ -73,7 +101,8 @@ public record MetricSeriesResult(
         long mappingRevision,
         String unit,
         Map<String, String> dimensions,
-        List<Sample> points
+        List<Sample> points,
+        List<CounterRatePolicy.Rate> counterRates
     ) {
         public MetricSeries {
             if (!sourceInstanceId.matches("[a-zA-Z0-9_.:/%\\-]{1,128}")
@@ -85,6 +114,7 @@ public record MetricSeriesResult(
             }
             dimensions = Map.copyOf(new LinkedHashMap<>(dimensions));
             points = List.copyOf(points);
+            counterRates = List.copyOf(counterRates);
             dimensions.forEach((key, value) -> {
                 if (!key.matches("[a-zA-Z_][a-zA-Z0-9_]{0,63}") || !value.matches("[a-zA-Z0-9_.:/%\\-]{1,128}")) {
                     throw new IllegalArgumentException("Invalid metric dimension");
@@ -93,7 +123,20 @@ public record MetricSeriesResult(
         }
 
         private MetricSeries withPoints(List<Sample> points) {
-            return new MetricSeries(sourceInstanceId, dataMode, externalItemId, mappingRevision, unit, dimensions, points);
+            return new MetricSeries(sourceInstanceId, dataMode, externalItemId, mappingRevision, unit, dimensions, points, List.of());
+        }
+
+        /** A raw series without a derived counter view. */
+        public MetricSeries(
+            String sourceInstanceId,
+            String dataMode,
+            String externalItemId,
+            long mappingRevision,
+            String unit,
+            Map<String, String> dimensions,
+            List<Sample> points
+        ) {
+            this(sourceInstanceId, dataMode, externalItemId, mappingRevision, unit, dimensions, points, List.of());
         }
     }
 
@@ -108,7 +151,9 @@ public record MetricSeriesResult(
 
         public Status {
             Objects.requireNonNull(kind, "kind");
-            if ((kind == Kind.NO_DATA) != (lastPointAtMillis == null) || (kind == Kind.PARTIAL) != partial) {
+            if ((kind == Kind.NO_DATA && lastPointAtMillis != null)
+                || (kind != Kind.NO_DATA && kind != Kind.PARTIAL && lastPointAtMillis == null)
+                || (lastPointAtMillis == null && fresh) || (kind == Kind.PARTIAL) != partial) {
                 throw new IllegalArgumentException("Metric status flags disagree");
             }
             if (kind == Kind.AVAILABLE && !fresh || kind == Kind.STALE && fresh || kind == Kind.NO_DATA && fresh) {

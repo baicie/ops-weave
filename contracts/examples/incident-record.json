@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0",
+  "incident": {
+    "schemaVersion": "1.0",
+    "id": "55555555-5555-3555-8555-555555555555",
+    "tenantId": "tenant-demo",
+    "title": "Fixture: CPU threshold exceeded",
+    "status": "OPEN",
+    "severity": 3,
+    "version": 1,
+    "createdAt": "2026-09-25T00:00:00Z"
+  },
+  "problems": [
+    {
+      "observation": {
+        "schemaVersion": "1.0",
+        "tenantId": "tenant-demo",
+        "sourceInstanceId": "zabbix-1",
+        "problemEventId": "30001",
+        "triggerId": "40001",
+        "title": "Fixture: CPU threshold exceeded",
+        "severity": 3,
+        "occurredAt": "2026-09-21T12:00:00Z",
+        "observedAt": "2026-09-25T00:00:00Z",
+        "hostIds": [
+          "10084"
+        ],
+        "suppressed": false,
+        "recoveryEventId": "30003",
+        "recoveredAt": "2026-09-21T12:10:00Z",
+        "state": "RECOVERED",
+        "gaps": []
+      },
+      "dataMode": "labeled-fixture",
+      "sourceContract": "zabbix-7.0-event-v1",
+      "entities": [
+        {
+          "hostId": "10084",
+          "entityId": "11111111-1111-1111-1111-111111111111"
+        }
+      ],
+      "firstReceivedAt": "2026-09-25T00:00:00Z",
+      "lastReceivedAt": "2026-09-25T00:00:00Z"
+    }
+  ],
+  "timeline": [
+    {
+      "id": "66666666-6666-3666-8666-666666666666",
+      "kind": "PROBLEM",
+      "occurredAt": "2026-09-21T12:00:00Z",
+      "availableAt": "2026-09-25T00:00:00Z",
+      "sourceInstanceId": "zabbix-1",
+      "problemEventId": "30001",
+      "recoveryEventId": null,
+      "fromStatus": null,
+      "toStatus": null,
+      "actor": null
+    },
+    {
+      "id": "77777777-7777-3777-8777-777777777777",
+      "kind": "RECOVERY",
+      "occurredAt": "2026-09-21T12:10:00Z",
+      "availableAt": "2026-09-25T00:00:00Z",
+      "sourceInstanceId": "zabbix-1",
+      "problemEventId": "30001",
+      "recoveryEventId": "30003",
+      "fromStatus": null,
+      "toStatus": null,
+      "actor": null
+    }
+  ],
+  "gaps": [
+    "LOGS_NOT_CONNECTED",
+    "CHANGES_NOT_CONNECTED"
+  ]
+}

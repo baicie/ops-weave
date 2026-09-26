@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "from": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 253402300799
+    },
+    "till": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 253402300799
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_.:-]{0,128}$"
+    },
+    "after": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_.:-]{1,128}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50
+    }
+  },
+  "required": [
+    "from",
+    "till",
+    "asOf",
+    "source",
+    "after",
+    "limit"
+  ]
+}

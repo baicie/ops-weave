@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @EnabledIfEnvironmentVariable(named = "OPSWEAVE_TEST_JDBC_URL", matches = ".+")
-class PostgresItemSyncIT {
+class PostgresItemSyncIT extends OwnedInventoryTest {
     @Test
     void itemScanWritesOneDefinitionAndRetiresOnlyMissingBindings() {
         String tenant = "tenant-metric-" + UUID.randomUUID().toString().substring(0, 8);
@@ -43,7 +43,7 @@ class PostgresItemSyncIT {
                 System.getenv().getOrDefault("OPSWEAVE_TEST_JDBC_PASSWORD", "")
             )
         );
-        InventoryWiring wiring = InventoryWiring.open(properties);
+        InventoryWiring wiring = openInventory(properties);
         var principal = new Principal(
             new SubjectId("user-demo"),
             new TenantId(tenant),
@@ -61,7 +61,8 @@ class PostgresItemSyncIT {
             new AuthorizeUseCase(),
             new FixtureZabbixItemConnector(),
             mappings,
-            wiring.metrics(),
+            wiring.writer(),
+            wiring.itemWrites(),
             wiring.rawRecords(),
             wiring.syncRuns(),
             "labeled-fixture",

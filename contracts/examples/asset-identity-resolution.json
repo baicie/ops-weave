@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "method": "registered-asset-uuid",
+  "identity": {
+    "schemaVersion": "1.0",
+    "id": "42b6ec26-6ced-431e-90ea-559fe0c609d2",
+    "tenantId": "tenant-demo",
+    "entityId": "00000000-0000-4000-8000-000000000001",
+    "namespace": "enterprise-assets",
+    "kind": "asset-uuid",
+    "value": "a2e021a0-96aa-4fdd-b5cf-5a6b9113d690",
+    "version": 1,
+    "status": "ACTIVE",
+    "verification": "operator-confirmed",
+    "actor": "operator",
+    "reason": "Verified against the authoritative asset register",
+    "assertedAt": "2026-09-25T00:00:00Z",
+    "revocation": null
+  },
+  "entityVersion": 2
+}

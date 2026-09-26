@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "requestKey": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "spec": {
+      "$ref": "pipeline-replay-spec.schema.json"
+    },
+    "state": {
+      "enum": [
+        "RUNNING",
+        "SUCCEEDED",
+        "FAILED"
+      ]
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "leaseUntil": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failureCode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z_]{1,64}$"
+    },
+    "canResume": {
+      "type": "boolean"
+    },
+    "dryRun": {
+      "const": true
+    },
+    "writesPerformed": {
+      "const": false
+    }
+  },
+  "required": [
+    "id",
+    "requestKey",
+    "sourceInstanceId",
+    "spec",
+    "state",
+    "attempt",
+    "createdAt",
+    "updatedAt",
+    "leaseUntil",
+    "failureCode",
+    "canResume",
+    "dryRun",
+    "writesPerformed"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "RUNNING"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "leaseUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failureCode": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "SUCCEEDED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "leaseUntil": {
+            "type": "null"
+          },
+          "failureCode": {
+            "type": "null"
+          },
+          "canResume": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "leaseUntil": {
+            "type": "null"
+          },
+          "failureCode": {
+            "type": "string",
+            "pattern": "^[A-Z_]{1,64}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "attempt": {
+            "const": 3
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "canResume": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

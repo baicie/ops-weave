@@ -1,0 +1,12 @@
+{
+  "requestKey": "22222222-2222-4222-8222-222222222222",
+  "syncRunId": "0c29883e-ccd5-47dc-aaba-3822d79496ed",
+  "targetVersion": {
+    "id": "http-host",
+    "revision": 2,
+    "digest": "sha256:548f66be6988f58eb7e7c8c949ece9439fd68b7df6ffa31abf827a6fe8462857"
+  },
+  "limit": 100,
+  "purpose": "COMPARE_VERSION",
+  "dryRun": true
+}

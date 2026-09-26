@@ -1,0 +1,10 @@
+{
+  "runId": "9d4df4eb-6d34-43ce-a135-6f7d635fca21",
+  "sessionId": "88a6d194-ae2a-4898-a3c5-cc87bdb89343",
+  "usage": {
+    "inputTokens": 1000,
+    "outputTokens": 100,
+    "cachedInputTokens": 500,
+    "source": "provider-reported"
+  }
+}

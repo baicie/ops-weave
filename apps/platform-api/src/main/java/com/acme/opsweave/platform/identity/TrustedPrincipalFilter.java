@@ -30,7 +30,7 @@ public final class TrustedPrincipalFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.equals("/actuator/health") || path.startsWith("/actuator/health/");
+        return "oidc".equals(properties.auth().mode()) || path.startsWith("/api/v1/service/") || path.equals("/actuator/health") || path.startsWith("/actuator/health/");
     }
 
     @Override

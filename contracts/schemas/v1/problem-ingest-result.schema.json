@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "dataMode": {
+      "enum": [
+        "labeled-fixture",
+        "zabbix-jsonrpc"
+      ]
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "accepted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "createdIncidents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "changedIncidents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "unmappedHosts": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "nextAfterEventId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "storage",
+    "dataMode",
+    "sourceInstanceId",
+    "accepted",
+    "createdIncidents",
+    "changedIncidents",
+    "unmappedHosts",
+    "nextAfterEventId"
+  ]
+}

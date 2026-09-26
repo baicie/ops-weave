@@ -14,9 +14,37 @@ management:
         enabled: true
       show-details: never
 opsweave:
+  ai:
+    retention-policies-file: ${OPSWEAVE_AI_RETENTION_POLICIES_FILE:}
+    runtime-url: ${OPSWEAVE_RUNTIME_URL:}
+    runtime-key: ${OPSWEAVE_RUNTIME_KEY:}
+    model-provider: ${OPSWEAVE_PROVIDER:mock}
+    model-name: ${OPSWEAVE_LLM_MODEL:}
+    price-version: ${OPSWEAVE_MODEL_PRICE_VERSION:}
+    input-micros-per-million: ${OPSWEAVE_MODEL_INPUT_MICROS_PER_MILLION:0}
+    output-micros-per-million: ${OPSWEAVE_MODEL_OUTPUT_MICROS_PER_MILLION:0}
+    max-call-micros: ${OPSWEAVE_MODEL_MAX_CALL_MICROS:0}
+    daily-micros: ${OPSWEAVE_MODEL_DAILY_MICROS:0}
   auth:
     mode: ${OPSWEAVE_AUTH_MODE:closed}
     bind-loopback-only: true
+    history-service:
+      enabled: ${OPSWEAVE_HISTORY_SERVICE_ENABLED:false}
+      issuer: ${OPSWEAVE_HISTORY_SERVICE_ISSUER:}
+      jwk-set-uri: ${OPSWEAVE_HISTORY_SERVICE_JWK_SET_URI:}
+      grants-file: ${OPSWEAVE_HISTORY_SERVICE_GRANTS_FILE:}
+      loopback-test: ${OPSWEAVE_HISTORY_SERVICE_LOOPBACK_TEST:false}
+    oidc:
+      issuer: ${OPSWEAVE_OIDC_ISSUER:}
+      authorization-uri: ${OPSWEAVE_OIDC_AUTHORIZATION_URI:}
+      token-uri: ${OPSWEAVE_OIDC_TOKEN_URI:}
+      jwk-set-uri: ${OPSWEAVE_OIDC_JWK_SET_URI:}
+      client-id: ${OPSWEAVE_OIDC_CLIENT_ID:}
+      client-secret: ${OPSWEAVE_OIDC_CLIENT_SECRET:}
+      public-origin: ${OPSWEAVE_PUBLIC_ORIGIN:}
+      grants-file: ${OPSWEAVE_IDENTITY_GRANTS_FILE:}
+      loopback-test: ${OPSWEAVE_OIDC_LOOPBACK_TEST:false}
+      session-seconds: ${OPSWEAVE_SESSION_SECONDS:900}
     dev:
       token: ${OPSWEAVE_DEV_TOKEN:}
       subject: ${OPSWEAVE_DEV_SUBJECT:user-demo}
@@ -24,11 +52,13 @@ opsweave:
       permissions: ${OPSWEAVE_DEV_PERMISSIONS:entity.read,metric.read,source.sync}
       entity-ids: ${OPSWEAVE_DEV_ENTITY_IDS:}
   inventory:
+    cmdb-import-source: ${OPSWEAVE_CMDB_IMPORT_SOURCE:}
+    identity-namespace: ${OPSWEAVE_IDENTITY_NAMESPACE:}
     store: ${OPSWEAVE_INVENTORY_STORE:postgres}
     jdbc-url: ${OPSWEAVE_JDBC_URL:}
     jdbc-user: ${OPSWEAVE_JDBC_USER:}
     jdbc-password: ${OPSWEAVE_JDBC_PASSWORD:}
-    zabbix:
+  zabbix:
     mode: ${OPSWEAVE_ZABBIX_MODE:closed}
     url: ${OPSWEAVE_ZABBIX_URL:}
     secret-ref: ${OPSWEAVE_ZABBIX_SECRET_REF:env:OPSWEAVE_ZABBIX_TOKEN}

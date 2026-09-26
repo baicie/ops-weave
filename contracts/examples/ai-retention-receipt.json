@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "state": "COMPLETED",
+  "tenantId": "retention-fixture",
+  "actor": "operator",
+  "command": {
+    "requestId": "78977834-7381-4524-9a08-b028f979edc1",
+    "policyDigest": "sha256:14efdb59c65d87b9e8916b2e77cc14b4bd9286f513d76cd8613d53eac8cb65b3",
+    "asOf": "2026-09-26T12:00:00Z",
+    "previewDigest": "sha256:0586f2541b963ef1345b580c3cba9c0703d0b1924a7a7d0726e1c5975e88de99"
+  },
+  "preview": {
+    "tenantId": "retention-fixture",
+    "actor": "operator",
+    "policyDigest": "sha256:14efdb59c65d87b9e8916b2e77cc14b4bd9286f513d76cd8613d53eac8cb65b3",
+    "asOf": "2026-09-26T12:00:00Z",
+    "expiresAt": "2026-09-26T12:02:00Z",
+    "previewDigest": "sha256:0586f2541b963ef1345b580c3cba9c0703d0b1924a7a7d0726e1c5975e88de99",
+    "batches": [
+      {
+        "kind": "INSIGHT",
+        "ids": [],
+        "logicalBytes": 0,
+        "hasMore": false
+      },
+      {
+        "kind": "EVIDENCE",
+        "ids": [],
+        "logicalBytes": 0,
+        "hasMore": false
+      },
+      {
+        "kind": "AUDIT",
+        "ids": [],
+        "logicalBytes": 0,
+        "hasMore": false
+      }
+    ]
+  },
+  "completedAt": "2026-09-26T12:00:05Z"
+}

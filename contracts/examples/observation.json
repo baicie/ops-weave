@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "id": "fixture-observation-001",
+  "tenantId": "tenant-demo",
+  "entityId": "d72a8c09-458b-4098-b9d5-89e2d58a7d4f",
+  "sourceInstanceId": "zabbix-1",
+  "externalType": "host",
+  "externalId": "10084",
+  "generation": "1",
+  "observedAt": "2026-09-25T00:00:00.123456789Z",
+  "ingestedAt": "2026-09-25T00:00:01.987654321Z",
+  "fields": {
+    "entityName": "Fixture host",
+    "entityType": "host",
+    "lifecycle": "ACTIVE",
+    "dataMode": "labeled-fixture",
+    "ip": "10.0.0.10",
+    "pipelineId": "zabbix-host-default",
+    "pipelineRevision": 1
+  },
+  "rawRecordRef": "fixture-raw-observation-001",
+  "mappingRevision": 1,
+  "timePrecision": "nanoseconds",
+  "gaps": []
+}

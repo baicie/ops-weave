@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "tenantId": "example-tenant",
+  "subjectId": "example-reader",
+  "runId": "9d4df4eb-6d34-43ce-a135-6f7d635fca21",
+  "sessionId": "88a6d194-ae2a-4898-a3c5-cc87bdb89343",
+  "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "inputBytes": 8192,
+  "incidentId": "131dbca1-0442-44db-8e64-3e76f26cd101",
+  "policy": {
+    "provider": "rig-openai",
+    "model": "configured-model",
+    "priceVersion": "example-price-v1",
+    "inputMicrosPerMillion": 1000000,
+    "outputMicrosPerMillion": 2000000,
+    "maxCallMicros": 100000,
+    "dailyMicros": 1000000
+  },
+  "reservedAt": "2026-09-25T00:00:00Z",
+  "deadlineAt": "2026-09-25T00:01:00Z",
+  "reportedAt": "2026-09-25T00:00:10Z",
+  "usage": {
+    "inputTokens": 1000,
+    "outputTokens": 100,
+    "cachedInputTokens": 500,
+    "source": "provider-reported"
+  },
+  "state": "REPORTED",
+  "currency": "USD",
+  "reservedMicros": 86016,
+  "estimatedMicros": 1200,
+  "accountedMicros": 1200,
+  "maxInputTokens": 81920,
+  "maxOutputTokens": 2048,
+  "maxInputBytes": 73728,
+  "accounting": "configured-price-estimate"
+}

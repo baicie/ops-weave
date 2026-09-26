@@ -11,11 +11,15 @@ import com.acme.opsweave.identity.infrastructure.ClosedPrincipalResolver;
 import com.acme.opsweave.identity.infrastructure.DevPrincipalResolver;
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
+import com.acme.opsweave.integration.application.HostPipelineService;
+import com.acme.opsweave.integration.application.PipelineReplayService;
+import com.acme.opsweave.integration.application.PipelineDraftService;
+import com.acme.opsweave.integration.application.SourceScanRunQueryService;
+import com.acme.opsweave.integration.application.SourceConnectionCheckService;
 import com.acme.opsweave.integration.application.IngestZabbixItemsUseCase;
 import com.acme.opsweave.integration.application.ReadZabbixHistoryUseCase;
 import com.acme.opsweave.integration.api.ZabbixHistoryPort;
 import com.acme.opsweave.integration.domain.HistoryReadException;
-import com.acme.opsweave.integration.domain.PipelineDefinition;
 import com.acme.opsweave.integration.infrastructure.ClasspathMappingCatalog;
 import com.acme.opsweave.integration.infrastructure.ClosedZabbixConnector;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
@@ -27,6 +31,7 @@ import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcItemConnector;
 import com.acme.opsweave.inventory.api.InventoryQuery;
 import com.acme.opsweave.inventory.api.InventoryWritePort;
 import com.acme.opsweave.inventory.application.GetEntityUseCase;
+import com.acme.opsweave.inventory.application.BrowseEntitiesUseCase;
 import com.acme.opsweave.platform.integration.EnvSecretSource;
 import com.acme.opsweave.platform.integration.JacksonZabbixTransport;
 import com.acme.opsweave.platform.persistence.InventoryWiring;
@@ -53,6 +58,21 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties({OpsweaveProperties.class, MetricsQueryProperties.class})
 public class PlatformConfiguration {
     @Bean
+    com.acme.opsweave.aicontrol.application.AiInsightService aiInsightService(AuthorizationService authorization,
+            com.acme.opsweave.incident.application.IncidentService incidents, com.acme.opsweave.aicontrol.application.ToolGateway gateway, InventoryWiring wiring) {
+        return new com.acme.opsweave.aicontrol.application.AiInsightService(authorization, incidents, gateway, wiring.toolReads(), wiring.insights(), new com.acme.opsweave.platform.ai.InsightJson(), Clock.systemUTC());
+    }
+    @Bean(destroyMethod = "close")
+    com.acme.opsweave.platform.ai.ToolExecutor toolExecutor() { return new com.acme.opsweave.platform.ai.ToolExecutor(); }
+
+    @Bean
+    com.acme.opsweave.aicontrol.application.ToolGateway toolGateway(AuthorizationService authorization,
+            com.acme.opsweave.incident.application.IncidentService incidents, QueryMetricSeriesUseCase metrics, InventoryWiring wiring) {
+        return new com.acme.opsweave.aicontrol.application.ToolGateway(authorization, incidents, metrics, wiring.metrics(), wiring.toolReads(),
+            com.acme.opsweave.platform.ai.ToolJson::bytes, Clock.systemUTC());
+    }
+
+    @Bean
     AuthorizationService authorizationService() {
         return new AuthorizeUseCase();
     }
@@ -61,7 +81,7 @@ public class PlatformConfiguration {
     PrincipalResolver principalResolver(OpsweaveProperties properties) {
         String mode = normalize(properties.auth().mode());
         if ("oidc".equals(mode)) {
-            throw new IllegalStateException("OIDC principal adapter is not implemented; refusing to start with a mock fallback");
+            return new ClosedPrincipalResolver(); // Browser sessions and scoped internal delegations have a separate verified boundary.
         }
         if ("dev".equals(mode)) {
             var dev = properties.auth().dev();
@@ -122,13 +142,71 @@ public class PlatformConfiguration {
             wiring.writer(),
             wiring.rawRecords(),
             wiring.syncRuns(),
-            PipelineDefinition.zabbixHostV1(),
+            wiring.pipelines(),
             dataMode,
             wiring.label(),
             properties.zabbix().sourceInstanceId(),
             properties.zabbix().secretRef(),
             pageSize
         );
+    }
+
+    @Bean
+    PipelineDraftService pipelineDraftService(AuthorizationService authorization, InventoryWiring wiring, OpsweaveProperties properties) {
+        return new PipelineDraftService(authorization, wiring.drafts(), properties.zabbix().sourceInstanceId(), Clock.systemUTC());
+    }
+
+    @Bean
+    BrowseEntitiesUseCase browseEntitiesUseCase(AuthorizationService authorization, InventoryWiring wiring) {
+        return new BrowseEntitiesUseCase(authorization, wiring.query());
+    }
+
+    @Bean
+    com.acme.opsweave.incident.application.IncidentService incidentService(AuthorizationService authorization, InventoryWiring wiring) {
+        return new com.acme.opsweave.incident.application.IncidentService(authorization, wiring.incidents(), Clock.systemUTC());
+    }
+
+    @Bean
+    com.acme.opsweave.incident.application.ProblemHistoryService problemHistoryService(com.acme.opsweave.incident.application.IncidentService incidents,InventoryWiring wiring) {
+        return new com.acme.opsweave.incident.application.ProblemHistoryService(incidents,wiring.problemHistory(),Clock.systemUTC());
+    }
+
+    @Bean
+    com.acme.opsweave.integration.application.IngestZabbixProblemsUseCase ingestZabbixProblemsUseCase(
+            com.acme.opsweave.integration.application.ReadZabbixProblemsUseCase reader, InventoryWiring wiring) {
+        return new com.acme.opsweave.integration.application.IngestZabbixProblemsUseCase(reader, wiring.incidents(), Clock.systemUTC());
+    }
+
+    @Bean
+    PipelineReplayService pipelineReplayService(AuthorizationService authorization, InventoryWiring wiring,
+            HostPipelineService evaluator, OpsweaveProperties properties) {
+        return new PipelineReplayService(authorization, wiring.replays(), evaluator, properties.zabbix().sourceInstanceId(), Clock.systemUTC());
+    }
+
+    @Bean
+    HostPipelineService hostPipelineService(AuthorizationService authorization, InventoryWiring wiring, OpsweaveProperties properties) {
+        return new HostPipelineService(authorization, wiring.pipelines(), wiring.rawReader(), wiring.syncRuns(),
+            properties.zabbix().sourceInstanceId());
+    }
+
+    @Bean
+    SourceScanRunQueryService sourceScanRunQueryService(AuthorizationService authorization, InventoryWiring wiring,
+            OpsweaveProperties properties) {
+        return new SourceScanRunQueryService(authorization, wiring.syncRuns(), wiring.pipelines(),
+            properties.zabbix().sourceInstanceId());
+    }
+
+    @Bean
+    SourceConnectionCheckService sourceConnectionCheckService(AuthorizationService authorization, Connector connector,
+            InventoryWiring wiring, OpsweaveProperties properties) {
+        String mode = normalize(properties.zabbix().mode());
+        String dataMode = switch (mode) {
+            case "fixture" -> "labeled-fixture";
+            case "jsonrpc", "real" -> "zabbix-jsonrpc";
+            default -> "closed";
+        };
+        return new SourceConnectionCheckService(authorization, connector, wiring.sourceChecks(),
+            properties.zabbix().sourceInstanceId(), dataMode, properties.zabbix().secretRef(), Clock.systemUTC());
     }
 
     @Bean
@@ -156,6 +234,25 @@ public class PlatformConfiguration {
         }
         return new ReadZabbixHistoryUseCase(authorization, wiring.metrics(), reader,
             properties.zabbix().sourceInstanceId(), properties.zabbix().secretRef(), dataMode, Clock.systemUTC());
+    }
+
+    @Bean
+    com.acme.opsweave.integration.application.ReadZabbixProblemsUseCase readZabbixProblemsUseCase(AuthorizationService authorization,
+            OpsweaveProperties properties, JacksonZabbixTransport transport, EnvSecretSource secrets) {
+        var clock = Clock.systemUTC(); String mode = normalize(properties.zabbix().mode());
+        com.acme.opsweave.integration.api.ZabbixProblemPort port;
+        String dataMode;
+        if (mode.equals("fixture")) {
+            port = new com.acme.opsweave.integration.infrastructure.FixtureZabbixProblemReader(clock); dataMode = "labeled-fixture";
+        } else if (Set.of("jsonrpc", "real").contains(mode)) {
+            port = new com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcProblemReader(URI.create(properties.zabbix().url()), transport, secrets, clock);
+            dataMode = "zabbix-jsonrpc";
+        } else {
+            port = (source, window) -> { throw new com.acme.opsweave.integration.domain.ProblemReadException(com.acme.opsweave.integration.domain.ProblemReadException.Code.SOURCE_UNAVAILABLE); };
+            dataMode = "closed";
+        }
+        return new com.acme.opsweave.integration.application.ReadZabbixProblemsUseCase(authorization, port,
+            properties.zabbix().sourceInstanceId(), properties.zabbix().secretRef(), dataMode, clock);
     }
 
     @Bean
@@ -199,7 +296,8 @@ public class PlatformConfiguration {
             authorization,
             itemConnector(properties, transport, secrets),
             mappings,
-            wiring.metrics(),
+            wiring.writer(),
+            wiring.itemWrites(),
             wiring.rawRecords(),
             wiring.syncRuns(),
             dataMode,

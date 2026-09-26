@@ -76,8 +76,15 @@ pub fn validate_insight(
     context: &ContextPack,
     now: DateTime<Utc>,
 ) -> Result<(), AppError> {
-    let allowed: BTreeSet<_> = context
-        .evidence
+    validate_references(insight, &context.evidence, now)
+}
+
+pub fn validate_references(
+    insight: &InsightDraft,
+    evidence: &[Evidence],
+    now: DateTime<Utc>,
+) -> Result<(), AppError> {
+    let allowed: BTreeSet<_> = evidence
         .iter()
         .filter(|e| e.expires_at > now)
         .map(|e| e.id.as_str())
@@ -93,7 +100,7 @@ pub fn validate_insight(
             }
         }
     }
-    if context.evidence.is_empty() && insight.missing_data.is_empty() {
+    if evidence.is_empty() && insight.missing_data.is_empty() {
         return Err(AppError::InvalidOutput);
     }
     Ok(())

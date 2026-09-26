@@ -1,0 +1,10 @@
+{
+  "storage": "postgres",
+  "dataMode": "labeled-fixture",
+  "sourceInstanceId": "zabbix-1",
+  "accepted": 1,
+  "createdIncidents": 1,
+  "changedIncidents": 0,
+  "unmappedHosts": 0,
+  "nextAfterEventId": null
+}

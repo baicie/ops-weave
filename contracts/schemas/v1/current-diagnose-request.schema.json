@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "timeRange": {
+      "$ref": "tool-time-window.schema.json"
+    },
+    "knowledgeMode": {
+      "const": "current"
+    }
+  },
+  "required": [
+    "runId",
+    "incidentId",
+    "question",
+    "timeRange",
+    "knowledgeMode"
+  ]
+}

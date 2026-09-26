@@ -13,10 +13,14 @@ export function DiagnosePage() {
   let abort: AbortController | undefined
   let disposed = false
   let requestId = 0
+  function identity(value: string) { abort?.abort(); ++requestId; setBusy(false); setError(''); setResult(null); setToken(value) }
+  const leave = () => { identity(''); setQuestion('为什么订单服务延迟升高？') }
+  window.addEventListener('pagehide', leave)
 
   onCleanup(() => {
     disposed = true
     abort?.abort()
+    window.removeEventListener('pagehide', leave)
   })
 
   async function diagnose() {
@@ -66,7 +70,7 @@ export function DiagnosePage() {
           type="password"
           autocomplete="off"
           value={token()}
-          onValueChange={setToken}
+          onValueChange={identity}
         />
       </label>
       <label>

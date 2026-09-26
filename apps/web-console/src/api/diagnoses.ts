@@ -1,3 +1,6 @@
+import { CredentialSession } from './credential-session.ts'
+import { JsonClient } from './http.ts'
+
 export type Finding = {
   kind: 'observation' | 'hypothesis'
   statement: string
@@ -67,22 +70,18 @@ export async function createDiagnosis(
 ): Promise<DiagnoseResult> {
   const to = new Date(Date.now() - 1000)
   const from = new Date(to.getTime() - 30 * 60 * 1000)
-  const response = await fetch('/agent/api/v1/diagnoses', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${input.token}`,
-    },
-    body: JSON.stringify({
+  const credentials = new CredentialSession(); credentials.replace(input.token)
+  try {
+    const value = await new JsonClient(credentials, 'fixture-demo').request('/agent/api/v1/diagnoses', {
+      body: {
       incidentId: 'inc-demo',
       question: input.question,
       timeRange: { from: from.toISOString(), to: to.toISOString() },
       asOf: to.toISOString(),
-    }),
+      },
     signal: input.signal,
+    error: status => new Error(`诊断失败（HTTP ${status}），检查 Demo 模式、Token 和终端日志。`),
   })
-  if (!response.ok) {
-    throw new Error(`诊断失败（HTTP ${response.status}），检查 Demo 模式、Token 和终端日志。`)
-  }
-  return parseDiagnoseResult(await response.json())
+    return parseDiagnoseResult(value)
+  } finally { credentials.clear() }
 }

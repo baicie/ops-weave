@@ -80,9 +80,34 @@ textarea {
 code { font-size: 14px; overflow-wrap: anywhere; }
 
 .metric-controls select { display: block; width: 100%; margin-top: 8px; padding: 8px; }
+.pipeline-controls select { display: block; width: 100%; margin-top: 8px; padding: 8px; }
+.pipeline-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 20px; }
+.pipeline-controls .actions { flex-wrap: wrap; }
+.pipeline-table { overflow-x: auto; }
+.pipeline-table td:first-child { max-width: 220px; overflow-wrap: anywhere; }
 .metric-chart { width: 100%; height: 180px; background: #f7fafc; border-radius: 8px; }
+.metric-chart line[data-counter-reset] { stroke: #b45309; stroke-dasharray: 4 4; }
+[data-counter-resets] { margin: 8px 0 0; padding-left: 18px; color: #8a4b0f; }
+[data-counter-resets] li { margin: 4px 0; }
+[data-derivation] { margin-top: 12px; }
 
 table { width: 100%; border-collapse: collapse; margin-top: 16px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #dfe6ec; vertical-align: top; }
 th { font-size: 12px; letter-spacing: .04em; color: #526273; }
 footer { margin-top: 32px; color: #6d7b89; font-size: 13px; }
+
+.incident-panel .actions { flex-wrap: wrap; }
+.incident-import { padding: 16px; border: 1px solid #dfe6ec; border-radius: 8px; margin-top: 20px; }
+.incident-import summary { cursor: pointer; font-weight: 600; }
+.incident-problem { background: #f7fafc; padding: 18px; }
+.incident-problem h5 { margin: 0; font-size: 16px; }
+[data-problem-history] zw-input { border: 1px solid #8b9bae; border-radius: 6px; box-sizing: border-box; }
+[data-problem-history] pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.incident-link { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+.incident-timeline { border-left: 2px solid #dfe6ec; padding-left: 28px; }
+.incident-timeline li { padding: 8px 0; }
+.incident-timeline p { margin: 4px 0; overflow-wrap: anywhere; }
+.current-diagnosis textarea { display: block; width: 100%; box-sizing: border-box; min-height: 90px; padding: 12px; color: #263646; background: #f7fafc; border: 1px solid #cbd5e1; border-radius: 8px; }
+.current-diagnosis pre { overflow: auto; max-height: 480px; padding: 16px; background: #101722; color: #d5dfeb; }
+.current-diagnosis code, .current-diagnosis p { overflow-wrap: anywhere; }
+.current-diagnosis .insight-summary { white-space: pre-wrap; }

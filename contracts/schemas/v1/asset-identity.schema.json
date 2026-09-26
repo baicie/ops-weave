@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asset-identity",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$(?![\\s\\S])"
+    },
+    "kind": {
+      "const": "asset-uuid"
+    },
+    "value": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$(?![\\s\\S])"
+    },
+    "version": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "REVOKED"
+      ]
+    },
+    "verification": {
+      "const": "operator-confirmed"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+    },
+    "assertedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revocation": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$(?![\\s\\S])"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "requestId",
+            "actor",
+            "reason",
+            "at"
+          ]
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "entityId",
+    "namespace",
+    "kind",
+    "value",
+    "version",
+    "status",
+    "verification",
+    "actor",
+    "reason",
+    "assertedAt",
+    "revocation"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ACTIVE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "version": {
+            "const": 1
+          },
+          "revocation": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "version": {
+            "const": 2
+          },
+          "revocation": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  ]
+}

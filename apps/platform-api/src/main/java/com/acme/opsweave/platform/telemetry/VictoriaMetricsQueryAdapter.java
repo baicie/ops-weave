@@ -103,7 +103,7 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
                 dimensions);
             JsonNode times = row.get("timestamps");
             JsonNode values = row.get("values");
-            if (times == null || values == null || !times.isArray() || times.size() != values.size()) {
+            if (times == null || values == null || !times.isArray() || !values.isArray() || times.size() != values.size()) {
                 throw new MetricQueryException(Code.INVALID_RESPONSE);
             }
             List<Sample> points = grouped.computeIfAbsent(key, ignored -> new ArrayList<>());
@@ -113,7 +113,11 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
                 if (!times.get(i).isIntegralNumber() || !times.get(i).canConvertToLong() || !values.get(i).isNumber()) {
                     throw new MetricQueryException(Code.INVALID_RESPONSE);
                 }
-                points.add(new Sample(times.get(i).asLong(), new BigDecimal(values.get(i).asString())));
+                try {
+                    points.add(new Sample(times.get(i).asLong(), new BigDecimal(values.get(i).asString())));
+                } catch (IllegalArgumentException invalid) {
+                    throw new MetricQueryException(Code.INVALID_RESPONSE);
+                }
             }
             if (beyondCap) break;
         }

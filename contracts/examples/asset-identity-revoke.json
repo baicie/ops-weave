@@ -1,0 +1,6 @@
+{
+  "requestId": "52b6ec26-6ced-431e-90ea-559fe0c609d2",
+  "expectedEntityVersion": 2,
+  "reason": "Identifier belongs to a replaced asset",
+  "expectedNamespace": "enterprise-assets"
+}

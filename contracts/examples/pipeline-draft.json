@@ -1,0 +1,73 @@
+{
+  "digest": "sha256:548f66be6988f58eb7e7c8c949ece9439fd68b7df6ffa31abf827a6fe8462857",
+  "definition": {
+    "nodes": [
+      {
+        "config": {},
+        "id": "source",
+        "type": "Source"
+      },
+      {
+        "config": {},
+        "id": "parse",
+        "type": "Parse"
+      },
+      {
+        "config": {
+          "displayNameField": "host"
+        },
+        "id": "map",
+        "type": "Map"
+      },
+      {
+        "config": {},
+        "id": "validate",
+        "type": "Validate"
+      },
+      {
+        "config": {},
+        "id": "resolve",
+        "type": "EntityResolve"
+      },
+      {
+        "config": {},
+        "id": "write",
+        "type": "WriteObservation"
+      }
+    ],
+    "revision": 2,
+    "id": "http-host",
+    "errorPolicy": "failFast",
+    "source": {
+      "type": "zabbix",
+      "objectType": "host"
+    },
+    "edges": [
+      {
+        "from": "source",
+        "to": "parse"
+      },
+      {
+        "from": "parse",
+        "to": "map"
+      },
+      {
+        "from": "map",
+        "to": "validate"
+      },
+      {
+        "from": "validate",
+        "to": "resolve"
+      },
+      {
+        "from": "resolve",
+        "to": "write"
+      }
+    ]
+  },
+  "engine": "zabbix-host-mapper-v1",
+  "state": "DRAFT",
+  "storage": "memory",
+  "editVersion": 1,
+  "updatedAt": "2026-09-25T00:00:00Z"
+}

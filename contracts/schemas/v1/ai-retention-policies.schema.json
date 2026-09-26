@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "policies"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenantId",
+          "version",
+          "insightDays",
+          "evidenceDays",
+          "auditDays",
+          "batchSize",
+          "heldIncidents",
+          "allowPurge"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$(?![\\s\\S])"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]{1,64}$(?![\\s\\S])"
+          },
+          "insightDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "evidenceDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "auditDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "batchSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "heldIncidents": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$(?![\\s\\S])"
+            },
+            "maxItems": 1000,
+            "uniqueItems": true
+          },
+          "allowPurge": {
+            "type": "boolean"
+          }
+        }
+      },
+      "maxItems": 100,
+      "uniqueItems": true
+    }
+  }
+}

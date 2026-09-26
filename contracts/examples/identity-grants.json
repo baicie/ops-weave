@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "grants": [
+    {
+      "issuer": "https://identity.example.invalid",
+      "externalSubject": "example-external-subject",
+      "subjectId": "operator",
+      "tenantId": "tenant-example",
+      "revision": 1,
+      "enabled": true,
+      "permissions": [
+        "entity.read",
+        "metric.read"
+      ],
+      "scope": {
+        "tenantWide": false,
+        "resources": [
+          {
+            "type": "entity",
+            "id": "11111111-1111-4111-8111-111111111111"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -11,3 +11,5 @@
 ## 代价与后续
 
 Demo token 仍只能用于 loopback。生产必须替换为校验 issuer/audience/expiry 的 OIDC adapter，并继续在每次资源访问时授权。
+
+后续：2026-09-25 的 [ADR-030](030-oidc-bff-and-bounded-runtime-delegation.md) 已实现 OIDC authorization-code BFF 与短期委托；本 ADR 的 dev 边界保持不变，原始 Bearer OIDC 解析仍关闭。

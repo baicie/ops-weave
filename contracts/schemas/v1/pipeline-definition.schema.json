@@ -12,22 +12,24 @@
     },
     "revision": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "maximum": 2147483647
     },
     "source": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "type": {
-          "type": "string",
-          "minLength": 1
+          "const": "zabbix"
         },
         "objectType": {
-          "type": "string",
-          "minLength": 1
+          "const": "host"
         }
       },
-      "required": ["type", "objectType"]
+      "required": [
+        "type",
+        "objectType"
+      ]
     },
     "nodes": {
       "type": "array",
@@ -38,31 +40,95 @@
         "properties": {
           "id": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
           },
           "type": {
-            "enum": ["Source", "Parse", "Map", "Validate", "EntityResolve", "WriteObservation"]
+            "enum": [
+              "Source",
+              "Parse",
+              "Map",
+              "Validate",
+              "EntityResolve",
+              "WriteObservation"
+            ]
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "displayNameField": {
+                "enum": [
+                  "name",
+                  "host"
+                ]
+              }
+            },
+            "required": []
           }
         },
-        "required": ["id", "type"]
-      }
+        "required": [
+          "id",
+          "type"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "not": {
+                    "const": "Map"
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "maxProperties": 0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "maxItems": 6
     },
     "edges": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 5,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "from": { "type": "string", "minLength": 1 },
-          "to": { "type": "string", "minLength": 1 }
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "required": ["from", "to"]
-      }
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "maxItems": 5
     },
     "errorPolicy": {
-      "enum": ["failFast", "skipRecord"]
+      "enum": [
+        "failFast",
+        "skipRecord"
+      ]
     }
   },
-  "required": ["id", "revision", "source", "nodes", "edges", "errorPolicy"]
+  "required": [
+    "id",
+    "revision",
+    "source",
+    "nodes",
+    "edges",
+    "errorPolicy"
+  ]
 }

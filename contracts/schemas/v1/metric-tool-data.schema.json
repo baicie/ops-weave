@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "metricKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "definitionVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "metricType": {
+      "enum": [
+        "GAUGE",
+        "SUM",
+        "HISTOGRAM"
+      ]
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "NO_DATA",
+              "STALE",
+              "PARTIAL"
+            ]
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sourceInstanceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "dataMode": {
+                  "enum": [
+                    "labeled-fixture",
+                    "zabbix-jsonrpc"
+                  ]
+                },
+                "externalItemId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "mappingRevision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "dimensions": {
+                  "type": "object",
+                  "maxProperties": 32,
+                  "propertyNames": {
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 500
+                },
+                "min": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+                },
+                "max": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+                },
+                "mean": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+                },
+                "last": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+                },
+                "firstAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "lastAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "sourceInstanceId",
+                "dataMode",
+                "externalItemId",
+                "mappingRevision",
+                "unit",
+                "dimensions",
+                "count",
+                "min",
+                "max",
+                "mean",
+                "last",
+                "firstAt",
+                "lastAt"
+              ]
+            },
+            "maxItems": 50,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "entityId",
+          "status",
+          "series"
+        ]
+      },
+      "maxItems": 5,
+      "minItems": 0
+    },
+    "sampleCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 500
+    },
+    "maxPoints": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    }
+  },
+  "required": [
+    "metricKey",
+    "entities",
+    "sampleCount",
+    "maxPoints"
+  ]
+}

@@ -1,6 +1,7 @@
 """Static checks for the initialized repository; not a production readiness certification."""
 from pathlib import Path
 import json
+import os
 import re
 import sys
 import yaml
@@ -9,9 +10,16 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[1]
 errors: list[str] = []
 count = 0
-for path in ROOT.rglob("*"):
-    if not path.is_file() or any(x in path.parts for x in ("node_modules", ".git", ".venv", "build", "target", "__pycache__", ".pytest_cache", ".tmp")):
-        continue
+def source_files():
+    excluded = {"node_modules", ".git", ".venv", "build", "target", "__pycache__", ".pytest_cache", ".tmp"}
+    for directory, directories, files in os.walk(ROOT, followlinks=False):
+        directories[:] = [name for name in directories if name not in excluded and not (Path(directory) / name).is_symlink()]
+        for name in files:
+            path = Path(directory) / name
+            if path.is_file():
+                yield path
+
+for path in source_files():
     try:
         if path.suffix == ".json":
             data = json.loads(path.read_text(encoding="utf-8")); count += 1
@@ -42,8 +50,13 @@ for path in (ROOT / "contracts/tools").glob("*.tool.json"):
     if key in tools: errors.append(f"Duplicate tool: {key}")
     tools[key] = data
     if data["effect"] != "read": errors.append(f"Starter must not enable action: {key}")
-    if data.get("implementationStatus") not in {"notImplemented", "fixtureOnly"}:
+    if data.get("implementationStatus") not in {"notImplemented", "fixtureOnly", "implemented"}:
         errors.append(f"Verify implementation status before advertising tool: {key}")
+    if data.get("implementationStatus") == "implemented":
+        implementation = data.get("implementationRef", "")
+        implementation_path = (ROOT / implementation).resolve()
+        if not implementation or not implementation_path.is_relative_to(ROOT.resolve()) or not implementation_path.is_file():
+            errors.append(f"Implemented tool must name checked-in executor code: {key}")
     forbidden = {"tenantId", "userId", "permissions", "approvalStatus"}
     if forbidden.intersection(data["inputSchema"].get("properties", {})):
         errors.append(f"Tool accepts trusted identity from model: {key}")

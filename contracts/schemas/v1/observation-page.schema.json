@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "query": {
+      "$ref": "observation-query.schema.json"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "observation.schema.json"
+      }
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_.:-]{1,128}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "coverage": {
+      "const": "retained-observations-only"
+    }
+  },
+  "required": [
+    "storage",
+    "tenantId",
+    "entityId",
+    "query",
+    "items",
+    "nextCursor",
+    "coverage"
+  ]
+}

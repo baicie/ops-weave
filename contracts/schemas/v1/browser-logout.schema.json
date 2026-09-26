@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "browser-logout",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "loggedOut"
+  ],
+  "properties": {
+    "loggedOut": {
+      "const": true
+    }
+  }
+}

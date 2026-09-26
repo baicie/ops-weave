@@ -1,0 +1,10 @@
+{
+  "checkId": "b7d4f0a2-6c31-4f8e-9a5b-2d7c1e4f8a90",
+  "sourceInstanceId": "zabbix-1",
+  "actor": "operator",
+  "checkedAt": "2026-09-26T06:05:00.123456Z",
+  "dataMode": "labeled-fixture",
+  "reachable": true,
+  "statusCode": "labeled-fixture",
+  "reportedVersion": null
+}

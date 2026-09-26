@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "incident": {
+      "$ref": "incident.schema.json"
+    },
+    "problems": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "observation": {
+            "$ref": "external-problem.schema.json"
+          },
+          "dataMode": {
+            "enum": [
+              "labeled-fixture",
+              "zabbix-jsonrpc"
+            ]
+          },
+          "sourceContract": {
+            "const": "zabbix-7.0-event-v1"
+          },
+          "entities": {
+            "type": "array",
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "hostId": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,19}$"
+                },
+                "entityId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "hostId",
+                "entityId"
+              ]
+            }
+          },
+          "firstReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "observation",
+          "dataMode",
+          "sourceContract",
+          "entities",
+          "firstReceivedAt",
+          "lastReceivedAt"
+        ]
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "enum": [
+              "PROBLEM",
+              "RECOVERY",
+              "STATUS_CHANGE"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "availableAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceInstanceId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problemEventId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,19}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recoveryEventId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,19}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fromStatus": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OPEN",
+                  "INVESTIGATING",
+                  "MITIGATED",
+                  "RESOLVED",
+                  "CLOSED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "toStatus": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OPEN",
+                  "INVESTIGATING",
+                  "MITIGATED",
+                  "RESOLVED",
+                  "CLOSED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "occurredAt",
+          "availableAt",
+          "sourceInstanceId",
+          "problemEventId",
+          "recoveryEventId",
+          "fromStatus",
+          "toStatus",
+          "actor"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "STATUS_CHANGE"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "sourceInstanceId": {
+                  "type": "null"
+                },
+                "problemEventId": {
+                  "type": "null"
+                },
+                "recoveryEventId": {
+                  "type": "null"
+                },
+                "fromStatus": {
+                  "enum": [
+                    "OPEN",
+                    "INVESTIGATING",
+                    "MITIGATED",
+                    "RESOLVED",
+                    "CLOSED"
+                  ]
+                },
+                "toStatus": {
+                  "enum": [
+                    "OPEN",
+                    "INVESTIGATING",
+                    "MITIGATED",
+                    "RESOLVED",
+                    "CLOSED"
+                  ]
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "PROBLEM",
+                    "RECOVERY"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "sourceInstanceId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                },
+                "problemEventId": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,19}$"
+                },
+                "fromStatus": {
+                  "type": "null"
+                },
+                "toStatus": {
+                  "type": "null"
+                },
+                "actor": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "PROBLEM"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "recoveryEventId": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "RECOVERY"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "recoveryEventId": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,19}$"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "enum": [
+          "LOGS_NOT_CONNECTED",
+          "CHANGES_NOT_CONNECTED",
+          "ENTITY_MAPPING_MISSING",
+          "RECOVERY_EVENT_UNAVAILABLE"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "LOGS_NOT_CONNECTED"
+          }
+        },
+        {
+          "contains": {
+            "const": "CHANGES_NOT_CONNECTED"
+          }
+        }
+      ]
+    },
+    "organization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "changeId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "mergedInto": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "version",
+        "changeId",
+        "mergedInto"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "incident",
+    "problems",
+    "timeline",
+    "gaps"
+  ]
+}

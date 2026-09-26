@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "dataMode": "import",
+  "sourceInstanceId": "cmdb-import",
+  "namespace": "enterprise-assets",
+  "mappingDigest": "sha256:c8c61f0ddd773a03128464f25babc956e850a46e52baaf39568f03816fd1a4bf",
+  "engine": "registered-cmdb-snapshot-v1",
+  "maxRecords": 100,
+  "maxAgeSeconds": 604800,
+  "tenantId": "tenant-demo",
+  "actor": "operator"
+}

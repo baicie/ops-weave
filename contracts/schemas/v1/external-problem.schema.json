@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "External problem occurrence v1",
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "problemEventId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "triggerId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$"
+    },
+    "severity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "hostIds": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,19}$"
+      }
+    },
+    "suppressed": {
+      "type": "boolean"
+    },
+    "recoveryEventId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recoveredAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "enum": [
+        "ACTIVE",
+        "RECOVERED",
+        "RECOVERY_UNKNOWN"
+      ]
+    },
+    "gaps": {
+      "type": "array",
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "const": "RECOVERY_EVENT_UNAVAILABLE"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "tenantId",
+    "sourceInstanceId",
+    "problemEventId",
+    "triggerId",
+    "title",
+    "severity",
+    "occurredAt",
+    "observedAt",
+    "hostIds",
+    "suppressed",
+    "recoveryEventId",
+    "recoveredAt",
+    "state",
+    "gaps"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "ACTIVE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "recoveryEventId": {
+            "type": "null"
+          },
+          "recoveredAt": {
+            "type": "null"
+          },
+          "gaps": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "RECOVERED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "recoveryEventId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,19}$"
+          },
+          "recoveredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "gaps": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "RECOVERY_UNKNOWN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "recoveryEventId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,19}$"
+          },
+          "recoveredAt": {
+            "type": "null"
+          },
+          "gaps": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

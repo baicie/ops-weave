@@ -1,0 +1,11 @@
+{
+  "requestId": "51234567-1234-4567-8123-123456789abc",
+  "expectedEntityVersion": 1,
+  "externalId": "cmdb-host-10084",
+  "observedAt": "2026-09-25T00:00:00Z",
+  "values": {
+    "name": "CMDB imported host",
+    "owner": "Platform Team"
+  },
+  "mappingDigest": "sha256:c8c61f0ddd773a03128464f25babc956e850a46e52baaf39568f03816fd1a4bf"
+}

@@ -64,7 +64,7 @@ class IdentityAndZabbixHostIT {
         assertEquals("labeled-fixture", syncBody.get("dataMode").asString());
         assertEquals(2, syncBody.get("accepted").asInt());
         assertTrue(syncBody.get("snapshotComplete").asBoolean());
-        assertEquals("offset-scan-attempt", syncBody.get("scanConsistency").asString());
+        assertEquals("hostid-watermark-snapshot", syncBody.get("scanConsistency").asString());
 
         HttpResponse<String> listed = call("GET", "/api/v1/entities", TOKEN);
         assertEquals(200, listed.statusCode(), listed.body());

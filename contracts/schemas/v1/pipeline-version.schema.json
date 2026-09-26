@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "definition": {
+      "$ref": "pipeline-definition.schema.json"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "engine": {
+      "const": "zabbix-host-mapper-v1"
+    },
+    "state": {
+      "const": "PUBLISHED"
+    }
+  },
+  "required": [
+    "definition",
+    "digest",
+    "engine",
+    "state"
+  ]
+}

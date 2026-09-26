@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asset-identity-resolution",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "method": {
+      "const": "registered-asset-uuid"
+    },
+    "identity": {
+      "allOf": [
+        {
+          "$ref": "asset-identity.schema.json"
+        },
+        {
+          "properties": {
+            "status": {
+              "const": "ACTIVE"
+            }
+          }
+        }
+      ]
+    },
+    "entityVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "storage",
+    "method",
+    "identity",
+    "entityVersion"
+  ]
+}

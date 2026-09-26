@@ -1,0 +1,9 @@
+{
+  "provider": "rig-openai",
+  "model": "configured-model",
+  "priceVersion": "example-price-v1",
+  "inputMicrosPerMillion": 1000000,
+  "outputMicrosPerMillion": 2000000,
+  "maxCallMicros": 100000,
+  "dailyMicros": 1000000
+}

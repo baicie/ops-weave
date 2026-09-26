@@ -10,7 +10,6 @@ import com.acme.opsweave.identity.domain.ResourceScope;
 import com.acme.opsweave.identity.domain.SubjectId;
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
-import com.acme.opsweave.integration.domain.PipelineDefinition;
 import com.acme.opsweave.integration.domain.SyncStatus;
 import com.acme.opsweave.integration.infrastructure.FixtureZabbixHostConnector;
 import com.acme.opsweave.inventory.domain.Entity;
@@ -29,7 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @EnabledIfEnvironmentVariable(named = "OPSWEAVE_TEST_JDBC_URL", matches = ".+")
-class PostgresHostSyncIT {
+class PostgresHostSyncIT extends OwnedInventoryTest {
     @Test
     void pagesUntilSnapshotThenRetiresOnlyAfterSuccess() {
         String tenant = "tenant-pg-" + UUID.randomUUID().toString().substring(0, 8);
@@ -43,7 +42,7 @@ class PostgresHostSyncIT {
                 System.getenv().getOrDefault("OPSWEAVE_TEST_JDBC_PASSWORD", "")
             )
         );
-        InventoryWiring wiring = InventoryWiring.open(properties);
+        InventoryWiring wiring = openInventory(properties);
         var principal = new Principal(
             new SubjectId("user-demo"),
             new TenantId(tenant),
@@ -63,7 +62,7 @@ class PostgresHostSyncIT {
             wiring.writer(),
             wiring.rawRecords(),
             wiring.syncRuns(),
-            PipelineDefinition.zabbixHostV1(),
+            wiring.pipelines(),
             "labeled-fixture",
             wiring.label(),
             "zabbix-1",
@@ -106,7 +105,7 @@ class PostgresHostSyncIT {
             wiring.writer(),
             wiring.rawRecords(),
             wiring.syncRuns(),
-            PipelineDefinition.zabbixHostV1(),
+            wiring.pipelines(),
             "zabbix-jsonrpc",
             wiring.label(),
             "zabbix-1",

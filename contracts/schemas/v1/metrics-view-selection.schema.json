@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Normalized browser read selection. URL encoding/bounds are specified in contracts/view-selection.md; no identity, credentials, cached data or commands.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "q": {
+      "type": "string",
+      "maxLength": 100,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\ufffd]*$(?![\\s\\S])"
+    },
+    "after": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$(?![\\s\\S])"
+    },
+    "entityId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$(?![\\s\\S])"
+    },
+    "metricKey": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_.:/%\\-]{0,128}$(?![\\s\\S])"
+    },
+    "range": {
+      "enum": [
+        "15m",
+        "30m",
+        "1h"
+      ]
+    },
+    "from": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 9999999999
+    },
+    "till": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 9999999999
+    }
+  },
+  "required": [
+    "q",
+    "after",
+    "entityId",
+    "metricKey",
+    "range",
+    "from",
+    "till"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "from": {
+          "type": "null"
+        },
+        "till": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "from": {
+          "type": "integer"
+        },
+        "till": {
+          "type": "integer"
+        },
+        "entityId": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

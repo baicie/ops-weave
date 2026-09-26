@@ -16,10 +16,16 @@ management:
 opsweave:
   history:
     enabled: ${OPSWEAVE_HISTORY_ENABLED:false}
+    auth-mode: ${OPSWEAVE_HISTORY_AUTH_MODE:dev}
+    service:
+      token-uri: ${OPSWEAVE_HISTORY_TOKEN_URI:}
+      client-id: ${OPSWEAVE_HISTORY_CLIENT_ID:}
+      client-secret: ${OPSWEAVE_HISTORY_CLIENT_SECRET:}
+      loopback-test: ${OPSWEAVE_HISTORY_AUTH_LOOPBACK_TEST:false}
     platform-url: ${OPSWEAVE_HISTORY_PLATFORM_URL:http://127.0.0.1:8080}
     platform-token: ${OPSWEAVE_HISTORY_PLATFORM_TOKEN:}
     expected-data-mode: ${OPSWEAVE_HISTORY_DATA_MODE:closed}
-    tenant: tenant-demo
+    tenant: ${OPSWEAVE_HISTORY_TENANT:tenant-demo}
     source-instance-id: ${OPSWEAVE_HISTORY_SOURCE:zabbix-1}
     item-id: ${OPSWEAVE_HISTORY_ITEM_ID:}
     stream-name: ${OPSWEAVE_HISTORY_STREAM:history-v1}

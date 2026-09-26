@@ -8,6 +8,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +23,11 @@ public final class MetricSeriesController {
     public MetricSeriesController(PrincipalContext principals, QueryMetricSeriesUseCase series) {
         this.principals = principals;
         this.series = series;
+    }
+
+    @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<?> invalidParameter() {
+        return ResponseEntity.badRequest().body(Map.of("error", "INVALID_METRIC_QUERY"));
     }
 
     @GetMapping("/api/v1/entities/{entityId}/metrics/{metricKey}/series")
@@ -65,9 +73,20 @@ public final class MetricSeriesController {
             row.put("points", series.points().stream()
                 .map(point -> new Object[] {point.timestampMillis(), point.value().toPlainString()})
                 .toList());
+            row.put("counterRates", series.counterRates().stream().map(rate -> {
+                Map<String, Object> derived = new LinkedHashMap<>();
+                derived.put("t", rate.timestampMillis());
+                derived.put("rate", rate.perSecond().toPlainString());
+                derived.put("counterReset", rate.counterReset());
+                return derived;
+            }).toList());
             return row;
         }).toList());
         body.put("status", status);
+        body.put("derivation", page.derivation() == null ? null : Map.of(
+            "kind", page.derivation(),
+            "resetPolicy", com.acme.opsweave.telemetry.domain.CounterRatePolicy.RESET_FROM_ZERO
+        ));
         return body;
     }
 }

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "expectedVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "target": {
+      "enum": [
+        "OPEN",
+        "INVESTIGATING",
+        "MITIGATED",
+        "RESOLVED",
+        "CLOSED"
+      ]
+    },
+    "requestKey": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "expectedVersion",
+    "target",
+    "requestKey"
+  ]
+}

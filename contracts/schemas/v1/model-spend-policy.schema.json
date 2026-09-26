@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "provider": {
+      "enum": [
+        "mock-deterministic",
+        "rig-openai"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "priceVersion": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._-]{1,64}(?![\\s\\S])"
+    },
+    "inputMicrosPerMillion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000000
+    },
+    "outputMicrosPerMillion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000000
+    },
+    "maxCallMicros": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000000
+    },
+    "dailyMicros": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000000
+    }
+  },
+  "required": [
+    "provider",
+    "model",
+    "priceVersion",
+    "inputMicrosPerMillion",
+    "outputMicrosPerMillion",
+    "maxCallMicros",
+    "dailyMicros"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "provider": {
+            "const": "mock-deterministic"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "model": {
+            "const": "mock-current-v1"
+          },
+          "priceVersion": {
+            "const": "mock-no-charge"
+          },
+          "inputMicrosPerMillion": {
+            "const": 0
+          },
+          "outputMicrosPerMillion": {
+            "const": 0
+          },
+          "maxCallMicros": {
+            "const": 0
+          },
+          "dailyMicros": {
+            "const": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "inputMicrosPerMillion": {
+            "minimum": 1
+          },
+          "outputMicrosPerMillion": {
+            "minimum": 1
+          },
+          "maxCallMicros": {
+            "minimum": 1
+          },
+          "dailyMicros": {
+            "minimum": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "run": {
+      "$ref": "pipeline-replay-header.schema.json"
+    },
+    "report": {
+      "anyOf": [
+        {
+          "$ref": "pipeline-evaluation.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "storage",
+    "run",
+    "report"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "run": {
+            "properties": {
+              "state": {
+                "const": "SUCCEEDED"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "allOf": [
+              {
+                "$ref": "pipeline-evaluation.schema.json"
+              },
+              {
+                "properties": {
+                  "mode": {
+                    "const": "REPLAY"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "report": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

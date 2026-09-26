@@ -1,11 +1,12 @@
 package com.acme.opsweave.integration.infrastructure;
 
 import com.acme.opsweave.integration.api.Connector;
+import com.acme.opsweave.integration.domain.SyncScan;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-/** Explicitly labeled item fixture. Live JSON-RPC never falls back here. */
+/** Explicitly labeled item fixture. Live JSON-RPC never falls back here; the list is immutable. */
 public final class FixtureZabbixItemConnector implements Connector {
     @Override
     public String type() {
@@ -30,11 +31,16 @@ public final class FixtureZabbixItemConnector implements Connector {
         }
         int bounded = Math.min(Math.max(limit, 1), 500);
         if (offset >= records.size()) {
-            return new Page(List.of(), null, true);
+            return new Page(List.of(), null, true, SyncScan.ITEMID_WATERMARK);
         }
         int end = Math.min(offset + bounded, records.size());
         boolean complete = end >= records.size();
-        return new Page(List.copyOf(records.subList(offset, end)), complete ? null : Integer.toString(end), complete);
+        return new Page(
+            List.copyOf(records.subList(offset, end)),
+            complete ? null : Integer.toString(end),
+            complete,
+            SyncScan.ITEMID_WATERMARK
+        );
     }
 
     private static Map<String, Object> item(

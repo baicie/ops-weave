@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "metric": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "timeRange": {
+      "$ref": "tool-time-window.schema.json"
+    },
+    "maxPoints": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    }
+  },
+  "required": [
+    "incidentId",
+    "metric",
+    "timeRange",
+    "maxPoints"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "incidentId": "55555555-5555-3555-8555-555555555555",
+  "metric": "host.cpu.usage.user",
+  "timeRange": {
+    "from": "2026-09-21T11:30:00Z",
+    "to": "2026-09-21T12:30:00Z"
+  },
+  "maxPoints": 500
+}

@@ -1,0 +1,92 @@
+{
+  "storage": "memory",
+  "run": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "requestKey": "22222222-2222-4222-8222-222222222222",
+    "sourceInstanceId": "zabbix-1",
+    "spec": {
+      "syncRunId": "0c29883e-ccd5-47dc-aaba-3822d79496ed",
+      "targetVersion": {
+        "id": "http-host",
+        "revision": 2,
+        "digest": "sha256:548f66be6988f58eb7e7c8c949ece9439fd68b7df6ffa31abf827a6fe8462857"
+      },
+      "limit": 100,
+      "purpose": "COMPARE_VERSION"
+    },
+    "state": "SUCCEEDED",
+    "attempt": 1,
+    "createdAt": "2026-09-25T00:00:00Z",
+    "updatedAt": "2026-09-25T00:00:01Z",
+    "leaseUntil": null,
+    "failureCode": null,
+    "canResume": false,
+    "dryRun": true,
+    "writesPerformed": false
+  },
+  "report": {
+    "mode": "REPLAY",
+    "purpose": "COMPARE_VERSION",
+    "dryRun": true,
+    "writesPerformed": false,
+    "sourceInstanceId": "zabbix-1",
+    "syncRunId": "0c29883e-ccd5-47dc-aaba-3822d79496ed",
+    "sourceRunStatus": "SUCCEEDED",
+    "dataMode": "labeled-fixture",
+    "originalVersion": {
+      "id": "zabbix-host-default",
+      "revision": 1,
+      "digest": "sha256:d18f5f7c5ff7e847eefacaf1e03dc98b30d5046a3b3af7ca9294c66e028f0e06"
+    },
+    "targetVersion": {
+      "id": "http-host",
+      "revision": 2,
+      "digest": "sha256:548f66be6988f58eb7e7c8c949ece9439fd68b7df6ffa31abf827a6fe8462857"
+    },
+    "fetched": 2,
+    "retained": 2,
+    "missingRaw": 0,
+    "truncated": false,
+    "oversized": 0,
+    "accepted": 2,
+    "rejected": 0,
+    "changed": 1,
+    "wouldFailFast": false,
+    "rows": [
+      {
+        "rawRef": "raw-98cc1fd0-6b86-4b1d-b237-cbe94fee9ce4",
+        "status": "ACCEPTED",
+        "previous": {
+          "entityId": "e4a4cf46-8bef-36fc-936a-8b156f947778",
+          "name": "Zabbix server",
+          "ip": "10.0.0.10",
+          "lifecycle": "ACTIVE"
+        },
+        "candidate": {
+          "entityId": "e4a4cf46-8bef-36fc-936a-8b156f947778",
+          "name": "zabbix-server",
+          "ip": "10.0.0.10",
+          "lifecycle": "ACTIVE"
+        },
+        "changed": true
+      },
+      {
+        "rawRef": "raw-e8b87d74-8c4f-490b-a629-83f8a137dbc2",
+        "status": "ACCEPTED",
+        "previous": {
+          "entityId": "09beb7dc-23f9-3d04-994d-a7a4b1d9dc5e",
+          "name": "app-01",
+          "ip": "10.0.0.11",
+          "lifecycle": "ACTIVE"
+        },
+        "candidate": {
+          "entityId": "09beb7dc-23f9-3d04-994d-a7a4b1d9dc5e",
+          "name": "app-01",
+          "ip": "10.0.0.11",
+          "lifecycle": "ACTIVE"
+        },
+        "changed": false
+      }
+    ]
+  }
+}

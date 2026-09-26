@@ -25,6 +25,12 @@ pub enum AppError {
     InvalidOutput,
     #[error("provider unavailable")]
     Provider,
+    #[error("platform read unavailable")]
+    Platform,
+    #[error("pinned input changed")]
+    InputChanged,
+    #[error("read session or evidence expired")]
+    Expired,
     #[error("invalid server configuration: {0}")]
     Configuration(String),
 }
@@ -67,6 +73,21 @@ impl IntoResponse for AppError {
                 StatusCode::BAD_GATEWAY,
                 "provider_error",
                 "Provider unavailable".into(),
+            ),
+            Self::Platform => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "platform_unavailable",
+                "Platform read unavailable".into(),
+            ),
+            Self::InputChanged => (
+                StatusCode::CONFLICT,
+                "input_changed",
+                "Pinned input changed".into(),
+            ),
+            Self::Expired => (
+                StatusCode::GONE,
+                "expired",
+                "Read session or evidence expired".into(),
             ),
             Self::Configuration(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

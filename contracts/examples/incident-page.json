@@ -1,0 +1,21 @@
+{
+  "storage": "postgres",
+  "query": {
+    "status": "",
+    "after": null,
+    "limit": 25
+  },
+  "items": [
+    {
+      "schemaVersion": "1.0",
+      "id": "55555555-5555-3555-8555-555555555555",
+      "tenantId": "tenant-demo",
+      "title": "Fixture: CPU threshold exceeded",
+      "status": "OPEN",
+      "severity": 3,
+      "version": 1,
+      "createdAt": "2026-09-25T00:00:00Z"
+    }
+  ],
+  "nextCursor": null
+}

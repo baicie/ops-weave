@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "definition": {
+      "$ref": "pipeline-definition.schema.json"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "engine": {
+      "const": "zabbix-host-mapper-v1"
+    },
+    "state": {
+      "const": "DRAFT"
+    },
+    "editVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "storage",
+    "definition",
+    "digest",
+    "engine",
+    "state",
+    "editVersion",
+    "updatedAt"
+  ]
+}

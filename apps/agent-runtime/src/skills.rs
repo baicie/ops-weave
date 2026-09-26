@@ -70,10 +70,16 @@ impl LoadedSkill {
         let manifest = read_file(base, "skill.json")?;
         let spec: SkillSpec = serde_json::from_str(&manifest)
             .map_err(|_| AppError::Configuration("Invalid skill manifest".into()))?;
+        let current = spec.execution_template == "readonly-current-incident-diagnosis-v1";
         if spec.version.trim().is_empty()
             || spec.version.len() > 64
             || spec.id != "incident.diagnose"
-            || spec.execution_template != "readonly-incident-diagnosis-v1"
+            || (!current && spec.execution_template != "readonly-incident-diagnosis-v1")
+            || (current
+                && (spec.version != "2.0.0"
+                    || spec.max_tool_calls != 4
+                    || spec.max_evidence != 2
+                    || spec.deadline_ms > 55000))
             || spec.side_effects != "forbidden"
             || !(2..=8).contains(&spec.max_tool_calls)
             || !(1..=32).contains(&spec.max_evidence)
@@ -84,7 +90,15 @@ impl LoadedSkill {
                 "Skill exceeds supported template or policy".into(),
             ));
         }
-        let required = ["incident.get@1.0.0", "metric.summary@1.0.0"];
+        let required: &[&str] = if current {
+            &[
+                "incident.get@2.0.0",
+                "metric.summary@2.0.0",
+                "evidence.get@2.0.0",
+            ]
+        } else {
+            &["incident.get@1.0.0", "metric.summary@1.0.0"]
+        };
         if spec.allowed_tools.len() != required.len()
             || required
                 .iter()

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.invalid/schemas/v1/metric-series-page.schema.json",
+  "title": "Authorized stored metric series page",
+  "description": "At most 500 points across all series. from/till are inclusive seconds, point times are milliseconds. PARTIAL may contain no points when a bounded scan could not establish absence. Relational constraints (scope, unit, window, total count and lastPointAt) are also checked by the application.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entityId", "metricKey", "unit", "from", "till", "series", "status"],
+  "properties": {
+    "entityId": {"type": "string", "format": "uuid"},
+    "metricKey": {"$ref": "#/$defs/label"},
+    "unit": {"$ref": "#/$defs/label"},
+    "from": {"$ref": "#/$defs/second"},
+    "till": {"$ref": "#/$defs/second"},
+    "series": {
+      "type": "array", "maxItems": 500,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sourceInstanceId", "dataMode", "externalItemId", "mappingRevision", "unit", "dimensions", "points"],
+        "properties": {
+          "sourceInstanceId": {"$ref": "#/$defs/label"},
+          "dataMode": {"$ref": "#/$defs/label"},
+          "externalItemId": {"$ref": "#/$defs/label"},
+          "mappingRevision": {"type": "integer", "minimum": 1},
+          "unit": {"$ref": "#/$defs/label"},
+          "dimensions": {
+            "type": "object", "propertyNames": {"pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,63}$"},
+            "additionalProperties": {"$ref": "#/$defs/label"}
+          },
+          "points": {
+            "type": "array", "minItems": 1, "maxItems": 500,
+            "items": {
+              "type": "array", "minItems": 2, "maxItems": 2,
+              "prefixItems": [
+                {"$ref": "#/$defs/millisecond"},
+                {"type": "string", "maxLength": 700, "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"}
+              ],
+              "items": false
+            }
+          },
+          "counterRates": {
+            "type": "array", "maxItems": 500,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["t", "rate", "counterReset"],
+              "properties": {
+                "t": {"$ref": "#/$defs/millisecond"},
+                "rate": {"type": "string", "maxLength": 700, "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"},
+                "counterReset": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "derivation": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "resetPolicy"],
+          "properties": {
+            "kind": {"const": "counter-rate"},
+            "resetPolicy": {"const": "reset-counts-from-zero"}
+          }
+        }
+      ]
+    },
+    "status": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "fresh", "partial", "lastPointAt"],
+      "properties": {
+        "kind": {"enum": ["AVAILABLE", "NO_DATA", "STALE", "PARTIAL"]},
+        "fresh": {"type": "boolean"},
+        "partial": {"type": "boolean"},
+        "lastPointAt": {"anyOf": [{"$ref": "#/$defs/millisecond"}, {"type": "null"}]}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "PARTIAL"}}}, "then": {"properties": {"partial": {"const": true}}}, "else": {"properties": {"partial": {"const": false}}}},
+        {"if": {"properties": {"kind": {"const": "AVAILABLE"}}}, "then": {"properties": {"fresh": {"const": true}, "lastPointAt": {"$ref": "#/$defs/millisecond"}}}},
+        {"if": {"properties": {"kind": {"const": "STALE"}}}, "then": {"properties": {"fresh": {"const": false}, "lastPointAt": {"$ref": "#/$defs/millisecond"}}}},
+        {"if": {"properties": {"kind": {"const": "NO_DATA"}}}, "then": {"properties": {"fresh": {"const": false}, "lastPointAt": {"type": "null"}}}},
+        {"if": {"properties": {"lastPointAt": {"type": "null"}}}, "then": {"properties": {"fresh": {"const": false}}}}
+      ]
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"properties": {"kind": {"const": "NO_DATA"}}}}}, "then": {"properties": {"series": {"maxItems": 0}}}},
+    {"if": {"properties": {"status": {"properties": {"kind": {"enum": ["AVAILABLE", "STALE"]}}}}}, "then": {"properties": {"series": {"minItems": 1}}}},
+    {
+      "if": {"properties": {"derivation": {"type": "object"}}, "required": ["derivation"]},
+      "then": {"properties": {"series": {"items": {"required": ["counterRates"]}}}}
+    }
+  ],
+  "$defs": {
+    "label": {"type": "string", "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$"},
+    "second": {"type": "integer", "minimum": 0, "maximum": 9999999999},
+    "millisecond": {"type": "integer", "minimum": 0, "maximum": 9999999999999}
+  }
+}

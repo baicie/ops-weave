@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Normalized browser read selection. URL encoding/bounds are specified in contracts/view-selection.md; no identity, credentials, cached data or commands.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "q": {
+      "type": "string",
+      "maxLength": 100,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\ufffd]*$(?![\\s\\S])"
+    },
+    "type": {
+      "enum": [
+        "host",
+        ""
+      ]
+    },
+    "lifecycle": {
+      "enum": [
+        "",
+        "ACTIVE",
+        "INACTIVE",
+        "DISCOVERED",
+        "DELETED",
+        "ARCHIVED"
+      ]
+    },
+    "after": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$(?![\\s\\S])"
+    },
+    "entityId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "q",
+    "type",
+    "lifecycle",
+    "after",
+    "entityId"
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "incidentVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "entityIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "maxItems": 5,
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "queryWindow": {
+      "$ref": "tool-time-window.schema.json"
+    },
+    "knowledgeMode": {
+      "const": "current"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deadlineAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "maxToolCalls": {
+      "const": 4
+    },
+    "usedCalls": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "allowedTools": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "evidence.get@2.0.0",
+          "incident.get@2.0.0",
+          "metric.summary@2.0.0"
+        ]
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "uniqueItems": true
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "policyVersion": {
+      "const": "readonly-diagnosis-v1"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "ai.diagnose",
+          "ai.insight.read",
+          "incident.read",
+          "entity.read",
+          "metric.read",
+          "evidence.read"
+        ]
+      },
+      "maxItems": 6,
+      "minItems": 0,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "subjectId",
+    "incidentId",
+    "incidentVersion",
+    "entityIds",
+    "queryWindow",
+    "knowledgeMode",
+    "createdAt",
+    "deadlineAt",
+    "maxToolCalls",
+    "usedCalls",
+    "allowedTools",
+    "storage",
+    "policyVersion",
+    "permissions"
+  ]
+}

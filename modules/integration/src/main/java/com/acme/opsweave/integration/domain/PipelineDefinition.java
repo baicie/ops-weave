@@ -42,6 +42,7 @@ public record PipelineDefinition(
             throw new IllegalArgumentException("Pipeline must declare nodes");
         }
         validateGraph(nodes, edges);
+        validateOrder(nodes, edges);
     }
 
     public List<PipelineNode> executionOrder() {
@@ -102,11 +103,14 @@ public record PipelineDefinition(
                 new PipelineEdge("validate", "resolve"),
                 new PipelineEdge("resolve", "write")
             ),
-            ErrorPolicy.FAIL_FAST
+            ErrorPolicy.SKIP_RECORD
         );
     }
 
     private static void validateGraph(List<PipelineNode> nodes, List<PipelineEdge> edges) {
+        if (nodes.size() != 6 || edges.size() != 5) {
+            throw new IllegalArgumentException("Host pipeline requires exactly six nodes and five edges");
+        }
         Set<String> ids = new HashSet<>();
         int sources = 0;
         int writes = 0;
@@ -143,5 +147,31 @@ public record PipelineDefinition(
         if (edges.size() != nodes.size() - 1) {
             throw new IllegalArgumentException("First pipeline version must be a linear chain");
         }
+    }
+
+    private static void validateOrder(List<PipelineNode> nodes, List<PipelineEdge> edges) {
+        List<NodeType> expected = List.of(NodeType.SOURCE, NodeType.PARSE, NodeType.MAP,
+            NodeType.VALIDATE, NodeType.ENTITY_RESOLVE, NodeType.WRITE_OBSERVATION);
+        Map<String, PipelineNode> byId = new HashMap<>();
+        nodes.forEach(node -> byId.put(node.id(), node));
+        Map<String, String> next = new HashMap<>();
+        Set<String> targets = new HashSet<>();
+        for (PipelineEdge edge : edges) {
+            if (next.put(edge.from(), edge.to()) != null || !targets.add(edge.to())) {
+                throw new IllegalArgumentException("Pipeline cannot branch or merge");
+            }
+        }
+        String current = nodes.stream().filter(n -> n.type() == NodeType.SOURCE).findFirst().orElseThrow().id();
+        if (targets.contains(current)) throw new IllegalArgumentException("Source cannot have an incoming edge");
+        for (NodeType type : expected) {
+            PipelineNode node = byId.get(current);
+            if (node == null || node.type() != type) throw new IllegalArgumentException("Invalid host pipeline order");
+            if (!node.config().isEmpty() && (type != NodeType.MAP || node.config().size() != 1
+                || !Set.of("name", "host").contains(node.config().getOrDefault("displayNameField", "")))) {
+                throw new IllegalArgumentException("Unsupported pipeline configuration");
+            }
+            current = next.get(current);
+        }
+        if (current != null) throw new IllegalArgumentException("Pipeline cannot cycle");
     }
 }

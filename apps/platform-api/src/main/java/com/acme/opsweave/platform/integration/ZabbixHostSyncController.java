@@ -4,6 +4,11 @@ import com.acme.opsweave.identity.api.PrincipalContext;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.SyncOutcome;
 import com.acme.opsweave.integration.domain.SyncFailureCode;
+import com.acme.opsweave.platform.persistence.InventoryWiring;
+import com.acme.opsweave.platform.OpsweaveProperties;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -17,15 +22,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class ZabbixHostSyncController {
     private final PrincipalContext principalContext;
     private final IngestZabbixHostsUseCase ingest;
+    private final InventoryWiring wiring;
+    private final String source;
 
-    public ZabbixHostSyncController(PrincipalContext principalContext, IngestZabbixHostsUseCase ingest) {
+    public ZabbixHostSyncController(PrincipalContext principalContext, IngestZabbixHostsUseCase ingest, InventoryWiring wiring, OpsweaveProperties properties) {
         this.principalContext = principalContext;
         this.ingest = ingest;
+        this.wiring = wiring;
+        this.source = properties.zabbix().sourceInstanceId();
     }
 
     @PostMapping("/sync")
-    public ResponseEntity<?> sync() {
-        SyncOutcome outcome = ingest.execute(principalContext.requirePrincipal(), null);
+    public ResponseEntity<?> sync(HttpServletRequest request) throws IOException {
+        var input = PipelineJson.read(request, true);
+        if (input != null) PipelineJson.fields(input, Set.of("pipelineVersion"));
+        SyncOutcome outcome = ingest.execute(principalContext.requirePrincipal(), null,
+            input == null ? null : PipelineJson.ref(input.get("pipelineVersion")));
         return switch (outcome.kind()) {
             case DENIED -> ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
             case UNAVAILABLE -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(unavailable(outcome));
@@ -33,7 +45,7 @@ public class ZabbixHostSyncController {
         };
     }
 
-    private static Map<String, Object> body(SyncOutcome outcome) {
+    private Map<String, Object> body(SyncOutcome outcome) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("fetched", outcome.fetched());
         body.put("accepted", outcome.accepted());
@@ -46,6 +58,8 @@ public class ZabbixHostSyncController {
         body.put("scanConsistency", outcome.scanConsistency());
         if (outcome.syncRunId() != null) {
             body.put("syncRunId", outcome.syncRunId().toString());
+            wiring.pipelines().pinned(principalContext.requirePrincipal().tenantId(), source, outcome.syncRunId())
+                .ifPresent(version -> body.put("pipelineVersion", version));
         }
         return body;
     }

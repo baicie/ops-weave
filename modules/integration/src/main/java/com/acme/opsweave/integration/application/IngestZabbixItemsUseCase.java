@@ -6,16 +6,19 @@ import com.acme.opsweave.identity.domain.Permission;
 import com.acme.opsweave.identity.domain.Principal;
 import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.integration.api.Connector;
+import com.acme.opsweave.integration.api.SourceItemWritePort;
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.RawRecordCollector;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.SyncOutcome;
 import com.acme.opsweave.integration.domain.MappingRegistry;
 import com.acme.opsweave.integration.domain.SyncFailureCode;
 import com.acme.opsweave.integration.domain.SyncRun;
+import com.acme.opsweave.integration.domain.SyncScan;
 import com.acme.opsweave.integration.domain.SyncStatus;
 import com.acme.opsweave.integration.domain.ZabbixItemMapper;
+import com.acme.opsweave.inventory.api.InventoryWritePort;
+import com.acme.opsweave.inventory.domain.SourceScan;
 import com.acme.opsweave.sharedkernel.TenantId;
-import com.acme.opsweave.telemetry.api.MetricDefinitionStore;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,7 +37,8 @@ public final class IngestZabbixItemsUseCase {
     private static final int MAX_PAGES = 10_000;
     private final AuthorizationService authorization;
     private final Connector connector;
-    private final MetricDefinitionStore definitions;
+    private final InventoryWritePort inventory;
+    private final SourceItemWritePort items;
     private final RawRecordCollector rawRecords;
     private final SyncRunStore syncRuns;
     private final ZabbixItemMapper mapper;
@@ -48,7 +52,8 @@ public final class IngestZabbixItemsUseCase {
         AuthorizationService authorization,
         Connector connector,
         MappingRegistry mappings,
-        MetricDefinitionStore definitions,
+        InventoryWritePort inventory,
+        SourceItemWritePort items,
         RawRecordCollector rawRecords,
         SyncRunStore syncRuns,
         String dataMode,
@@ -60,7 +65,8 @@ public final class IngestZabbixItemsUseCase {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.connector = Objects.requireNonNull(connector, "connector");
         this.mapper = new ZabbixItemMapper(mappings);
-        this.definitions = Objects.requireNonNull(definitions, "definitions");
+        this.inventory = Objects.requireNonNull(inventory, "inventory");
+        this.items = Objects.requireNonNull(items, "items");
         this.rawRecords = Objects.requireNonNull(rawRecords, "rawRecords");
         this.syncRuns = Objects.requireNonNull(syncRuns, "syncRuns");
         this.dataMode = Objects.requireNonNull(dataMode, "dataMode");
@@ -106,10 +112,17 @@ public final class IngestZabbixItemsUseCase {
         Set<String> observedExternalIds = new LinkedHashSet<>();
         List<String> rejectionReasons = new ArrayList<>();
         SyncFailureCode failure = SyncFailureCode.SOURCE_FETCH_FAILED;
+        SourceScan.Token scan = null;
+        String scanConsistency = SyncScan.OFFSET_ATTEMPT;
         try {
+            failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
+            scan = inventory.beginScan(new SourceScan.Scope(principal.tenantId(), sourceInstanceId, "item"), run.id());
             while (pages < MAX_PAGES) {
+                failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
+                inventory.renewScan(scan);
                 failure = SyncFailureCode.SOURCE_FETCH_FAILED;
                 Connector.Page page = connector.fetch(context, cursor, pageSize);
+                scanConsistency = page.scanConsistency();
                 pages++;
                 for (Connector.RawRecord record : page.records()) {
                     fetched++;
@@ -127,23 +140,33 @@ public final class IngestZabbixItemsUseCase {
                     }
                     var mapped = mapper.map(principal.tenantId(), sourceInstanceId, record.payload());
                     failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-                    definitions.upsert(mapped.definition());
-                    definitions.upsert(mapped.binding());
+                    items.upsert(scan, mapped.definition(), mapped.binding());
                     accepted++;
                 }
                 String next = page.nextCursor();
                 failure = SyncFailureCode.CHECKPOINT_FAILED;
                 syncRuns.checkpoint(principal.tenantId(), run.id(), next, pages, fetched, accepted, rejected);
                 if (page.snapshotComplete()) {
+                    if (!SyncScan.verified(scanConsistency)) {
+                        // A completed walk without a proven bound may not retire anything.
+                        failure = SyncFailureCode.SOURCE_SCAN_UNVERIFIED;
+                        throw new IllegalStateException(failure.name());
+                    }
                     failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-                    int retired = definitions.retireMissing(principal.tenantId(), sourceInstanceId, observedExternalIds);
+                    int retired = items.retireMissing(scan, observedExternalIds);
                     failure = SyncFailureCode.CHECKPOINT_FAILED;
-                    syncRuns.succeed(principal.tenantId(), run.id());
+                    syncRuns.succeed(principal.tenantId(), run.id(), scanConsistency);
                     return SyncOutcome.completed(
-                        run.id(), pages, fetched, accepted, rejected, retired, dataMode, inventoryStore, List.copyOf(rejectionReasons)
+                        run.id(), pages, fetched, accepted, rejected, retired, dataMode, inventoryStore,
+                        List.copyOf(rejectionReasons), scanConsistency
                     );
                 }
-                if (next == null || next.equals(cursor)) {
+                if (next == null) {
+                    // The walk ended without proving a snapshot: nothing may be reconciled from it.
+                    failure = SyncFailureCode.SOURCE_SCAN_UNVERIFIED;
+                    throw new IllegalStateException(failure.name());
+                }
+                if (next.equals(cursor)) {
                     failure = SyncFailureCode.PAGE_NOT_ADVANCED;
                     throw new IllegalStateException(failure.name());
                 }
@@ -152,17 +175,28 @@ public final class IngestZabbixItemsUseCase {
             failure = SyncFailureCode.PAGE_LIMIT_EXCEEDED;
             throw new IllegalStateException(failure.name());
         } catch (RuntimeException failed) {
+            if (failed instanceof SourceScan.Failure fenced) failure = switch (fenced.code()) {
+                case BUSY -> SyncFailureCode.SOURCE_SCAN_BUSY;
+                case LOST -> SyncFailureCode.SOURCE_SCAN_LOST;
+                case DEADLINE -> SyncFailureCode.SOURCE_SCAN_DEADLINE;
+                case LIMIT -> SyncFailureCode.SOURCE_SCAN_LIMIT;
+            };
             LOG.log(Level.WARNING, "Zabbix item sync failed: " + failure.name(), failed);
-            failQuietly(principal.tenantId(), run.id(), failure);
-            return SyncOutcome.failed(failure, run.id(), pages, fetched, accepted, rejected);
+            try { syncRuns.checkpoint(principal.tenantId(), run.id(), cursor, pages, fetched, accepted, rejected); }
+            catch (RuntimeException ignored) { /* Preserve the original failure. */ }
+            failQuietly(principal.tenantId(), run.id(), failure, scanConsistency);
+            return SyncOutcome.failed(failure, run.id(), pages, fetched, accepted, rejected, scanConsistency);
+        } finally {
+            if (scan != null) try { inventory.releaseScan(scan); }
+            catch (RuntimeException ignored) { /* Expiry permits recovery; never release another owner. */ }
         }
     }
 
-    private void failQuietly(TenantId tenantId, UUID id, SyncFailureCode failure) {
+    private void failQuietly(TenantId tenantId, UUID id, SyncFailureCode failure, String scanConsistency) {
         try {
             SyncRun current = syncRuns.find(tenantId, id).orElse(null);
             if (current != null && current.status() == SyncStatus.RUNNING) {
-                syncRuns.fail(tenantId, id, failure.storedReason());
+                syncRuns.fail(tenantId, id, failure.storedReason(), scanConsistency);
             }
         } catch (RuntimeException ignored) {
             // The scan already failed; do not turn a status write into a reconcile.

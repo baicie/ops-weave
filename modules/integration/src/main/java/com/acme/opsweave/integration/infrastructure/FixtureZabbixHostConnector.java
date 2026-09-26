@@ -1,12 +1,14 @@
 package com.acme.opsweave.integration.infrastructure;
 
 import com.acme.opsweave.integration.api.Connector;
+import com.acme.opsweave.integration.domain.SyncScan;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Explicitly labeled fixture. Must be selected by configuration; live JSON-RPC never falls back here.
+ * The list is immutable, so a completed walk over it is the whole fixture snapshot.
  */
 public final class FixtureZabbixHostConnector implements Connector {
     @Override
@@ -36,7 +38,12 @@ public final class FixtureZabbixHostConnector implements Connector {
         }
         int end = Math.min(offset + bounded, records.size());
         boolean complete = end >= records.size();
-        return new Page(List.copyOf(records.subList(offset, end)), complete ? null : Integer.toString(end), complete);
+        return new Page(
+            List.copyOf(records.subList(offset, end)),
+            complete ? null : Integer.toString(end),
+            complete,
+            SyncScan.HOSTID_WATERMARK
+        );
     }
 
     private static Map<String, Object> host(String hostId, String host, String name, String status, String ip) {

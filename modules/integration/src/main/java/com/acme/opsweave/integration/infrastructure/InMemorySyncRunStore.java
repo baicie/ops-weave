@@ -2,9 +2,13 @@ package com.acme.opsweave.integration.infrastructure;
 
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.domain.SyncRun;
+import com.acme.opsweave.integration.domain.SyncRunCursor;
+import com.acme.opsweave.integration.domain.SyncScan;
 import com.acme.opsweave.integration.domain.SyncStatus;
 import com.acme.opsweave.sharedkernel.TenantId;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +34,8 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             0,
             false,
             dataMode,
-            null
+            null,
+            SyncScan.OFFSET_ATTEMPT
         );
         runs.put(run.id(), run);
         return run;
@@ -62,12 +67,13 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             rejected,
             false,
             current.dataMode(),
-            null
+            null,
+            current.scanConsistency()
         ));
     }
 
     @Override
-    public void succeed(TenantId tenantId, UUID id) {
+    public void succeed(TenantId tenantId, UUID id, String scanConsistency) {
         SyncRun current = required(tenantId, id);
         runs.put(id, new SyncRun(
             current.id(),
@@ -84,12 +90,13 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             current.rejected(),
             true,
             current.dataMode(),
-            null
+            null,
+            scanConsistency
         ));
     }
 
     @Override
-    public void fail(TenantId tenantId, UUID id, String reason) {
+    public void fail(TenantId tenantId, UUID id, String reason, String scanConsistency) {
         SyncRun current = required(tenantId, id);
         String text = reason == null || reason.isBlank() ? "failed" : reason;
         if (text.length() > 200) {
@@ -110,7 +117,8 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             current.rejected(),
             false,
             current.dataMode(),
-            text
+            text,
+            scanConsistency
         ));
     }
 
@@ -121,6 +129,34 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             return Optional.empty();
         }
         return Optional.of(run);
+    }
+
+    @Override
+    public List<SyncRun> recent(
+        TenantId tenantId,
+        String sourceInstanceId,
+        String objectType,
+        SyncRunCursor after,
+        int limit
+    ) {
+        if (limit < 1 || limit > MAX_RECENT) {
+            throw new IllegalArgumentException("Invalid run limit");
+        }
+        return runs.values().stream()
+            .filter(run -> run.tenantId().equals(tenantId)
+                && run.sourceInstanceId().equals(sourceInstanceId)
+                && run.objectType().equals(objectType))
+            .filter(run -> after == null || precedes(run, after))
+            .sorted(Comparator.comparing(SyncRun::startedAt).reversed()
+                .thenComparing(SyncRun::id, Comparator.reverseOrder()))
+            .limit(limit + 1L)
+            .toList();
+    }
+
+    /** True when the run sorts after the cursor in the newest-first order. */
+    private static boolean precedes(SyncRun run, SyncRunCursor after) {
+        int byStart = run.startedAt().compareTo(after.startedAt());
+        return byStart < 0 || (byStart == 0 && run.id().compareTo(after.id()) < 0);
     }
 
     private SyncRun required(TenantId tenantId, UUID id) {

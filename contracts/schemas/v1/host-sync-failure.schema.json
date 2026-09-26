@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/contracts/v1/host-sync-failure.schema.json",
+  "title": "Host scan unavailable response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error", "pages", "fetched", "accepted", "rejected", "snapshotComplete"],
+  "properties": {
+    "error": {"const": "source_unavailable"},
+    "pages": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "fetched": {"type": "integer", "minimum": 0, "maximum": 5000000},
+    "accepted": {"type": "integer", "minimum": 0, "maximum": 5000000},
+    "rejected": {"type": "integer", "minimum": 0, "maximum": 5000000},
+    "snapshotComplete": {"const": false},
+    "scanConsistency": {"enum": ["offset-scan-attempt", "hostid-watermark-snapshot", "itemid-watermark-snapshot"]},
+    "syncRunId": {"type": "string", "format": "uuid"},
+    "failureCode": {"enum": ["SOURCE_SCAN_BUSY", "SOURCE_SCAN_LOST", "SOURCE_SCAN_DEADLINE", "SOURCE_SCAN_LIMIT", "SOURCE_SCAN_UNVERIFIED", "SOURCE_FETCH_FAILED", "RAW_PERSIST_FAILED", "MAPPING_FAILED", "INVENTORY_WRITE_FAILED", "CHECKPOINT_FAILED", "PAGE_NOT_ADVANCED", "PAGE_LIMIT_EXCEEDED"]},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 256}
+  },
+  "dependentRequired": {
+    "failureCode": ["summary", "syncRunId", "scanConsistency"],
+    "summary": ["failureCode"],
+    "syncRunId": ["failureCode"]
+  }
+}

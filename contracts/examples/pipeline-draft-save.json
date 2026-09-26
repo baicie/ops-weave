@@ -1,0 +1,68 @@
+{
+  "definition": {
+    "nodes": [
+      {
+        "config": {},
+        "id": "source",
+        "type": "Source"
+      },
+      {
+        "config": {},
+        "id": "parse",
+        "type": "Parse"
+      },
+      {
+        "config": {
+          "displayNameField": "host"
+        },
+        "id": "map",
+        "type": "Map"
+      },
+      {
+        "config": {},
+        "id": "validate",
+        "type": "Validate"
+      },
+      {
+        "config": {},
+        "id": "resolve",
+        "type": "EntityResolve"
+      },
+      {
+        "config": {},
+        "id": "write",
+        "type": "WriteObservation"
+      }
+    ],
+    "revision": 2,
+    "id": "http-host",
+    "errorPolicy": "failFast",
+    "source": {
+      "type": "zabbix",
+      "objectType": "host"
+    },
+    "edges": [
+      {
+        "from": "source",
+        "to": "parse"
+      },
+      {
+        "from": "parse",
+        "to": "map"
+      },
+      {
+        "from": "map",
+        "to": "validate"
+      },
+      {
+        "from": "validate",
+        "to": "resolve"
+      },
+      {
+        "from": "resolve",
+        "to": "write"
+      }
+    ]
+  },
+  "expectedEditVersion": 0
+}

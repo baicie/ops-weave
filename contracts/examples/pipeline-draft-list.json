@@ -1,0 +1,15 @@
+{
+  "storage": "memory",
+  "items": [
+    {
+      "target": {
+        "id": "http-host",
+        "revision": 2,
+        "digest": "sha256:548f66be6988f58eb7e7c8c949ece9439fd68b7df6ffa31abf827a6fe8462857"
+      },
+      "editVersion": 1,
+      "updatedAt": "2026-09-25T00:00:00Z"
+    }
+  ],
+  "truncated": false
+}

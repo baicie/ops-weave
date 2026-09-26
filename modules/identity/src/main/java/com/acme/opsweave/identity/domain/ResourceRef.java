@@ -36,4 +36,12 @@ public record ResourceRef(TenantId tenantId, String type, String id) {
     public static ResourceRef anyMetric(TenantId tenantId) {
         return new ResourceRef(tenantId, "metric", "*");
     }
+
+    public static ResourceRef incident(TenantId tenantId, java.util.UUID id) {
+        return new ResourceRef(tenantId, "incident", id.toString());
+    }
+
+    public static ResourceRef anyIncident(TenantId tenantId) {
+        return new ResourceRef(tenantId, "incident", "*");
+    }
 }

@@ -1,0 +1,68 @@
+{
+  "storage": "postgres",
+  "record": {
+    "schemaVersion": "1.0",
+    "knowledgeMode": "current",
+    "id": "ca930ed8-5bb7-42e6-98d1-d1cc9394c5ac",
+    "tenantId": "tenant-example",
+    "subjectId": "reader-example",
+    "sessionId": "c306fb10-234e-4ca8-ae7b-74b133fb0672",
+    "incidentId": "26933d69-22f2-40fc-9e5b-d0b8e988f933",
+    "incidentVersion": 2,
+    "queryWindow": {
+      "from": "2026-09-25T06:45:00Z",
+      "to": "2026-09-25T07:00:00Z"
+    },
+    "question": "Summarize available Incident evidence.",
+    "asOf": "2026-09-25T07:00:03Z",
+    "builtAt": "2026-09-25T07:00:03Z",
+    "completedAt": "2026-09-25T07:00:04Z",
+    "savedAt": "2026-09-25T07:00:05Z",
+    "expiresAt": "2026-09-26T07:00:01Z",
+    "skill": {
+      "id": "incident.diagnose",
+      "version": "2.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "model": {
+      "provider": "mock-deterministic",
+      "name": "mock-current-v1"
+    },
+    "evidenceIds": [
+      "aabc2369-389e-418c-992f-8ef9e6d8ac02",
+      "14345e44-5dc2-48f8-a20f-4ce1cbb357fd"
+    ],
+    "entityIds": [],
+    "dataModes": [
+      "labeled-fixture"
+    ],
+    "warnings": [
+      "CURRENT_KNOWLEDGE_ONLY",
+      "LOGS_NOT_CONNECTED",
+      "CHANGES_NOT_CONNECTED",
+      "METRIC_INGEST_TIME_UNAVAILABLE"
+    ],
+    "insight": {
+      "summary": "Explicit fixture example; insufficient evidence for a root cause.",
+      "findings": [
+        {
+          "kind": "observation",
+          "statement": "The fixture Incident is being investigated.",
+          "evidenceRefs": [
+            "aabc2369-389e-418c-992f-8ef9e6d8ac02"
+          ]
+        }
+      ],
+      "missingData": [
+        "CURRENT_KNOWLEDGE_ONLY",
+        "LOGS_NOT_CONNECTED",
+        "CHANGES_NOT_CONNECTED",
+        "METRIC_INGEST_TIME_UNAVAILABLE"
+      ],
+      "limitations": [
+        "Deterministic mock; no model inference. Reference integrity is not causal proof."
+      ]
+    },
+    "verification": "reference_integrity_only"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timeRange": {
+      "$ref": "tool-time-window.schema.json"
+    },
+    "knowledgeMode": {
+      "const": "current"
+    }
+  },
+  "required": [
+    "incidentId",
+    "timeRange",
+    "knowledgeMode"
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_.:-]{1,128}$"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "externalType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "externalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "generation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "ingestedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "fields": {
+      "type": "object",
+      "maxProperties": 256
+    },
+    "rawRecordRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "mappingRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timePrecision": {
+      "enum": [
+        "nanoseconds",
+        "legacy-microseconds"
+      ]
+    },
+    "gaps": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "PROJECTION_FIELDS_UNAVAILABLE",
+          "SOURCE_MODE_UNAVAILABLE"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "tenantId",
+    "entityId",
+    "sourceInstanceId",
+    "externalType",
+    "externalId",
+    "generation",
+    "observedAt",
+    "ingestedAt",
+    "fields",
+    "rawRecordRef",
+    "mappingRevision",
+    "timePrecision",
+    "gaps"
+  ]
+}

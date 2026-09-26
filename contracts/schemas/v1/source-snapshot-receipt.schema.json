@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source-snapshot-receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "const": "postgres"
+    },
+    "dataMode": {
+      "const": "import"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]{1,128}(?![\\s\\S])"
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}(?![\\s\\S])"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z(?![\\s\\S])"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "externalId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+              },
+              "assetUuid": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])"
+              },
+              "values": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+                  },
+                  "ip": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+                  }
+                }
+              }
+            },
+            "required": [
+              "externalId",
+              "assetUuid",
+              "values"
+            ]
+          }
+        }
+      },
+      "required": [
+        "requestId",
+        "observedAt",
+        "complete",
+        "records"
+      ]
+    },
+    "ingestedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z(?![\\s\\S])"
+    },
+    "mappingDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "engine": {
+      "const": "registered-cmdb-snapshot-v1"
+    },
+    "markedAbsent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "resolved": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "externalId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+          },
+          "entityId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
+          },
+          "identity": {
+            "$ref": "asset-identity-pin.schema.json"
+          },
+          "reviewId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
+          },
+          "entityVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "externalId",
+          "entityId",
+          "identity",
+          "reviewId",
+          "entityVersion"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "storage",
+    "dataMode",
+    "tenantId",
+    "actor",
+    "sourceInstanceId",
+    "namespace",
+    "input",
+    "ingestedAt",
+    "mappingDigest",
+    "engine",
+    "markedAbsent",
+    "resolved"
+  ]
+}

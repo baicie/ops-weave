@@ -100,7 +100,8 @@ public final class ZabbixItemMappingSmoke {
         require(outcome.accepted() == 1, "only the mapped cpu item is accepted");
         require(outcome.rejected() == 1, "unmapped item is rejected");
         require(outcome.retired() == 1, "absent item binding retires");
-        require("offset-scan-attempt".equals(outcome.scanConsistency()), "item scan is an offset attempt");
+        require("itemid-watermark-snapshot".equals(outcome.scanConsistency()),
+            "the fixture item walk completes as a bounded itemid-watermark snapshot");
         require(lifecycle(definitions, tenant, "20001") == MetricLifecycle.ACTIVE, "mapped item stays active");
         require(lifecycle(definitions, tenant, "20002") == MetricLifecycle.ACTIVE, "present unmapped item is not retired");
         require(lifecycle(definitions, tenant, "29999") == MetricLifecycle.INACTIVE, "missing item becomes inactive");
@@ -133,11 +134,13 @@ public final class ZabbixItemMappingSmoke {
     private static IngestZabbixItemsUseCase ingest(
         MappingRegistry mappings, Connector connector, InMemoryMetricDefinitionStore definitions, int pageSize
     ) {
+        var inventory = new com.acme.opsweave.inventory.infrastructure.InMemoryInventoryStore();
         return new IngestZabbixItemsUseCase(
             new AuthorizeUseCase(),
             connector,
             mappings,
-            definitions,
+            inventory,
+            new com.acme.opsweave.integration.infrastructure.InMemorySourceItemWrites(inventory, definitions),
             new InMemoryRawRecordStore(),
             new InMemorySyncRunStore(),
             "labeled-fixture",

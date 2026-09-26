@@ -29,6 +29,9 @@ public final class ResourceScope {
         return tenantWide;
     }
 
+    /** Immutable trusted allow-list; callers must still match tenant and resource type. */
+    public Set<ResourceRef> allowedResources() { return allowed; }
+
     public boolean includes(ResourceRef resource) {
         Objects.requireNonNull(resource, "resource");
         if (tenantWide) {

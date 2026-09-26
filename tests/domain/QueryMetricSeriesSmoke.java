@@ -2,6 +2,7 @@ import com.acme.opsweave.identity.application.AuthorizeUseCase;
 import com.acme.opsweave.identity.domain.Permission;
 import com.acme.opsweave.identity.domain.Principal;
 import com.acme.opsweave.identity.domain.ResourceScope;
+import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.identity.domain.SubjectId;
 import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
@@ -58,7 +59,20 @@ public final class QueryMetricSeriesSmoke {
         }
         var future = useCase.query(reader, entity, "host.cpu.usage.user", 1_000, 9_000, 100);
         if (future.kind() != QueryMetricSeriesUseCase.Result.Kind.INVALID) throw new AssertionError("Future window");
-        System.out.println("QueryMetricSeriesSmoke: 6 checks passed");
+        for (var scope : List.of(ResourceScope.of(Set.of(ResourceRef.entity(tenant, entity))),
+            ResourceScope.of(Set.of(ResourceRef.metric(tenant, "host.cpu.usage.user"))))) {
+            var scoped = new Principal(new SubjectId("user-demo"), tenant, reader.permissions(), scope);
+            if (useCase.query(scoped, entity, "host.cpu.usage.user", 1_000, 1_600, 100).kind()
+                != QueryMetricSeriesUseCase.Result.Kind.FORBIDDEN || calls.get() != 1) {
+                throw new AssertionError("Both entity and metric object scopes are required before storage access");
+            }
+        }
+        var other = new Principal(new SubjectId("other-user"), new TenantId("other-tenant"), reader.permissions(), ResourceScope.tenantWide());
+        if (useCase.query(other, entity, "host.cpu.usage.user", 1_000, 1_600, 100).kind()
+            != QueryMetricSeriesUseCase.Result.Kind.NOT_FOUND || calls.get() != 1) {
+            throw new AssertionError("Cross-tenant catalog lookup must not reach storage");
+        }
+        System.out.println("QueryMetricSeriesSmoke: 9 checks passed");
     }
 
     private static Principal principal(Set<Permission> permissions) {

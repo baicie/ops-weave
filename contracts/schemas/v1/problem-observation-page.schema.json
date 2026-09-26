@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "query": {
+      "$ref": "problem-observation-query.schema.json"
+    },
+    "coverage": {
+      "const": "retained-normalized-current-ownership"
+    },
+    "gaps": {
+      "const": [
+        "PRE_RETENTION_HISTORY_UNAVAILABLE",
+        "VENDOR_RAW_PAYLOAD_NOT_RETAINED"
+      ]
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "$ref": "problem-observation.schema.json"
+      }
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "storage",
+    "incidentId",
+    "query",
+    "coverage",
+    "gaps",
+    "items",
+    "nextCursor"
+  ]
+}

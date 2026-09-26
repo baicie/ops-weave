@@ -21,7 +21,8 @@ public record SyncRun(
     int rejected,
     boolean snapshotComplete,
     String dataMode,
-    String failureReason
+    String failureReason,
+    String scanConsistency
 ) {
     public SyncRun {
         Objects.requireNonNull(id, "id");
@@ -31,6 +32,9 @@ public record SyncRun(
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(startedAt, "startedAt");
         Objects.requireNonNull(dataMode, "dataMode");
+        if (scanConsistency == null || !scanConsistency.matches("[a-z][a-z0-9-]{0,63}")) {
+            throw new IllegalArgumentException("Invalid scan consistency");
+        }
         if (pages < 0 || fetched < 0 || accepted < 0 || rejected < 0) {
             throw new IllegalArgumentException("Sync counters cannot be negative");
         }

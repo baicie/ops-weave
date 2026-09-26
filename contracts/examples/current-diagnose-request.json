@@ -1,0 +1,10 @@
+{
+  "runId": "ca930ed8-5bb7-42e6-98d1-d1cc9394c5ac",
+  "incidentId": "26933d69-22f2-40fc-9e5b-d0b8e988f933",
+  "question": "Summarize available Incident evidence.",
+  "timeRange": {
+    "from": "2026-09-25T06:45:00Z",
+    "to": "2026-09-25T07:00:00Z"
+  },
+  "knowledgeMode": "current"
+}
