@@ -1204,7 +1204,7 @@ ToolExecutorTest > ordinaryFailuresReleaseCapacityAndPreserveSanitizedFailureTyp
 | 检查 | 实际命令 / 方法 | 最终结果与边界 |
 |---|---|---|
 | 四个 job（`c2739b8`） | GitHub Actions `opsweave-template` | **contracts 28s、rust 1m45s、web 2m28s、java 2m36s 全绿**；java 210 tests 0 failed（含新增 `PostgresScanRunRetentionIT` 4 项），web 含 Playwright 全量 |
-| deploy job | 同一 run 的 `deploy`（四 job 全绿后才启动） | 镜像构建阶段已通过（Dockerfile 修正生效）；主机部署步骤为 `docker save` 四个镜像经 SSH 流式加载 + compose 起栈 + 四个健康检查，**在本机观测窗口内仍在运行**，因此本节不声称部署成功——部署结果以该 job 的最终状态为准 |
+| deploy job | 同一 run 的 `deploy`（四 job 全绿后才启动） | 镜像构建阶段**已通过**（Dockerfile 修正生效）；主机部署步骤在 `Streaming images to 82.156.234.84` 之后停住，直到 job 的 90 分钟上限被取消（`in 1h30m15s`，`conclusion: cancelled`）。因此本轮**没有完成部署**，也不声称部署成功：卡点在 `docker save 四个镜像 \| gzip \| ssh "gunzip \| docker load"` 这一段，属于部署通道本身（镜像体积/带宽/远端加载），与本轮代码无关，改动 Dockerfile 前它甚至到不了这一步 |
 | 本机 | 无 PostgreSQL/Playwright 环境（Docker Desktop 未运行、pip 与直连网络不可用） | 只跑了纯领域与 Web typecheck；契约/Java/Playwright 全部按 CI 真实结果记录，未在本机复跑 |
 
-M2–M4 与 MVP 估算不变（两处都是构建/测试缺陷，不改变产品能力）。这两个缺陷说明“本机全绿”不等于“可交付”：CI 与镜像构建覆盖了本机无法执行的部分，本轮把它们的真实结果留在这里而不是留在口头结论里。
+M2–M4 与 MVP 估算不变（两处都是构建/测试缺陷，不改变产品能力）。这两个缺陷说明“本机全绿”不等于“可交付”：CI 与镜像构建覆盖了本机无法执行的部分，本轮把它们的真实结果留在这里而不是留在口头结论里。部署通道的卡点（第55节 deploy 记录）需要单独处理：它是镜像分发方式的问题，不属于 M0–M4 退出门槛，也不改变本次四个 job 的结论。
