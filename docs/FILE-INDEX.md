@@ -99,11 +99,13 @@ apps/web-console/playwright.config.ts
 apps/web-console/src/adapters/agent-console/README.md
 apps/web-console/src/adapters/agent-console/types.ts
 apps/web-console/src/adapters/charts/README.md
-apps/web-console/src/adapters/zeus-ui/ZwButton.tsx
-apps/web-console/src/adapters/zeus-ui/ZwInput.tsx
-apps/web-console/src/adapters/zeus-ui/events.ts
-apps/web-console/src/adapters/zeus-ui/for-item.ts
-apps/web-console/src/adapters/zeus-ui/register.ts
+apps/web-console/components.json
+apps/web-console/src/components/ui/badge.tsx
+apps/web-console/src/components/ui/button.tsx
+apps/web-console/src/components/ui/input.tsx
+apps/web-console/src/components/ui/textarea.tsx
+apps/web-console/src/lib/utils.ts
+apps/web-console/src/styles/globals.css
 apps/web-console/src/api/diagnoses.ts
 apps/web-console/src/api/entities.ts
 apps/web-console/src/app/App.tsx
@@ -188,6 +190,7 @@ docs/adr/009-storage-portability.md
 docs/adr/010-metrics-semantics.md
 docs/adr/011-rust-agent-runtime.md
 docs/adr/012-zeus-web-console.md
+docs/adr/059-react-shadcn-console.md
 docs/adr/013-trusted-identity.md
 docs/adr/014-postgres-host-sync.md
 docs/adr/015-metric-definition.md

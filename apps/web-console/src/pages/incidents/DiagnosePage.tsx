@@ -1,46 +1,56 @@
-import { createSignal, For, onCleanup, Show } from '@zeus-js/zeus'
-import { forItem } from '../../adapters/zeus-ui/for-item.ts'
-import { ZwButton } from '../../adapters/zeus-ui/ZwButton.tsx'
-import { ZwInput } from '../../adapters/zeus-ui/ZwInput.tsx'
+import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { createDiagnosis, type DiagnoseResult } from '../../api/diagnoses.ts'
 
 export function DiagnosePage() {
-  const [token, setToken] = createSignal('')
-  const [question, setQuestion] = createSignal('为什么订单服务延迟升高？')
-  const [busy, setBusy] = createSignal(false)
-  const [error, setError] = createSignal('')
-  const [result, setResult] = createSignal<DiagnoseResult | null>(null)
-  let abort: AbortController | undefined
-  let disposed = false
-  let requestId = 0
-  function identity(value: string) { abort?.abort(); ++requestId; setBusy(false); setError(''); setResult(null); setToken(value) }
-  const leave = () => { identity(''); setQuestion('为什么订单服务延迟升高？') }
-  window.addEventListener('pagehide', leave)
+  const [token, setToken] = useState('')
+  const [question, setQuestion] = useState('为什么订单服务延迟升高？')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<DiagnoseResult | null>(null)
+  const abortRef = useRef<AbortController | undefined>(undefined)
+  const disposedRef = useRef(false)
+  const requestIdRef = useRef(0)
 
-  onCleanup(() => {
-    disposed = true
-    abort?.abort()
-    window.removeEventListener('pagehide', leave)
-  })
+  function identity(value: string) {
+    abortRef.current?.abort()
+    ++requestIdRef.current
+    setBusy(false)
+    setError('')
+    setResult(null)
+    setToken(value)
+  }
+
+  useEffect(() => {
+    const leave = () => { identity(''); setQuestion('为什么订单服务延迟升高？') }
+    window.addEventListener('pagehide', leave)
+    return () => {
+      disposedRef.current = true
+      abortRef.current?.abort()
+      window.removeEventListener('pagehide', leave)
+    }
+  }, [])
 
   async function diagnose() {
-    abort?.abort()
-    abort = new AbortController()
-    const currentRequest = ++requestId
-    const timeout = window.setTimeout(() => abort?.abort(), 35000)
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    const currentRequest = ++requestIdRef.current
+    const timeout = window.setTimeout(() => abortRef.current?.abort(), 35000)
     setBusy(true)
     setError('')
     setResult(null)
     try {
       const value = await createDiagnosis({
-        token: token(),
-        question: question(),
-        signal: abort.signal,
+        token,
+        question,
+        signal: abortRef.current.signal,
       })
-      if (disposed || currentRequest !== requestId) return
+      if (disposedRef.current || currentRequest !== requestIdRef.current) return
       setResult(value)
     } catch (cause) {
-      if (disposed || currentRequest !== requestId) return
+      if (disposedRef.current || currentRequest !== requestIdRef.current) return
       if (cause instanceof DOMException && cause.name === 'AbortError') {
         setError('诊断已取消或超时')
       } else {
@@ -48,12 +58,12 @@ export function DiagnosePage() {
       }
     } finally {
       window.clearTimeout(timeout)
-      if (!disposed && currentRequest === requestId) setBusy(false)
+      if (!disposedRef.current && currentRequest === requestIdRef.current) setBusy(false)
     }
   }
 
   function cancel() {
-    abort?.abort()
+    abortRef.current?.abort()
   }
 
   function scrollToEvidence(id: string) {
@@ -61,43 +71,42 @@ export function DiagnosePage() {
   }
 
   return (
-    <section class="panel" data-page="diagnose">
+    <section className="panel" data-page="diagnose">
       <h2>只读诊断 Demo</h2>
       <p>使用固定的合成故障数据，不查询真实 Zabbix，也不执行生产动作。先在本机启动 Rust Demo。</p>
       <label>
         开发 Token（仅保存在当前页面内存）
-        <ZwInput
+        <Input
           type="password"
-          autocomplete="off"
-          value={token()}
-          onValueChange={identity}
+          autoComplete="off"
+          value={token}
+          onChange={event => identity(event.currentTarget.value)}
         />
       </label>
       <label>
         问题
-        <textarea
-          maxlength={2000}
-          prop:value={question()}
-          onInput={event => setQuestion((event.currentTarget as HTMLTextAreaElement).value)}
+        <Textarea
+          maxLength={2000}
+          value={question}
+          onChange={event => setQuestion(event.currentTarget.value)}
         />
       </label>
-      <div class="actions">
-        <ZwButton
-          variant="primary"
-          disabled={busy() || token().length < 32 || !question().trim()}
-          loading={busy()}
-          onPress={() => { void diagnose() }}
+      <div className="actions">
+        <Button
+          variant="default"
+          disabled={busy || token.length < 32 || !question.trim()}
+          onClick={() => { void diagnose() }}
         >
-          {busy() ? '正在诊断…' : '运行只读诊断'}
-        </ZwButton>
-        <ZwButton variant="outline" disabled={!busy()} onPress={cancel}>
+          {busy ? '正在诊断…' : '运行只读诊断'}
+        </Button>
+        <Button variant="outline" disabled={!busy} onClick={cancel}>
           取消
-        </ZwButton>
+        </Button>
       </div>
-      <p role="alert">{error()}</p>
-      <Show when={result()}>
-        <DiagnoseResultView result={result() as DiagnoseResult} onEvidence={scrollToEvidence} />
-      </Show>
+      <p role="alert">{error}</p>
+      {result ? (
+        <DiagnoseResultView result={result} onEvidence={scrollToEvidence} />
+      ) : null}
     </section>
   )
 }
@@ -112,13 +121,13 @@ function DiagnoseResultView(props: {
       <p>
         <code>{`${props.result.dataMode} / ${props.result.modelProvider}`}</code>
       </p>
-      <For each={props.result.insight.findings}>
-        {row => <FindingView finding={forItem(row)} onEvidence={props.onEvidence} />}
-      </For>
+      {props.result.insight.findings.map((finding, index) => (
+        <FindingView key={`${finding.kind}-${index}`} finding={finding} onEvidence={props.onEvidence} />
+      ))}
       <h3>证据（合成数据）</h3>
-      <For each={props.result.context.evidence}>
-        {row => <EvidenceView item={forItem(row)} />}
-      </For>
+      {props.result.context.evidence.map(item => (
+        <EvidenceView key={item.id} item={item} />
+      ))}
       <h3>缺少的数据</h3>
       <p>{props.result.insight.missingData.join('；')}</p>
       <h3>限制</h3>
@@ -137,9 +146,9 @@ function FindingView(props: {
       <b>{props.finding.kind === 'hypothesis' ? '候选解释' : '观测'}</b>
       <p>{props.finding.statement}</p>
       <p>
-        <For each={props.finding.evidenceRefs}>
-          {ref => <EvidenceRefButton id={forItem(ref)} onEvidence={props.onEvidence} />}
-        </For>
+        {props.finding.evidenceRefs.map(id => (
+          <EvidenceRefButton key={id} id={id} onEvidence={props.onEvidence} />
+        ))}
       </p>
     </article>
   )
@@ -150,7 +159,7 @@ function EvidenceRefButton(props: {
   onEvidence: (id: string) => void
 }) {
   return (
-    <button type="button" class="linkish" onClick={() => props.onEvidence(props.id)}>
+    <button type="button" className="linkish" onClick={() => props.onEvidence(props.id)}>
       {props.id}
     </button>
   )

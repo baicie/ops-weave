@@ -13,10 +13,10 @@
 | Rig | =0.42.0，optional | 使用root `rig` facade，features agent/rustls |
 | MCP | rmcp =3.4.0，optional | 独立使用，不调用Rig的旧rmcp类型接口 |
 | jsonschema | =0.56.0 | 默认网络解析feature关闭，另禁止外部ref |
-| React | 已移除 | 控制台改为 Zeus，见 ADR-012 |
-| Zeus | 0.1.1-beta.2 | `@zeus-js/zeus`；Vite 插件 `0.0.4`；已验证组合见 `FRONTEND-COMPATIBILITY.md` |
-| Zeus UI | 0.1.0-beta.4 | 样式来自 `@zeus-web/ui` CSS；注册用 `@zeus-web/button` / `@zeus-web/input` 的 `wc/auto` |
-| Vite | ^8.0.0 | Node22.12+；包管理 pnpm 10.34.3 |
+| React | 19.3.0 | `react` / `react-dom`；类型 `@types/react`、`@types/react-dom` 19.3.0 |
+| shadcn/ui | 4.21.0 | 组件源码在 `apps/web-console/src/components/ui`；`radix-ui` 1.6.7、Tailwind CSS 4.3.3 |
+| Vite | 8.3.1 | `@vitejs/plugin-react` 6.1.1；Node 22.12+；包管理 pnpm 10.34.3 |
+| TypeScript | 7.0.2 | 控制台 `tsc --noEmit`；不使用已移除的 `baseUrl` |
 | PG | 17开发镜像 | 生产固定patch/digest，独立应用账号 |
 | VictoriaMetrics | v1.152.0 单节点 | 可选 metrics Compose profile 与 CI；本机验证官方 darwin-arm64 二进制及 SHA-256，未固定生产镜像 digest |
 

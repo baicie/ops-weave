@@ -1,11 +1,13 @@
-import { createSignal, onCleanup } from '@zeus-js/zeus'
+import { useEffect, useState } from 'react'
 import { routeFromHash, type RouteName } from './routes.ts'
 
-export function createHashRoute() {
-  const [route, setRoute] = createSignal<RouteName>(routeFromHash(window.location.hash))
-  const onChange = () => setRoute(routeFromHash(window.location.hash))
-  window.addEventListener('hashchange', onChange)
-  onCleanup(() => window.removeEventListener('hashchange', onChange))
-  if (!window.location.hash) window.location.hash = '/start'
-  return { route }
+export function useHashRoute(): RouteName {
+  const [route, setRoute] = useState<RouteName>(() => routeFromHash(window.location.hash))
+  useEffect(() => {
+    if (!window.location.hash) window.location.hash = '/start'
+    const onChange = () => setRoute(routeFromHash(window.location.hash))
+    window.addEventListener('hashchange', onChange)
+    return () => window.removeEventListener('hashchange', onChange)
+  }, [])
+  return route
 }

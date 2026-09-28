@@ -67,7 +67,7 @@
 
 2026-09-22 执行快照：M0 已关闭；开发身份、Host 分页/PostgreSQL/资产页、Item 指标目录与来源绑定已落地，本轮增加有权限与预算约束的 History 只读增量接口。VictoriaMetrics/持久采集游标、厂商实例验收、Pipeline Preview 和真实 AI 诊断仍未完成，不能宣布 M2/M3 退出。`f0bcc32` 的 CI 与 deploy job 已实查成功；本轮新增代码的验证单独见 `VALIDATION-REPORT.md` 第 16 节。
 
-以下观察表保留 M0 关闭时 `b5404a8` 的基线。Web Console 使用 Zeus `render`，页面骨架在 `app/pages/api/state/adapters/styles`；当前资产页已有交互，指标/Skill/Agent 页仍为占位。
+以下观察表保留 M0 关闭时 `b5404a8` 的基线。表内 Zeus 描述是当时事实。2026-09-28 起控制台改为 React 19 与 shadcn/ui，见 [ADR-059](adr/059-react-shadcn-console.md)。
 
 | 观察项 | 当前能确认的事实 | 路线图中的处理 |
 |---|---|---|
@@ -78,7 +78,7 @@
 | GitHub Actions | `b5404a8` 的 `opsweave-template`：contracts / rust / java / web 均为 success | 见 `VALIDATION-REPORT.md` 第 10 节 |
 | Zeus / Zeus UI | 框架与原生 WC 路线未变。[S5][S6][S7] | 只修产品验收暴露的缺陷 |
 
-不要再开一轮前端框架迁移。M1 起做身份和真实接入。
+不要再把 Zeus 当作控制台运行时。M1 起做身份和真实接入。
 
 ## 2. 总目标与首版边界
 

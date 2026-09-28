@@ -1,5 +1,4 @@
-import { createEffect, createSignal, For } from '@zeus-js/zeus'
-import { forItem } from '../adapters/zeus-ui/for-item.ts'
+import { useEffect, useRef, useState } from 'react'
 import { NAV_GROUPS, pathFor, ROUTES, type Route, type RouteName } from '../state/routes.ts'
 
 const icons: Record<RouteName, string> = {
@@ -27,45 +26,49 @@ const icons: Record<RouteName, string> = {
 }
 
 export function RouteIcon(props: { name: RouteName }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={icons[props.name]} /></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={icons[props.name]} /></svg>
 }
 
-type NavProps = { route: () => RouteName; onNavigate?: () => void; compact?: () => boolean; surface: 'desktop' | 'mobile' }
+type NavProps = { route: RouteName; onNavigate?: () => void; compact?: boolean; surface: 'desktop' | 'mobile' }
 
 export function AppNav(props: NavProps) {
-  return <nav class="app-nav" aria-label="产品模块">
-    <For each={NAV_GROUPS}>{row => <NavGroup group={forItem(row)} route={props.route} onNavigate={props.onNavigate} compact={props.compact} surface={props.surface} />}</For>
+  return <nav className="app-nav" aria-label="产品模块">
+    {NAV_GROUPS.map(group => (
+      <NavGroup key={group.id} group={group} route={props.route} onNavigate={props.onNavigate} compact={props.compact} surface={props.surface} />
+    ))}
   </nav>
 }
 
 function NavGroup(props: NavProps & { group: typeof NAV_GROUPS[number] }) {
   const routes = ROUTES.filter(item => item.group === props.group.id)
-  const containsCurrent = () => routes.some(item => item.name === props.route())
-  const [expanded, setExpanded] = createSignal(Boolean(props.group.expanded) || containsCurrent())
-  const isOpen = () => Boolean(props.compact?.()) || expanded()
+  const containsCurrent = routes.some(item => item.name === props.route)
+  const [expanded, setExpanded] = useState(Boolean(props.group.expanded) || containsCurrent)
+  const isOpen = Boolean(props.compact) || expanded
   const panelId = props.surface + '-nav-' + props.group.id
-  let previousRoute = props.route()
-  createEffect(() => {
-    const current = props.route()
-    if (current !== previousRoute && containsCurrent()) setExpanded(true)
-    previousRoute = current
-  })
-  return <section class="nav-group" data-nav-group={props.group.id} data-current={containsCurrent() ? 'true' : 'false'}>
-    <button class="nav-group-toggle" type="button" aria-expanded={isOpen() ? 'true' : 'false'} aria-controls={panelId} onClick={() => setExpanded(value => !value)}>
-      <span class="nav-group-dot" aria-hidden="true" /><span>{props.group.label}</span>
-      <svg class="nav-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4" /></svg>
+  const previousRoute = useRef(props.route)
+  useEffect(() => {
+    const current = props.route
+    if (current !== previousRoute.current && containsCurrent) setExpanded(true)
+    previousRoute.current = current
+  }, [props.route, containsCurrent])
+  return <section className="nav-group" data-nav-group={props.group.id} data-current={containsCurrent ? 'true' : 'false'}>
+    <button className="nav-group-toggle" type="button" aria-expanded={isOpen ? 'true' : 'false'} aria-controls={panelId} onClick={() => setExpanded(value => !value)}>
+      <span className="nav-group-dot" aria-hidden="true" /><span>{props.group.label}</span>
+      <svg className="nav-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4" /></svg>
     </button>
-    <div class="nav-group-links" id={panelId} hidden={!isOpen()}>
-      <For each={routes}>{row => <NavLink item={forItem(row)} route={props.route} onNavigate={props.onNavigate} />}</For>
+    <div className="nav-group-links" id={panelId} hidden={!isOpen}>
+      {routes.map(item => (
+        <NavLink key={item.name} item={item} route={props.route} onNavigate={props.onNavigate} />
+      ))}
     </div>
   </section>
 }
 
-function NavLink(props: { item: Route; route: () => RouteName; onNavigate?: () => void }) {
+function NavLink(props: { item: Route; route: RouteName; onNavigate?: () => void }) {
   return <a href={pathFor(props.item.name)}
     aria-label={props.item.label} title={props.item.label + ' · ' + props.item.description} onClick={props.onNavigate}
-    aria-current={() => props.route() === props.item.name ? 'page' : undefined}
-    class={() => props.route() === props.item.name ? 'is-active' : undefined}>
-    <RouteIcon name={props.item.name} /><span>{props.item.label}<small class="nav-link-hint">{props.item.description}</small></span>
+    aria-current={props.route === props.item.name ? 'page' : undefined}
+    className={props.route === props.item.name ? 'is-active' : undefined}>
+    <RouteIcon name={props.item.name} /><span>{props.item.label}<small className="nav-link-hint">{props.item.description}</small></span>
   </a>
 }

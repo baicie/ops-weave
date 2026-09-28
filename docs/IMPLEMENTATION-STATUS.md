@@ -1,5 +1,7 @@
 # 实现状态 · v4
 
+2026-09-28 第75节：Web 控制台运行时由 Zeus 改为 React 19.3.0 + shadcn/ui 4.21.0（Tailwind CSS 4.3.3、Vite 8.3.1、TypeScript 7.0.2）。按钮、输入、多行文本和徽章使用复制进仓库的 shadcn 组件；下拉、复选框和对话框仍是原生元素。AntV X6 3.1.8 / G6 5.1.1 仍由适配层直接挂载。本机 `pnpm install`、`tsc --noEmit` 与 `vite build` 通过。内置浏览器核对了开始页、资产会话启停、明暗主题、页面搜索、侧栏收起、数据源中心在平台未启动时的 502 提示、关系模型空状态，以及 390px 移动导航开关。未跑 Playwright、契约、Java 或 Rust；未连接平台，因此没有用真实数据渲染 X6/G6。原 M0–M4 退出项不改变。见 [ADR-059](adr/059-react-shadcn-console.md) 和 VALIDATION-REPORT §75。
+
 2026-09-28 第74节：工作流画布已改用 AntV X6 3.1.8；G6 5.1.1 展示关系类型及资产已保存一跳关系。新增Java只读授权查询与V031迁移，不推断连线、不写关系。新增开始使用工作台、21个任务入口、中文菜单及逐页使用说明，调整桌面/手机和明暗主题排版。契约885、领域47个main、Java/PG/VM279零跳过、Rust默认41/all-features49与fmt/build、TS/build、全量269项浏览器fixture通过；最终滚轮/文字调整后相关19项复验通过。本地Java/PG关系查询和实际响应Schema通过，内置浏览器已查看原工作流X6、已发布模型G6及真实本地Zabbix资产的空关系。实例关系写入/采集、分支并行和AI编排仍未实现，原M0–M4退出项不改变。见[图形与菜单说明](runbooks/graphs-and-navigation.md)、[ADR-058](adr/058-antv-workspace-navigation.md)和VALIDATION-REPORT §74。
 
 2026-09-28 第73节：补齐v2工作流的持久逐条运行明细与独立运行记录页面，按成功/失败/规则过滤查询，展示节点状态、失败字段/错误码、版本、来源及耗时。沿用PG私有运行回执和可信会话边界，样本正文不进入运行日志，旧回执明确没有明细。契约874、领域46个main（WorkflowSmoke77项）、Java/PG/VM276零跳过、Rust默认41/all-features49及fmt/build、TS/build与33项相关浏览器fixture通过；本地MANUAL_SAMPLE/LOCALTEST实际保存1成功/1失败/1过滤，刷新回查及实际响应Schema通过。仅覆盖只读预览/版本测试，未统一旧Host/CMDB历史，也未实现请求级失败审计或后台任务。原M0–M4退出状态不变。见[运行记录说明](runbooks/workflows.md)、[ADR-057](adr/057-workflow-run-traces.md)和VALIDATION-REPORT §73。
@@ -23,7 +25,7 @@
 
 2026-09-27 第64节：本地Zabbix7.0.27已完成Host/Item各3页及重复同步、来源断连不退役、三项真实Agent历史经单Worker/VM/浏览器查询，以及标记为[LOCAL TEST]的告警触发/恢复/幂等Incident/资产关联/平台重启回读。修复厂商忽略offset的问题，改用最多1000对象的ID清单与精确批次；Worker最多8流串行并固定各自起点。UI新增分组侧栏、统一控件与390px窄屏支持。契约809、领域1195/43 main、Java/PG/VM255零跳过、Rust41/45、TS/build、232页面检查与21组/10组整链通过；整链模型仍mock、OIDC仍协议fixture。真实模型API地址/正式模型ID待确认，真实IdP/TLS和人工审阅未关闭，MVP估算不提高。详见[本地预览](runbooks/local-preview.md)、[ADR-052](adr/052-zabbix-bounded-manifest.md)和验证报告§64。
 
-以下带日期/节号的段落保留历史实施记录；旧offset算法和“来源尚未连接”等描述不代表当前状态，当前范围以最新§73与对应契约为准。
+以下带日期/节号的段落保留历史实施记录；旧offset算法和“来源尚未连接”等描述不代表当前状态，当前范围以最新§75与对应契约为准。
 
 2026-09-27 第63节：本地OpsWeave预览已启动并连到Zabbix7.0.27。实际修复版本探针认证头和字符串countOutput差异，来源自检/Host持久同步/CPU历史Worker→VM→平台→浏览器曲线通过。Item3条中仅1条已映射，2条明确拒绝；模型仍mock。Java针对性3项、契约809、领域1161、Rust41/45、TS/build通过；MVP估算不提高。见[预览说明](runbooks/local-preview.md)。
 

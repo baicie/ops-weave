@@ -1,6 +1,6 @@
 # 本次交付验证报告 · OpsWeave v4
 
-最新本机追加记录见第 74 节。以下早期交付包的“未执行/未实现”按当时状态保留，不代表后续本机增量状态。
+最新本机追加记录见第 75 节。以下早期交付包的“未执行/未实现”按当时状态保留，不代表后续本机增量状态。
 
 日期：2026-09-21。此报告区分实际执行、只提供源码及未具备执行条件三种状态。**未验证 Rust 编译，不声明模板可直接用于生产。**
 
@@ -1898,3 +1898,25 @@ Ctrl/⌘+K支持页面名、现有路径、分类与业务关键词，多个词�
 本轮不使用真实模型，不手动触发来源扫描；原Worker继续已有配置，其新采样未另作验收。截图与实际JSON位于忽略目录.tmp/workspace-74-*，仅本地开发/LOCALTEST记录，凭据为密码掩码。关系实例创建/编辑/导入、来源工作流自动启用、AI协助、分支并行仍未实现；不能将关系类型图当成真实资产连线，不能把本轮UI与本机数据库验证计为M0–M4全部退出或生产验收。
 
 最终服务检查：Web5173、Platform8080、Worker8081、Runtime8090 healthz/readyz均HTTP200；四个自有应用MainWindowHandle均0，Windows原生postgres进程数0。继续复用Docker数据库，没有新建PG窗口。
+
+## 75. 2026-09-28 React 与 shadcn/ui 控制台（追加）
+
+按用户要求把 Web 控制台从 Zeus 迁到 React 与 shadcn/ui，依赖使用 2026-09-28 查询到的当前稳定版本。未新建分支、未提交、未推送。边界见 [ADR-059](adr/059-react-shadcn-console.md)。ADR-012 标记为已被替代。
+
+### 本轮实现
+
+- 移除 `@zeus-js/zeus` 与 Zeus UI。运行时为 React 19.3.0 / react-dom 19.3.0；类型来自 `@types/react` 与 `@types/react-dom` 19.3.0。构建为 Vite 8.3.1、`@vitejs/plugin-react` 6.1.1、TypeScript 7.0.2（路径别名不再使用已删除的 `baseUrl`）。样式为 Tailwind CSS 4.3.3 与 `@tailwindcss/vite` 4.3.3，shadcn 4.21.0 的 `base-nova` 令牌写在 `src/styles/globals.css`。组件依赖 `radix-ui` 1.6.7、`class-variance-authority` 0.7.1、`cn` 0.4.0、`tw-animate-css` 1.4.0、`lucide-react` 1.48.0。Playwright 为 `@playwright/test` 1.63.0。`@antv/x6` 3.1.8 与 `@antv/g6` 5.1.1 版本未改。
+- 按钮、单行输入、多行文本和徽章复制为 `src/components/ui`。页面按钮走 `data-slot="button"`，原有页面样式不再压平这些按钮。下拉框、复选框和 `<dialog>` 保持原生，以便既有选择、取值和无障碍名称继续可用。
+- 原布局变量改为 `--ow-*`，与 shadcn 的 `--primary` / `--muted` / `--accent` 分开。明暗主题同时写 `documentElement.dataset.theme` 和 `dark` class。哈希路由、内存开发 Token、分组导航、页面搜索和 X6/G6 适配层保留；图引擎不包成 React 节点。
+
+### 实际验证
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 依赖安装 | 仓库根目录 `pnpm install` 通过，`pnpm-lock.yaml` 已更新 |
+| TypeScript | `apps/web-console` 中 `pnpm exec tsc --noEmit` 退出 0 |
+| 生产构建 | `pnpm exec vite build` 退出 0。Vite 8.3.1，2434 个模块；CSS 约 84.94 kB，主包约 590.71 kB。构建警告仍指出存在超过 500 kB 的块（含 X6/G6 动态块量级）。不把该体积当作性能达标 |
+| 内置浏览器 | `vite --host 127.0.0.1 --port 5173`。`#/start` 显示开始使用。从开始页进入 `#/inventory`：原生生命周期/类型下拉仍在；填入 32 位无空白开发 Token 后「清除开发会话」「刷新列表」「同步 Zabbix Host」变为可用，清除后再次禁用。主题按钮在深色/浅色间切换，深色时 `dataset.theme=dark` 且根节点有 `dark`。搜索「数据工作流」只保留一条并打开 `#/integrations/workflows`。桌面「切换导航」收起后再展开，分组按钮恢复。数据源中心在平台 8080 未监听时显示「数据源请求失败（HTTP 502）」，Vite 日志为 `ECONNREFUSED 127.0.0.1:8080`，页面没有当成成功。`#/modeling/relations` 显示空目录说明。390×844 下桌面导航隐藏，「切换导航」打开「关闭导航」抽屉，当前项为关系模型，关闭后回到页面。页面没有 Vite 错误遮罩 |
+| 未复跑 | Playwright、契约 pytest、Java 领域/PG/VM、Rust 默认与 all-features。未启动平台，因此没有用真实草稿渲染 X6，也没有用真实目录渲染 G6。拖动、缩放和键盘移动画布本轮未操作 |
+
+原 M0–M4 退出项不改变。Agent 控制台、聊天组件和生产 OIDC 仍未接入。开发预览只在 127.0.0.1。
