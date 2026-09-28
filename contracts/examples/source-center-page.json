@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "memory",
+  "types": [
+    {
+      "id": "ZABBIX_HOST",
+      "status": "AVAILABLE",
+      "connection": {
+        "instanceId": "zabbix-fixture",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "dataMode": "fixture",
+        "endpoint": null,
+        "credentialRef": null
+      }
+    },
+    {
+      "id": "MANUAL_SAMPLE",
+      "status": "AVAILABLE",
+      "connection": {
+        "instanceId": "manual",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "dataMode": "MANUAL_SAMPLE",
+        "endpoint": null,
+        "credentialRef": null
+      }
+    },
+    {
+      "id": "CMDB_SNAPSHOT",
+      "status": "LEGACY_IMPORT",
+      "connection": null
+    }
+  ],
+  "models": [
+    {
+      "definition": {
+        "schemaVersion": "1.0",
+        "id": "builtin.host",
+        "revision": 1,
+        "kind": "ENTITY",
+        "label": "主机",
+        "description": "服务器、虚拟机或宿主节点。现有 Host 采集继续使用原映射；此定义尚未自动迁移历史资产。",
+        "cleaningProfile": "safe-scalars-v1",
+        "fields": [
+          {
+            "id": "hostname",
+            "label": "主机名",
+            "type": "TEXT",
+            "required": true,
+            "maxLength": 255
+          },
+          {
+            "id": "ip",
+            "label": "IP 地址",
+            "type": "TEXT",
+            "required": false,
+            "maxLength": 255
+          },
+          {
+            "id": "os",
+            "label": "操作系统",
+            "type": "TEXT",
+            "required": false,
+            "maxLength": 255
+          }
+        ]
+      },
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "modelsTruncated": false,
+  "setups": {
+    "items": [
+      {
+        "id": "10000000-0000-4000-8000-000000000071",
+        "name": "Fixture Zabbix onboarding",
+        "description": "Synthetic contract example; no source connection claim",
+        "source": {
+          "kind": "ZABBIX_HOST",
+          "instanceId": "zabbix-fixture"
+        },
+        "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "initialTarget": {
+          "id": "builtin.host",
+          "revision": 1,
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "createdAt": "2026-09-27T00:00:00Z",
+        "workflowId": "source-10000000-0000-4000-8000-000000000071",
+        "dataMode": "fixture"
+      }
+    ],
+    "truncated": false
+  }
+}

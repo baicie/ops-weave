@@ -1,3 +1,4 @@
+import { RouteIcon } from '../../app/navigation.tsx'
 import { SourceReviews } from './SourceReviews.tsx'
 import { SourcePresence } from './SourcePresence.tsx'
 import { AssetIdentities } from './AssetIdentities.tsx'
@@ -112,12 +113,14 @@ export function InventoryPage() {
 
   return (
     <section class="panel" data-page="inventory">
-      <h2>资产</h2>
-      <p>按服务端授权范围筛选和分页，每页最多 25 条。同步来源失败时保留当前表格；切换身份或失去权限会清空旧数据。</p>
-      <p>地址保留已应用的筛选、游标与选中资产；刷新或返回后请重新读取，以核对当前权限。</p>
-      <details><summary>按已登记强标识定位</summary><p>输入资产登记系统 UUID，平台在配置的命名空间内查找当前可管理的资产。定位后导入会保留身份依据。</p>
-        <label>查找资产 UUID<ZwInput value={assetUuid()} onValueChange={changeAssetUuid} /></label>
-        <ZwButton variant="outline" disabled={busy() || !authenticated() || !assetUuid().trim() || !!routeError()} onPress={() => { void run('resolve') }}>按强标识定位</ZwButton></details>
+      <div class="inventory-heading"><div><h2>资产</h2><p>查看来源资产，关联指标与告警，追溯每一次观测。</p></div><span class="badge">授权范围内</span></div>
+      <div class="stat-grid" aria-label="本页资产统计">
+        <div class="stat-card"><div class="stat-label">本页资产<RouteIcon name="inventory" /></div><strong class="stat-value" data-stat="total">{loaded() ? items().length : '—'}</strong><small>仅统计已读取的当前页</small></div>
+        <div class="stat-card"><div class="stat-label">活跃资产<RouteIcon name="metrics" /></div><strong class="stat-value" data-stat="active">{loaded() ? items().filter(item => item.lifecycle === 'ACTIVE').length : '—'}</strong><small>本页生命周期为 ACTIVE</small></div>
+        <div class="stat-card"><div class="stat-label">来源实例<RouteIcon name="pipelines" /></div><strong class="stat-value" data-stat="sources">{loaded() ? new Set(items().map(item => item.attributes.sourceInstanceId).filter(Boolean)).size : '—'}</strong><small>本页已记录的不同来源实例</small></div>
+        <div class="stat-card"><div class="stat-label">其他状态<RouteIcon name="source-snapshots" /></div><strong class="stat-value" data-stat="other">{loaded() ? items().filter(item => item.lifecycle !== 'ACTIVE').length : '—'}</strong><small>本页非 ACTIVE 生命周期</small></div>
+      </div>
+      <div class="asset-workspace">
       <div class="metric-controls">
         <label>名称或 IP<ZwInput value={search()} onValueChange={value => { invalidate(); setSearch(value) }} /></label>
         <label>生命周期<select prop:value={lifecycle()} onChange={event => { invalidate(); setLifecycle((event.target as HTMLSelectElement).value) }}>
@@ -144,21 +147,15 @@ export function InventoryPage() {
         >
           刷新列表
         </ZwButton>
-      </div>
-      <div class="actions"><ZwButton variant="outline" disabled={busy()} onPress={resetFilters}>重置资产筛选</ZwButton>
+        <ZwButton variant="outline" disabled={busy()} onPress={resetFilters}>重置资产筛选</ZwButton>
         <Show when={linkedEntity() && !detail()}><ZwButton variant="outline" disabled={busy() || !authenticated() || routeError() !== ''} onPress={() => { void run('detail', linkedEntity() ?? undefined) }}>读取选中资产</ZwButton></Show></div>
       <p role="alert">{routeError() || error()}</p>
       <Show when={sync()}>
         <SyncStatusLine result={sync() as HostSyncResult} />
       </Show>
       <Show when={loaded()}><p data-inventory-page>{`${cursor() && previous().length === 0 ? '恢复的游标页' : `第 ${previous().length + 1} 页`} · 本页 ${items().length} 条 · ${storage() === 'postgres' ? 'PostgreSQL' : '开发内存'}`}</p></Show>
-      <div class="actions">
-        <ZwButton variant="outline" disabled={busy() || previous().length === 0} onPress={() => { void run('previous') }}>上一页资产</ZwButton>
-        <ZwButton variant="outline" disabled={busy() || next() === null} onPress={() => { void run('next') }}>下一页资产</ZwButton>
-      </div>
-      <Show when={loaded() && items().length === 0}>
-        <p>当前筛选范围没有可见资产。</p>
-      </Show>
+      <Show when={!loaded()}><div class="inventory-empty"><RouteIcon name="inventory" /><strong>准备读取资产</strong><p>配置当前会话后，点击「刷新列表」查看授权范围内的资产。</p></div></Show>
+      <Show when={loaded() && items().length === 0}><div class="inventory-empty"><RouteIcon name="inventory" /><strong>当前筛选范围没有可见资产。</strong><p>可以调整筛选条件后重新读取。</p></div></Show>
       <Show when={items().length > 0}>
         <div class="pipeline-table"><table>
           <thead>
@@ -181,6 +178,15 @@ export function InventoryPage() {
           </tbody>
         </table></div>
       </Show>
+      <div class="actions inventory-pagination">
+        <ZwButton variant="outline" disabled={busy() || previous().length === 0} onPress={() => { void run('previous') }}>上一页资产</ZwButton>
+        <ZwButton variant="outline" disabled={busy() || next() === null} onPress={() => { void run('next') }}>下一页资产</ZwButton>
+      </div>
+      </div>
+      <details><summary>按已登记强标识定位</summary><p>输入资产登记系统 UUID，平台在配置的命名空间内查找当前可管理的资产。定位后导入会保留身份依据。</p>
+        <label>查找资产 UUID<ZwInput value={assetUuid()} onValueChange={changeAssetUuid} /></label>
+        <ZwButton variant="outline" disabled={busy() || !authenticated() || !assetUuid().trim() || !!routeError()} onPress={() => { void run('resolve') }}>按强标识定位</ZwButton></details>
+      <details class="query-notes"><summary>查询范围与会话说明</summary><p>按服务端授权范围筛选和分页，每页最多 25 条。同步来源失败时保留当前表格；切换身份或失去权限会清空旧数据。</p><p>地址保留已应用的筛选、游标与选中资产；刷新或返回后请重新读取，以核对当前权限。</p></details>
       <Show when={detail()}><EntityDetails item={detail() as EntityItem} identity={resolvedPin()} close={() => { setDetail(null); setResolvedPin(undefined); setLinkedEntity(null); location.write(selected()) }} /></Show>
     </section>
   )
@@ -202,10 +208,10 @@ function EntityRow(props: { item: EntityItem; busy: boolean; select: (id: string
       <td>{item.attributes.hostId}</td>
       <td>{item.attributes.ip}</td>
       <td>{item.attributes.status}</td>
-      <td>{item.attributes.source}</td>
-      <td>{item.attributes.lastSeen}</td>
-      <td>{item.attributes.rawReference}</td>
-      <td>{item.lifecycle}</td>
+      <td class="source-cell">{item.attributes.source}<small>{item.attributes.dataMode || '采集模式未记录'}</small></td>
+      <td><time class="table-timestamp" datetime={item.attributes.lastSeen} title={item.attributes.lastSeen}>{item.attributes.lastSeen.replace('T', ' ').replace(/\.\d+Z$/, 'Z')}</time></td>
+      <td><span class="table-reference" title={item.attributes.rawReference}>{item.attributes.rawReference}</span></td>
+      <td><span class="lifecycle-pill" data-active={item.lifecycle === 'ACTIVE' ? 'true' : 'false'}>{item.lifecycle}</span></td>
       <td><ZwButton variant="outline" disabled={props.busy} onPress={() => props.select(item.id)}>查看详情</ZwButton></td>
     </tr>
   )

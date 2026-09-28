@@ -15,6 +15,32 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @EnabledIfEnvironmentVariable(named = "OPSWEAVE_TEST_JDBC_URL", matches = ".+")
 class PostgresHistoryCheckpointIT {
     @Test
+    void verifyRejectsLegacySeriesKeyAndMissingFenceWithoutRepairingThem() throws Exception {
+        try (var dataSource = dataSource(); var connection = dataSource.getConnection()) {
+            new PostgresHistoryCheckpointStore(dataSource).initialize();
+            connection.setAutoCommit(false);
+            var store = new PostgresHistoryCheckpointStore(
+                new org.springframework.jdbc.datasource.SingleConnectionDataSource(connection, true));
+            store.initialize("verify");
+            assertThrows(IllegalArgumentException.class, () -> store.initialize("unknown"));
+            try {
+                try (var s = connection.createStatement()) {
+                    s.execute("ALTER TABLE ingestion.history_checkpoint DROP CONSTRAINT history_checkpoint_pkey");
+                    s.execute("ALTER TABLE ingestion.history_checkpoint ADD PRIMARY KEY (tenant_id,source_instance_id,item_id,stream_name)");
+                }
+                assertEquals(Failure.Code.CHECKPOINT_FAILED, assertThrows(Failure.class, store::verify).code());
+            } finally { connection.rollback(); }
+            try {
+                try (var s = connection.createStatement()) {
+                    s.execute("ALTER TABLE ingestion.history_checkpoint DROP COLUMN fencing_token");
+                }
+                assertEquals(Failure.Code.CHECKPOINT_FAILED, assertThrows(Failure.class, store::verify).code());
+            } finally { connection.rollback(); }
+            store.verify();
+        }
+    }
+
+    @Test
     void commitsOnlyAfterWorkAndSurvivesStoreRecreation() {
         try (var dataSource = dataSource()) {
             var store = new PostgresHistoryCheckpointStore(dataSource);

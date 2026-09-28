@@ -52,7 +52,7 @@ public final class HostScanBoundarySmoke {
         require("INACTIVE".equals(lifecycle(inventory, "999")), "the absent host is inactive after a verified snapshot");
         require("ACTIVE".equals(lifecycle(inventory, "10084")), "an observed host stays active");
 
-        // 2. A row removed during the walk shifts the offsets: the count no longer matches, so nothing retires.
+        // 2. A row missing from a requested ID batch makes that page unverified, so nothing retires.
         var shiftedTransport = new ScriptedTransport();
         var shiftedInventory = seeded("999");
         var shiftedRuns = new InMemorySyncRunStore();
@@ -62,23 +62,23 @@ public final class HostScanBoundarySmoke {
         require(SyncFailureCode.SOURCE_SCAN_UNVERIFIED.name().equals(shifted.reasonCode()), "the failure code names the unverified walk");
         require(!shifted.snapshotComplete(), "an unverified walk never claims a snapshot");
         require("ACTIVE".equals(lifecycle(shiftedInventory, "999")), "an unverified walk never retires");
-        require(shifted.pages() == 2 && shifted.fetched() == 3 && shifted.accepted() == 3,
-            "the rows the walk actually read stay stored without a partial rollback");
+        require(shifted.pages() == 2 && shifted.fetched() == 2 && shifted.accepted() == 2,
+            "verified earlier pages remain; the mismatched page is rejected before writes");
         require(shiftedInventory.find(TENANT, hostId("10086")).isEmpty(), "the row the shift skipped was never seen");
         var shiftedRun = shiftedRuns.find(TENANT, shifted.syncRunId()).orElseThrow();
         require(shiftedRun.status() == SyncStatus.FAILED, "the unverified walk is recorded as failed");
         require(shiftedRun.failureReason().equals(SyncFailureCode.SOURCE_SCAN_UNVERIFIED.storedReason()),
             "the stored reason is the fixed summary");
 
-        // 3. A host created after the watermark stays outside the snapshot and is never stored.
+        // 3. An unrequested host in a response rejects the whole page.
         var newerTransport = new ScriptedTransport();
         var newerInventory = seeded("999");
         newerTransport.script("10085", 2, List.of(host("10084"), host("10085"), host("10090")));
         var bounded = ingest(newerTransport, newerInventory, new InMemorySyncRunStore(), 3).execute(PRINCIPAL, null);
-        require(bounded.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, "a newer host does not break the walk");
-        require(bounded.accepted() == 2, "only the hosts inside the watermark are stored");
+        require(bounded.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.UNAVAILABLE, "a page containing an unrequested host is rejected");
+        require(bounded.accepted() == 0, "the unverified page is not stored");
         require(newerInventory.find(TENANT, hostId("10090")).isEmpty(), "a host created after the watermark is not written");
-        require("INACTIVE".equals(lifecycle(newerInventory, "999")), "the verified snapshot still retires the absent host");
+        require("ACTIVE".equals(lifecycle(newerInventory, "999")), "an unrequested row cannot authorize retirement");
 
         // 4. A page request that fails is never an empty snapshot and never retires anything.
         var missingPage = new ScriptedTransport();
@@ -217,8 +217,10 @@ public final class HostScanBoundarySmoke {
             if (responseJson.contains("countOutput")) {
                 throw new IllegalStateException("countOutput is not a host array");
             }
-            if (responseJson.contains("\"sortorder\":\"DESC\"")) {
-                return watermark == null ? List.of() : List.of(host(watermark));
+            if (responseJson.contains("\"output\":[\"hostid\"]")) {
+                if (count == 0) return List.of();
+                return java.util.stream.LongStream.rangeClosed(Long.parseLong(watermark) - count + 1, Long.parseLong(watermark))
+                    .mapToObj(id -> host(Long.toString(id))).toList();
             }
             if (reads >= pages.size()) {
                 throw new IllegalStateException("No scripted page");

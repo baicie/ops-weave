@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "tenantId": "fixture-topology",
+  "centerId": "10000000-0000-4000-8000-000000000001",
+  "asOf": "2026-09-28T00:00:00Z",
+  "coverage": "stored-current-one-hop",
+  "limit": 50,
+  "truncated": false,
+  "nodes": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "name": "Fixture service",
+      "type": "Service",
+      "lifecycle": "ACTIVE",
+      "dataMode": "fixture"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "name": "Fixture host",
+      "type": "Host",
+      "lifecycle": "ACTIVE",
+      "dataMode": "fixture"
+    }
+  ],
+  "edges": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "from": "10000000-0000-4000-8000-000000000001",
+      "to": "10000000-0000-4000-8000-000000000002",
+      "type": "runs_on",
+      "validFrom": "2026-09-27T00:00:00Z",
+      "validTo": null,
+      "dataMode": "fixture"
+    }
+  ]
+}

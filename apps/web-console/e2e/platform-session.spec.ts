@@ -13,7 +13,8 @@ test('shares only the in-memory platform credential across routes and clears dra
   })
   await page.goto('/#/inventory'); await tokenBox(page).fill(TOKEN_OK)
   await page.getByRole('button', { name: '刷新列表' }).click(); await expect(page.getByRole('table')).toBeVisible()
-  await page.getByRole('link', { name: '接入流水线', exact: true }).click(); await expect(tokenBox(page)).toHaveValue(TOKEN_OK)
+  await page.getByRole('button', { name: '接入维护', exact: true }).click()
+  await page.getByRole('link', { name: 'Host 采集维护', exact: true }).click(); await expect(tokenBox(page)).toHaveValue(TOKEN_OK)
   await page.getByRole('button', { name: '读取最近草稿', exact: true }).click(); await expect(page.locator('[data-draft-list]')).toBeVisible()
   await page.getByRole('button', { name: '清除开发会话', exact: true }).click()
   await expect(page.locator('[data-draft-list]')).toHaveCount(0); await expect(tokenBox(page)).toHaveValue('')
@@ -52,6 +53,7 @@ test('platform credential is never forwarded to the isolated fixture demo', asyn
   let received = ''
   await page.route('**/agent/api/v1/diagnoses', route => { received = route.request().headers().authorization ?? ''; return route.fulfill({ json: diagnosePayload() }) })
   await page.goto('/#/inventory'); await tokenBox(page).fill(TOKEN_OK)
+  if (!(await page.getByRole('link', { name: 'Fixture 诊断演示' }).isVisible())) await page.getByRole('button', { name: '开发演示', exact: true }).click()
   await page.getByRole('link', { name: 'Fixture 诊断演示' }).click()
   const demoToken = page.getByRole('textbox', { name: '开发 Token（仅保存在当前页面内存）' })
   await expect(demoToken).toHaveValue(''); await expect(page.getByRole('button', { name: '运行只读诊断' })).toBeDisabled()

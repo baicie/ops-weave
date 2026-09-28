@@ -11,3 +11,7 @@
 一条报告用量不能改写；相同报告幂等返回原时间/原费率回执。OIDC 委托额外限制一次 report，客户端不会自动重试。读取支持诊断失败后的独立费用核对，但仍要求原主体及当前诊断/Incident/关联实体权限，不暴露其他主体的记录。HTTP 404 只表示当前身份查不到记录。
 
 预留是配置费率估算而非外部计费保证；价格、输入 Token 上界假设与未提供的核销/对账/留存见 [ADR-033](../docs/adr/033-model-spend-admission.md)。日志不保存输入正文或提供方响应。Schema 不触发网络下载。
+
+## 显式兼容协议（2026-09-27）
+
+现有 `rig-openai` 标识覆盖受控 Rig Responses 与显式 Chat Completions 适配；它不声明托管厂商。可信配置固定模型和协议，不由请求或模型选择。Chat 的 prompt_tokens/completion_tokens 转为现有用量字段，total必须相符；可选缓存字段缺失按0缓存进行保守估算，不伪称账单确认。截断/拒绝/不支持的内容仍记录可核验用量，再拒绝结果。金额、身份、范围与幂等契约不变。详见[ADR-053](../docs/adr/053-explicit-model-chat-protocol.md)。

@@ -59,7 +59,7 @@ public final class ItemScanBoundarySmoke {
         require(lifecycle(definitions, "29999") == MetricLifecycle.INACTIVE, "the absent binding is inactive");
         require(lifecycle(definitions, "20001") == MetricLifecycle.ACTIVE, "the observed item stays active");
 
-        // 2. A row removed during the walk shifts the offsets: the count no longer matches, so nothing retires.
+        // 2. A row missing from a requested ID batch makes that page unverified, so nothing retires.
         var shiftedTransport = new ScriptedTransport();
         var shiftedDefinitions = seeded("29999");
         var shiftedRuns = new InMemorySyncRunStore();
@@ -78,14 +78,14 @@ public final class ItemScanBoundarySmoke {
             "the stored reason is the fixed summary");
         require(shiftedRun.scanConsistency().equals("itemid-watermark-snapshot"), "the stored run keeps the method label");
 
-        // 3. An item created after the watermark stays outside the snapshot and is never stored.
+        // 3. An unrequested item in a response rejects the whole page.
         var newerTransport = new ScriptedTransport();
         var newerDefinitions = seeded("29999");
         newerTransport.script("20002", 2, List.of(item("20001"), item("20002"), item("20009")));
         var bounded = ingest(newerTransport, newerDefinitions, new InMemorySyncRunStore(), 3).execute(PRINCIPAL, null);
-        require(bounded.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, "a newer item does not break the walk");
+        require(bounded.kind() == IngestZabbixHostsUseCase.SyncOutcome.Kind.UNAVAILABLE, "a page containing an unrequested item is rejected");
         require(newerDefinitions.findBinding(TENANT, SOURCE, "20009").isEmpty(), "an item created after the watermark is not stored");
-        require(lifecycle(newerDefinitions, "29999") == MetricLifecycle.INACTIVE, "the verified snapshot still retires the absent binding");
+        require(lifecycle(newerDefinitions, "29999") == MetricLifecycle.ACTIVE, "an unrequested row cannot authorize retirement");
 
         // 4. A page request that fails is never an empty snapshot and never retires anything.
         var missingPage = new ScriptedTransport();
@@ -236,8 +236,10 @@ public final class ItemScanBoundarySmoke {
             if (responseJson.contains("countOutput")) {
                 throw new IllegalStateException("countOutput is not an item array");
             }
-            if (responseJson.contains("\"sortorder\":\"DESC\"")) {
-                return watermark == null ? List.of() : List.of(item(watermark));
+            if (responseJson.contains("\"output\":[\"itemid\"]")) {
+                if (count == 0) return List.of();
+                return java.util.stream.LongStream.rangeClosed(Long.parseLong(watermark) - count + 1, Long.parseLong(watermark))
+                    .mapToObj(id -> item(Long.toString(id))).toList();
             }
             if (reads >= pages.size()) {
                 throw new IllegalStateException("No scripted page");

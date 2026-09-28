@@ -97,9 +97,24 @@ test('the trace states the storage budget it holds rows against and never claims
   const budget=page.locator('[data-scan-run-retention]')
   await expect(budget).toContainText('本范围 1000 条')
   await expect(budget).toContainText('本租户 5000 条')
-  await expect(budget).toContainText('当前本范围存储 2 条')
+  await expect(budget).toContainText('当前本范围计入预算 0 条')
+  await expect(budget).toContainText('此预算不代表总存储量上限')
   await expect(budget).toContainText('读取不会清理记录')
   await expect(budget).toContainText('不会被删除')
+})
+
+for (const kind of ['pinned', 'running'] as const) test(`${kind} scans remain visible with no rows counted by retention`, async ({page}) => {
+  const list = fixture(); list.retention.retained = 0
+  if (kind === 'running') for (const run of list.items) {
+    run.status = 'RUNNING'; run.completedAt = null; run.snapshotComplete = false
+    delete run.pipelineVersion; delete run.failureCode; delete run.failureSummary
+  }
+  await page.route('**/api/v1/**', route => new URL(route.request().url()).pathname === `${root}/hosts/runs`
+    ? route.fulfill({json: list}) : route.fulfill({status: 404, json: {error: 'NOT_FOUND'}}))
+  await enter(page); await load(page)
+  for (const run of list.items) await expect(page.locator(`[data-scan-run-id="${run.syncRunId}"]`)).toContainText(run.status)
+  await expect(page.locator('[data-scan-run-retention]')).toContainText('当前本范围计入预算 0 条')
+  await expect(page.getByRole('alert')).toBeEmpty()
 })
 
 for(const [name,damage] of [
@@ -109,7 +124,6 @@ for(const [name,damage] of [
   ['a zero scope budget',(page:any)=>{page.retention.maxRunsPerScope=0}],
   ['a negative retained count',(page:any)=>{page.retention.retained=-1}],
   ['a retained count above the scope budget',(page:any)=>{page.retention.retained=1001}],
-  ['a retained count smaller than the page it describes',(page:any)=>{page.retention.retained=1}],
   ['an incomplete budget',(page:any)=>{delete page.retention.retained}],
   ['an extra retention claim',(page:any)=>{page.retention.prunedAt='2026-09-26T05:00:00Z'}],
   ['a missing budget',(page:any)=>{delete page.retention}],

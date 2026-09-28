@@ -1,12 +1,51 @@
 # 实现状态 · v4
 
-更新日期2026-09-26。**“源码已提供”不等于“编译/集成已通过”。**验证范围以VALIDATION-REPORT为准。
+2026-09-28 第74节：工作流画布已改用 AntV X6 3.1.8；G6 5.1.1 展示关系类型及资产已保存一跳关系。新增Java只读授权查询与V031迁移，不推断连线、不写关系。新增开始使用工作台、21个任务入口、中文菜单及逐页使用说明，调整桌面/手机和明暗主题排版。契约885、领域47个main、Java/PG/VM279零跳过、Rust默认41/all-features49与fmt/build、TS/build、全量269项浏览器fixture通过；最终滚轮/文字调整后相关19项复验通过。本地Java/PG关系查询和实际响应Schema通过，内置浏览器已查看原工作流X6、已发布模型G6及真实本地Zabbix资产的空关系。实例关系写入/采集、分支并行和AI编排仍未实现，原M0–M4退出项不改变。见[图形与菜单说明](runbooks/graphs-and-navigation.md)、[ADR-058](adr/058-antv-workspace-navigation.md)和VALIDATION-REPORT §74。
+
+2026-09-28 第73节：补齐v2工作流的持久逐条运行明细与独立运行记录页面，按成功/失败/规则过滤查询，展示节点状态、失败字段/错误码、版本、来源及耗时。沿用PG私有运行回执和可信会话边界，样本正文不进入运行日志，旧回执明确没有明细。契约874、领域46个main（WorkflowSmoke77项）、Java/PG/VM276零跳过、Rust默认41/all-features49及fmt/build、TS/build与33项相关浏览器fixture通过；本地MANUAL_SAMPLE/LOCALTEST实际保存1成功/1失败/1过滤，刷新回查及实际响应Schema通过。仅覆盖只读预览/版本测试，未统一旧Host/CMDB历史，也未实现请求级失败审计或后台任务。原M0–M4退出状态不变。见[运行记录说明](runbooks/workflows.md)、[ADR-057](adr/057-workflow-run-traces.md)和VALIDATION-REPORT §73。
+
+2026-09-28 第72节：修正来源中心未建立会话/未先读取目录时创建入口无说明置灰的问题；缺少凭据时显示说明并聚焦会话输入，有会话后点击类型直接读取目录并打开配置抽屉，工作流页同步提示会话状态。19项相关浏览器fixture、契约864、领域46个main、Rust默认41/all-features49及fmt/build、TS/build通过。恢复原本地Docker依赖和四个应用，实际受权GET读取PG两份既有配置/7个模型，内置浏览器直接打开Zabbix抽屉且确认按钮可用；本轮未新建配置、未重跑Java/PG/VM测试、未触发模型或手动采集。详见VALIDATION-REPORT §72。
+
+2026-09-28 第71节：数据源中心已提供Zabbix/手工JSON类型选择、配置抽屉、显式连接测试、PG私有接入回执与初版工作流原子确认、准确画布跳转和刷新找回。接入配置保留创建时fixture/zabbix-jsonrpc/MANUAL_SAMPLE标记；仅选择平台已有连接，多实例地址/凭据编辑、采集绑定与实体/关系输出尚未实现。契约864、领域46个main、Java/PG/VM274零跳过、Rust默认41/all-features49与fmt/build、TS/build及全量256项浏览器fixture通过。实际本地Java/PG保存内置Host和自定义实体接入方案、刷新找回，以及Zabbix7.0.27显式自检通过；未触发采集或模型调用。OW-ST02为部分完成，原M0–M4真实身份/人工评估退出状态不变。见[数据源中心说明](runbooks/source-center.md)、[ADR-056](adr/056-source-center-onboarding.md)和VALIDATION-REPORT §71。
+
+2026-09-27 第70节：已实现原生v2数据工作流第一段——内置/自定义实体模型版本绑定、六类确定性清洗节点、Zeus画布/排序/拖动/撤销、PG私有草稿与并发保存、服务端15分钟预览发布门禁、不可变版本及本人运行回执。支持手工样本和现有Zabbix Host保留批次，所有执行只读、不启用采集。契约849、领域45个main/1314断言、Java/PG/VM268零跳过、Rust默认41/all-features49与fmt、TS/build、全量250浏览器fixture及最终14项复验通过。实际浏览器→Java→PG验证内置/自定义模型清洗发布、3条本地Zabbix保留记录转换与刷新回读。来源中心/配置抽屉、实体/关系实例写入、自动启用绑定与AI协助仍待实现，不提高原M0–M4退出比例。详见[工作流说明](runbooks/workflows.md)、[ADR-055](adr/055-native-transform-workflows.md)及VALIDATION-REPORT §70。
+
+2026-09-27 第69节：现有16页导航按数据接入、模型中心、资源观测、故障诊断、AI管理、开发演示分组；支持分组折叠、路由变化自动展开、动态当前位置及分类/业务关键词搜索。侧栏收起时保留全部图标入口，手机抽屉使用独立分组状态。全量244项浏览器fixture回归、最终8项导航复验、契约830、领域44个main/1250断言、Rust默认41/all-features49与TS/build通过。未增加新业务入口或后端能力，来源中心/画布仍待实现，详见VALIDATION-REPORT §69。
+
+2026-09-27 第68节：已实现模型中心第一段——5类内置实体、4类关系、3项指标定义，自定义实体/字段/关系类型的私有PG草稿与不可变发布、兼容性校验，以及safe-scalars-v1默认清洗预览。三个模型页面及真实浏览器→Java→PG保存/发布/刷新/平台重启回读通过；测试定义明确标记LOCAL TEST。OW-ST01仍为部分完成：租户内置扩展、模型约束下的实体实例写入/详情尚缺，来源配置抽屉、v2画布与关系实例管理继续待开发；原MVP真实身份/人审退出项未关闭。详见[操作说明](runbooks/model-catalog.md)、[契约](../contracts/model-catalog.md)及VALIDATION-REPORT §68。
+
+2026-09-27 第67节（需求/设计，未实现）：用户确认首版为“数据源中心→配置抽屉→清洗转换画布→平台模型”，提供内置实体/指标，并同时支持自定义实体类型、字段和关系类型，另有实体关系管理页面；AI协助只预留扩展位。已落成[工作台设计](architecture/integration-studio.md)与[ADR-054](adr/054-integration-studio-model-catalog.md)，按OW-ST01–06分期验收。此轮没有实现新API、画布或模型管理能力；原91%仅适用旧MVP范围，扩大后的首版尚未重新估算。
+
+2026-09-27 第66节：按用户提供的Shadcn Admin参考重做控制台视觉，保留Zeus；统一明暗主题、可收起侧栏、手机抽屉、Ctrl/⌘+K页面搜索、当前页资产统计与表格。13路由桌面/手机检查通过，235项页面回归及最终31项配色相关回归通过；契约809、领域1195/43 main、Rust41/49、fmt、TS/build通过。真实本地资产/指标与已保存诊断证据可回读，Fixture标记和内存Token边界保留。没有新增服务/外部模型调用，MVP验收状态不提高。见验证报告§66与[预览入口](runbooks/local-preview.md)。
+
+2026-09-27 第65节：用户确认OpenCode Go接口；Runtime新增显式Chat Completions协议，通过真实deepseek-v4.1-flash完成本地Zabbix→Java只读Tool→Rust→PG AIInsight/两类证据/浏览器链，候选验收7/7，重启后结果与费用不变。真实模型共2次显式调用，首次未形成结果但已上报用量，第二次成功；费用保留且没有自动重试或Mock回退。契约809、领域1195/43 main、Java/PG/VM255零跳过、Rust41/49及fmt/clippy、TS/build、232页面回归通过。原fixture标签保留，真实IdP与人工模型评估仍待验收；TLS按用户要求后置，不宣称M0–M4已100%。见[模型协议决策](adr/053-explicit-model-chat-protocol.md)、[预览入口](runbooks/local-preview.md)和验证报告§65。
+
+
+2026-09-27 第64节：本地Zabbix7.0.27已完成Host/Item各3页及重复同步、来源断连不退役、三项真实Agent历史经单Worker/VM/浏览器查询，以及标记为[LOCAL TEST]的告警触发/恢复/幂等Incident/资产关联/平台重启回读。修复厂商忽略offset的问题，改用最多1000对象的ID清单与精确批次；Worker最多8流串行并固定各自起点。UI新增分组侧栏、统一控件与390px窄屏支持。契约809、领域1195/43 main、Java/PG/VM255零跳过、Rust41/45、TS/build、232页面检查与21组/10组整链通过；整链模型仍mock、OIDC仍协议fixture。真实模型API地址/正式模型ID待确认，真实IdP/TLS和人工审阅未关闭，MVP估算不提高。详见[本地预览](runbooks/local-preview.md)、[ADR-052](adr/052-zabbix-bounded-manifest.md)和验证报告§64。
+
+以下带日期/节号的段落保留历史实施记录；旧offset算法和“来源尚未连接”等描述不代表当前状态，当前范围以最新§73与对应契约为准。
+
+2026-09-27 第63节：本地OpsWeave预览已启动并连到Zabbix7.0.27。实际修复版本探针认证头和字符串countOutput差异，来源自检/Host持久同步/CPU历史Worker→VM→平台→浏览器曲线通过。Item3条中仅1条已映射，2条明确拒绝；模型仍mock。Java针对性3项、契约809、领域1161、Rust41/45、TS/build通过；MVP估算不提高。见[预览说明](runbooks/local-preview.md)。
+
+2026-09-27 第62节：按用户要求启动本地真实 Zabbix 7.0.27 + Agent 2 + 独立容器PG，Web仅127.0.0.1:18088；三项实际采样/历史读取、只读账号写入拒绝、浏览器登录和最新数据页面通过。配置与凭据留在忽略目录。当前具备本地厂商API联调来源，OpsWeave接入整链及真实模型/IdP/TLS/人工验收尚未执行，MVP估算不变。见[本地Zabbix说明](runbooks/local-zabbix.md)。
+
+2026-09-27 第61节：新增M4当前知识诊断的10案例合成标注集（覆盖八类场景）、实际Rust流程边界检查及确定性摘要审阅材料；809项契约、Rust默认41/all-features45、clippy、领域与TS/build通过。外部模型调用为0，人工标注未签署，真实模型对照未执行；真实验收入口仍因PLATFORM_URL_REQUIRED在第0步阻塞，MVP估算不提高。见[评估说明](runbooks/current-diagnosis-evaluation.md)。
+
+2026-09-27 第60节：补齐数据库运行角色边界。Worker默认只校验已迁移结构、显式migrate才执行DDL；平台/Worker独立受限LOGIN账号的15项数据库拒绝与21组/10组本机浏览器整链通过，Java/PG/VM250项零跳过通过。测试用PG弹窗问题已修复并实查隐藏继承，结束后服务和临时角色已清理。真实Zabbix/模型/IdP/TLS与人工审阅仍缺，MVP估算不提高。见[运行说明](runbooks/database-runtime-roles.md)。
+
+更新日期2026-09-27。**“源码已提供”不等于“编译/集成已通过”。**验证范围以VALIDATION-REPORT为准。
 
 进度粗估：整体约 58%（±5 个百分点），首个只读诊断 MVP 约 91%；按路线图阶段等权估算，不是生产就绪率。分阶段依据见 [PROGRESS.md](PROGRESS.md)。
 
 ## 当前源码
 
-最新增量：来源收据容量已可见（第57节）。来源快照与绑定更正回执按 tenant/source 各保留最多 1000 份，且**达到上限即拒绝写入**（`SNAPSHOT_LIMIT`/`CORRECTION_LIMIT`）；新增只读 `GET /api/v1/integrations/cmdb/receipt-capacity`，报告两类回执的 `kept`、发布上限与 `OK/NEAR_LIMIT/AT_LIMIT`（80% 起告警）及固定文案。它只计数：不删除回执、不放宽上限、不重放写入；权限沿用写入所需三项（仅 `source.sync` 为 403、未配置 503、未认证 401），不接受查询参数。本机验证：领域 1136 项/41 个 main、Web typecheck；契约/Java/PG 由 CI 实测全绿（java 225 tests）。清理入口仍待设计——删除回执会使旧请求的幂等回执不可再查，必须是显式人工动作。M2 约93%、M3 约90%、M4 约80%、MVP 约91%。
+2026-09-27 Raw 容量准入（第59节、ADR-050）：核对M2原始退出条件发现PG Raw只有读取上限、没有写入容量；内存路径还会逐出旧引用。现由执行器按tenant/source 1000条、tenant合计5000条及单条64 KiB准入，PG事务锁使跨连接共享额度；同时检查序列化UTF-8和PG规范化大小。满额拒绝新写入，既有Raw/Observation保留，扫描失败且不对账。旧库超额不自动清理，没有新增扩容/清理动作或服务。真实Zabbix/模型/IdP验收仍未完成。
+
+2026-09-27 验收判定修正（第58节）：旧执行包仅凭来源不是 fixture 就输出 `mode: real`，未拒绝 mock 模型、未验证资产与 Incident 的真实关联，也未回读证据。现已改为逐段来源检查、指定版本/目标、固定流水线及持久扫描回读、指标/Incident 关联、AIInsight 原样回读与两类 Evidence 的权限/范围/时间检查；成功仅为 `real-candidate`，演练始终保留 `rehearsal`，失败为 `unverified`，`milestonesSatisfied` 固定 false。报告契约在 `contracts/schemas/v2/mvp-acceptance-report.schema.json`；无凭据、错误正文、资产名称或模型内容进入报告/日志。CI 与本地检查脚本补上此前缺失的 Rust all-features **测试执行**，不能用编译结果替代。Item 同步失败日志已去除原始异常，仅留稳定失败码；新增日志泄漏回归先失败后修复，领域全量1141项通过。UTF-8契约复跑800项通过，含实际报告交叉校验。旧§53 的 7/7 演练不追认为真实验收；M0–M4 目标仍进行中，估算不提高。
+
+2026-09-27 本机整链复验（第58节）：官方原生 PG17.11/VM1.152.0 环境中245项Java零跳过通过；扫描页误把可清理记录计数当总数导致合法钉住记录无法显示，已修复并统一契约/样例/文案，HTTP受影响2项与浏览器全量230项通过。浏览器→Java→Rust mock→PG/VM完整链21组、OIDC/Worker协议fixture整链10组、53份产物/50类Schema交叉校验通过。受保护扫描总量没有硬上限，不能沿用§54的泛化表述；真实Zabbix/模型/IdP/TLS和人工审阅仍未验收。
+
+此前增量：来源收据容量已可见（第57节）。来源快照与绑定更正回执按 tenant/source 各保留最多 1000 份，且**达到上限即拒绝写入**（`SNAPSHOT_LIMIT`/`CORRECTION_LIMIT`）；新增只读 `GET /api/v1/integrations/cmdb/receipt-capacity`，报告两类回执的 `kept`、发布上限与 `OK/NEAR_LIMIT/AT_LIMIT`（80% 起告警）及固定文案。它只计数：不删除回执、不放宽上限、不重放写入；权限沿用写入所需三项（仅 `source.sync` 为 403、未配置 503、未认证 401），不接受查询参数。本机验证：领域 1136 项/41 个 main、Web typecheck；契约/Java/PG 由 CI 实测全绿（java 225 tests）。清理入口仍待设计——删除回执会使旧请求的幂等回执不可再查，必须是显式人工动作。M2 约93%、M3 约90%、M4 约80%、MVP 约91%。
 
 第52节 SUM/计数器变化率与 reset 策略继续保留：只有 SUM 查询得到派生视图（按秒变化率，下降视为重置、该区间从零起算并带 `counterReset = true`，非正区间与负值跳过，原始点/单位/来源/窗口/状态不变）；契约把 `derivation` 与 `counterRates` 收紧为闭集，Web 指标页默认画变化率曲线并标出 reset 区间、可切回原始累计值。
 
@@ -38,12 +77,12 @@
 
 | 部分 | 已提供 | 未提供 |
 |---|---|---|
-| 真实验收执行包 | checked-in 只读执行包按序断言 M2–M4 关键退出条件（S1–S7）、失败即停并写 JSON 报告（每步证据、退出条件映射、固定未验证项）；fixture 来源无 `--rehearsal` 一律拒绝（退出码 2），`mode` 区分 rehearsal/real；只走平台 API、不写来源、不重试；本机演练 7/7 + 两个负例 | 生产 OIDC 部署的浏览器验收（见 OIDC runbook）、人工抽样审阅、提供方账单对账、真实 IdP/TLS 验收；`mode: real` 不替人判断来源是否是目标环境 |
+| 真实环境候选验收执行包 | S1–S7 按序验证固定版本/扫描回读、所选资产与指标/Incident 关联、来源和模型标记、AIInsight 原样回读与两类受权证据范围/时间；配置失败也写报告，来源只读、无重试/重定向；v2 闭合报告只允许 rehearsal/unverified/real-candidate，固定不签署里程碑；协议 fixture 回归与缺配置 CLI 实跑见第58节 | 真实目标环境与版本兼容、生产 OIDC 浏览器/TLS/代理、幂等/失败/授权负例的环境实测、人工抽样审阅及提供方账单；候选报告不证明真实环境，旧§53报告不追认真实验收 |
 | 来源连接自检 | 只读 POST 执行一次有界 probe 并写回执、GET 读取最近回执（1–50）；源级 `source.sync`、租户/来源强隔离；fixture 保持标注且不声明版本、JSON-RPC 记录来源自报版本、不可达不带版本、抛异常失败关闭；V026 回执表，每 tenant/source 保留 100 份；前端只读面板与链路证据 | 真实 Zabbix/TLS/代理与版本兼容矩阵验收、后台调度/跨来源汇总、全平台容量治理；回执不等于真实来源验收 |
 | 对账前置条件 | 只有 `hostid-watermark-snapshot`/`itemid-watermark-snapshot` 才允许 `retireMissing`；声明完成但无边界标签时以 `SOURCE_SCAN_UNVERIFIED` 失败、退休数为 0、已提交页与 Raw 保留；未读页的失败保持默认标签；PG 与内存路径都强制 | 上游漂移的修复（只能拒绝，不能补全）、offset 分页语义变更、运行记录清理/配额、真实来源验收 |
 | Host 水位快照 | 首请求前捕获最高 hostid 与总行数；水位内升序分页；只有观测行数等于捕获计数且看到水位行才完成并标注 `hostid-watermark-snapshot`；水位后新增不属于快照；删除/乱序/重复按 `SOURCE_SCAN_UNVERIFIED` 拒绝且不对账；游标携带边界；空来源是已验证空快照，边界请求失败不伪装空快照 | 真实 Zabbix 的 hostid 分配/`countOutput`/排序验收；Item/Problem 的水位边界；一致性标签持久化到运行记录；未实现边界的自定义连接器仍可完成对账 |
 | Item 扫描所有权与水位 | 与 Host 共用来源 scope 租约（externalType=item）、取租约后才请求、每页续租、目录/绑定写入与缺失对账受围栏（PG 同事务校验+复查+续租，失败整笔回滚）、结束只释放自身 token；首请求前捕获最高 itemid 与总行数，只有计数与水位双验证才完成并标注 `itemid-watermark-snapshot`，漂移按 `SOURCE_SCAN_UNVERIFIED` 拒绝 | 跨来源全局所有权、后台调度、遗留 RUNNING 自动修复、分布式 HA、“只允许已验证快照触发对账”的强规则、真实来源验收 |
-| 来源扫描运行追溯 | Host/Item 最近运行的只读分页（limit 1–50、服务端游标、hasMore/nextCursor）与按 syncRunId 单条读取；源级 source.sync、租户/来源/对象类型强隔离、未知标识 404；失败码只从平台自身前缀还原且不回显原文、钉住映射版本、持久化边界标签（V024）并在页面渲染、no-store；V023 读取索引；响应报告**保留预算**：每范围 1000 行/每租户 5000 行（配置只能收紧），打开扫描时清理最旧的已结束运行，未结束与被映射版本钉住的运行永不删除，读取不清理 | 后台清理调度、跨租户总量治理、遗留 RUNNING 的自动回收、跨来源或跨租户的全局检索、把标签或预算用于自动决策、真实来源验收 |
+| 来源扫描运行追溯 | Host/Item 最近运行的只读分页（limit 1–50、服务端游标、hasMore/nextCursor）与按 syncRunId 单条读取；源级 source.sync、租户/来源/对象类型强隔离、未知标识 404；失败码只从平台自身前缀还原且不回显原文、钉住映射版本、持久化边界标签（V024）并在页面渲染、no-store；V023 读取索引；响应报告**已结束且未钉住记录的保留预算**：每范围 1000 行/每租户 5000 行（配置只能收紧），retained 不包含受保护记录、不是总存储量上限，打开扫描时清理最旧的已结束运行，未结束与被映射版本钉住的运行永不删除，读取不清理 | 受保护扫描总量治理、后台清理调度、跨租户总量治理、遗留 RUNNING 的自动回收、跨来源或跨租户的全局检索、把标签或预算用于自动决策、真实来源验收 |
 | 来源绑定更正 | 新来源观测+原snapshotId+双方版本+目标登记pin，PG来源/实体/绑定锁、原字段先撤销、失败整笔回滚、原历史不迁移、原actor幂等回执/整源受权历史、Web预览/确认/未知结果查询；最多1000份回执并共享快照预算 | 已有Entity合并/alias、主Zabbix绑定或命名空间迁移、历史诊断重算、自动纠错/自动字段批准、全平台留存/HA |
 | 已登记来源快照 | 固定 import 引擎/摘要、全租户管理权限、UUID 精确解析；最多100条/100个保留绑定/1000回执，PG同事务观测/待审字段/presence、严格时间顺序、原actor幂等回执；完整缺失、部分/失败不对账，过期/登记撤销在分页前撤销保护；Web导入/回读/状态；**每来源回执上限 fail closed，容量只读视图报告计数/上限/状态**（第57节） | 厂商CMDB API、后台轮询、自动字段批准、已有Entity合并/alias、主来源TTL及通用多源权威策略、回执清理入口/扩容路径、生产迁移HA |
 | Host 扫描所有权 | PG 来源范围租约/fencing、数据库时间、短事务续租、5分钟截止、旧写入/对账/释放隔离、过期事务回滚、稳定错误码与不可覆盖的内部 token；V020每范围一行 | 通用 Item/Problem 扫描所有权、来源一致快照、后台调度、旧RUNNING状态自动修复、生产滚动迁移/故障切换/HA |
@@ -70,6 +109,8 @@
 | Skill | 可加载JSON+Prompt+Schema，内容digest，预算与模板限制 | UI创建、测试集发布、签名、热更新、多模板DAG |
 
 ## 已实际检查
+
+2026-09-27 第58节：44项验收入口协议fixture回归、244个结构化文件/6个只读Tool静态检查、1136项纯领域/41个main、Rust默认40/all-features44及fmt、TypeScript/生产构建、Chromium 140.0.7339.186 上229项浏览器回归通过。Java两个bootJar构建成功，但测试只有123通过、122因存储配置缺失跳过；PG/VM未复验。契约首次在GBK解码中文样例时收集失败，UTF-8复跑尚未完成，不计通过。缺真实配置的CLI实跑返回unverified/CONFIG失败报告，未调用来源或模型。新CI未运行，MVP不宣称100%。
 
 2026-09-26 真实验收执行包增量：沿用第52节全套（642项契约、238个结构化文件、6个只读Tool、111份产物/65类Schema、1008项纯领域/37个main、226项Java、20个PASS/112边界完整链、OIDC 10个PASS/18边界、Rust 40/44及fmt、218项Web与TypeScript/生产构建）；本轮无产品代码改动，只新增 checked-in 执行包与文档。`node .tmp/acceptance-local.cjs` 演练：`--rehearsal` **7/7 步通过**（报告 mode=rehearsal 并打印 NOT real acceptance），同一 fixture 来源去掉 `--rehearsal` **退出码 2**，错误 Token **退出码 1 且 steps=0**。演练过程修掉执行包三处真实缺陷：资产样本覆盖、样本可见性等待、诊断时间窗必须是 RFC3339。MVP保持约91%，100%目标继续。
 
@@ -139,7 +180,7 @@ Rust `runtime_tests.rs` 中的测试检查租户/incident范围、时间窗口�
 
 ## 下一步优先级
 
-当前优先级以第 37 节为准：核心只读筛选恢复、规范化告警历史、补充来源字段审核、资产观测历史、公共请求/开发会话和人工关联已完成本机切片验收；Worker 服务身份也已完成本机切片，继续通用跨源 Resolver/presence 与费用/留存。以下段落保留之前增量的历史检查，旧“下一项”已由较新章节替代。
+当前优先级以第67节用户要求及[接入工作台设计](architecture/integration-studio.md)为准：先完成内置实体/指标/关系及自定义模型的版本化基础，再来源中心/抽屉、v2转换与画布、关系实例管理。AI只预留扩展位。第68节已完成模型定义、PG版本管理和默认标量清洗预览；第70节完成OW-ST03/04的只读单链工作流部分，第71节完成OW-ST02类型选择/配置抽屉与草稿衔接。OW-ST01实例写入/详情和租户扩展、OW-ST02多实例/凭据编辑/采集绑定、OW-ST05关系实例仍缺。原MVP真实身份/人工评估退出项保持未完成。以下段落保留历史检查，旧“下一项”不代表当前计划。
 
 2026-09-25 追加 M3 持久化与页面：141 项契约、408 项领域检查、80 项 Java（真实本机 PG/VM，零失败/错误/跳过）、Rust 默认/全 feature 各 25 项、类型/构建及 54 项 Playwright 通过。实际浏览器→Java→PG 告警幂等导入、状态流转和刷新找回时间线→重新授权资产→同窗口 VM 查询通过；缺失历史指标保持 No data，来源为 labeled-fixture。截图已查看，见第 27 节、ADR-021 和本机验收手册。旧实体列表接口已增加 100 条上限，超限要求分页。此前“未持久化/未创建 Incident”的描述仅适用于第 26 节的 GET 读取切片。下一项为 Java Tool Gateway/Rust HTTP/AIInsight 持久化，同时收尾人工合并/拆分、统一会话和多源来源治理。
 

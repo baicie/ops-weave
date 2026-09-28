@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-entry.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "definition",
+    "digest",
+    "state",
+    "editVersion",
+    "layout",
+    "updatedAt",
+    "preview"
+  ],
+  "properties": {
+    "definition": {
+      "$ref": "workflow-definition.schema.json"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "state": {
+      "enum": [
+        "DRAFT",
+        "PUBLISHED"
+      ]
+    },
+    "editVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "layout": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "x",
+          "y"
+        ],
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4000
+          }
+        }
+      }
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "preview": {
+      "anyOf": [
+        {
+          "$ref": "workflow-receipt.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "DRAFT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "editVersion": {
+            "minimum": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "editVersion": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

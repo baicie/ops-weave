@@ -1,5 +1,5 @@
 // Explicit local OAuth protocol/source fixtures; real Java Worker/API, PostgreSQL and VictoriaMetrics.
-// The owned PG container is supplied by the operator. No tokens or secrets are logged or persisted.
+// The owned PG container or native psql path is explicit. No tokens or secrets are logged or persisted.
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { spawn, execFile } from 'node:child_process'
@@ -12,17 +12,38 @@ import path from 'node:path'
 const exec = promisify(execFile), delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const START = 1789992001 // Fixture's second second has one unambiguous 0.4 point; first second collides at millisecond precision.
 export async function checkHistoryService({ root, java, api, jdbc, vm, tenant, entity, issuer, service, grantsFile, artifacts, browserContext, browserOrigin }) {
-  const container = process.env.OPSWEAVE_TEST_PG_CONTAINER, user = process.env.OPSWEAVE_TEST_JDBC_USER
-  assert(container && /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(container), 'Explicit owned test PG container is required')
+  const container = process.env.OPSWEAVE_TEST_PG_CONTAINER
+  const historyUser = process.env.OPSWEAVE_TEST_HISTORY_JDBC_USER, historyPassword = process.env.OPSWEAVE_TEST_HISTORY_JDBC_PASSWORD
+  assert((historyUser !== undefined) === (historyPassword !== undefined), 'Explicit Worker database credentials must be supplied together')
+  const user = historyUser ?? process.env.OPSWEAVE_TEST_JDBC_USER
+  const password = historyPassword ?? process.env.OPSWEAVE_TEST_JDBC_PASSWORD ?? ''
+  const psql = process.env.OPSWEAVE_TEST_PSQL_EXECUTABLE
+  assert(Boolean(container) !== Boolean(psql), 'Choose exactly one explicit owned PG container or native psql executable')
+  if (container) assert(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(container), 'Invalid owned PG container')
+  if (psql) assert(path.isAbsolute(psql), 'Native psql executable must be an explicit absolute path')
   assert(/^oidc-[a-f0-9]+$/.test(tenant))
-  const database = new URL(jdbc.replace(/^jdbc:/, '')).pathname.slice(1), stream = 'service-' + randomBytes(6).toString('hex')
-  async function checkpoint() {
-    const query = `SELECT completed_through || ',' || revision FROM ingestion.history_checkpoint WHERE tenant_id='${tenant}' AND stream_name='${stream}'`
+  const databaseUrl = new URL(jdbc.replace(/^jdbc:/, ''))
+  assert(['127.0.0.1', '[::1]'].includes(databaseUrl.hostname) && !databaseUrl.username && !databaseUrl.password,
+    'Checkpoint reads require explicit loopback test storage')
+  const database = databaseUrl.pathname.slice(1), stream = 'service-' + randomBytes(6).toString('hex')
+  async function sql(query) {
+    const args = ['-X', '-w', '-U', user, '-d', database, '-At', '-v', 'ON_ERROR_STOP=1', '-c', query]
+    const command = psql ?? 'docker'
+    const commandArgs = psql ? ['-h', databaseUrl.hostname.replace(/^\[|\]$/g, ''), '-p', databaseUrl.port || '5432', ...args]
+      : ['exec', '-e', 'PGPASSWORD', container, 'psql', ...args]
     try {
-      const { stdout } = await exec('docker', ['exec', '-e', 'PGPASSWORD', container, 'psql', '-U', user, '-d', database, '-At', '-v', 'ON_ERROR_STOP=1', '-c', query],
-        { env: { ...process.env, PGPASSWORD: process.env.OPSWEAVE_TEST_JDBC_PASSWORD ?? '' }, windowsHide: true, timeout: 5000 })
-      const value = stdout.trim(); return value ? value.split(',').map(Number) : null
-    } catch { return null }
+      const { stdout } = await exec(command, commandArgs,
+        { env: { ...process.env, PGPASSWORD: password }, windowsHide: true, timeout: 5000 })
+      return stdout.trim()
+    } catch { throw new Error('Owned PostgreSQL checkpoint query failed') }
+  }
+  async function checkpoint() {
+    // Only an absent table/row means no checkpoint yet; transport/auth/SQL errors must fail.
+    if (!await sql("SELECT to_regclass('ingestion.history_checkpoint')")) return null
+    const query = `SELECT completed_through || ',' || revision FROM ingestion.history_checkpoint WHERE tenant_id='${tenant}' AND stream_name='${stream}'`
+    const value = await sql(query)
+    assert(!value || /^\d+,\d+$/.test(value), 'Unexpected checkpoint shape')
+    return value ? value.split(',').map(Number) : null
   }
   async function grant(enabled) {
     const now = Date.now()
@@ -46,11 +67,11 @@ export async function checkHistoryService({ root, java, api, jdbc, vm, tenant, e
   const jars = (await readdir(dir)).filter(n => n.endsWith('.jar') && !n.endsWith('-plain.jar')); assert.equal(jars.length, 1)
   function start() {
     worker = spawn(java, ['-jar', path.join(dir, jars[0]), '--server.address=127.0.0.1', '--server.port=0'], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env,
-      OPSWEAVE_HISTORY_ENABLED: 'true', OPSWEAVE_HISTORY_AUTH_MODE: 'client-credentials', OPSWEAVE_HISTORY_AUTH_LOOPBACK_TEST: 'true', OPSWEAVE_HISTORY_PLATFORM_URL: workerOrigin,
+      OPSWEAVE_HISTORY_ENABLED: 'true', OPSWEAVE_HISTORY_SCHEMA_MODE: historyUser ? 'verify' : 'migrate', OPSWEAVE_HISTORY_AUTH_MODE: 'client-credentials', OPSWEAVE_HISTORY_AUTH_LOOPBACK_TEST: 'true', OPSWEAVE_HISTORY_PLATFORM_URL: workerOrigin,
       OPSWEAVE_HISTORY_PLATFORM_TOKEN: '', OPSWEAVE_HISTORY_TOKEN_URI: issuer + '/token', OPSWEAVE_HISTORY_CLIENT_ID: 'history-worker', OPSWEAVE_HISTORY_CLIENT_SECRET: service.secret,
       OPSWEAVE_HISTORY_TENANT: tenant, OPSWEAVE_HISTORY_DATA_MODE: 'labeled-fixture', OPSWEAVE_HISTORY_SOURCE: 'zabbix-1', OPSWEAVE_HISTORY_ITEM_ID: '20001', OPSWEAVE_HISTORY_STREAM: stream,
       OPSWEAVE_HISTORY_INITIAL_FROM: String(START), OPSWEAVE_HISTORY_POLL_MILLIS: '1000', OPSWEAVE_HISTORY_STEP_SECONDS: '60', OPSWEAVE_HISTORY_OVERLAP_SECONDS: '120',
-      OPSWEAVE_HISTORY_JDBC_URL: jdbc, OPSWEAVE_HISTORY_JDBC_USER: user, OPSWEAVE_HISTORY_JDBC_PASSWORD: process.env.OPSWEAVE_TEST_JDBC_PASSWORD ?? '', OPSWEAVE_HISTORY_VICTORIA_URL: vm } })
+      OPSWEAVE_HISTORY_JDBC_URL: jdbc, OPSWEAVE_HISTORY_JDBC_USER: user, OPSWEAVE_HISTORY_JDBC_PASSWORD: password, OPSWEAVE_HISTORY_VICTORIA_URL: vm } })
     // Windows kill is immediate. Wait for a terminal poll log (emitted after PG release/commit)
     // before stopping, so this normal-restart test does not accidentally exercise a 300s crash lease.
     // Discard every other log; no full process output is stored or printed.

@@ -5,6 +5,10 @@
 > 本次收敛：**Java 平台后端 + Rust Agent Runtime + TypeScript 前端**。不部署 Python Agent，不依赖 LangGraph；Python 仅可作为后续独立算法服务或当前可选开发校验工具。  
 > 状态：架构基线与初始化模板。**设计范围不等于已实现功能**；代码完成度、实际执行的检查、未完成验证，分别见 `docs/IMPLEMENTATION-STATUS.md` 和 `docs/VALIDATION-REPORT.md`。
 
+> 2026-09-27产品范围补充：用户要求首版提供内置实体/指标、自定义实体类型/字段/关系类型、数据源中心/配置抽屉、可编辑清洗转换画布和实体关系管理。AI协助只预留扩展位。后续实现以[接入工作台设计](integration-studio.md)与[ADR-054](../adr/054-integration-studio-model-catalog.md)为补充，不把文档设计当作当前能力。
+
+> 第68节实现更新：模型定义中心、PG私有草稿/不可变版本与默认清洗预览已落地；来源中心、v2画布及关系实例仍待开发。见[实现状态](../IMPLEMENTATION-STATUS.md)及[模型操作](../runbooks/model-catalog.md)。
+
 ## 0. 关键决策
 
 | 决策 | 本版确定的边界 |
@@ -514,3 +518,9 @@ Retention 按租户和数据类型配置：源 Raw、完整日志、细粒度指
 - [S11] Zabbix item/history/event API: https://www.zabbix.com/documentation/current/en/manual/api/reference/item/object ; https://www.zabbix.com/documentation/current/en/manual/api/reference/history/get
 - [S12] MCP tools: https://modelcontextprotocol.io/specification/2025-11-25/server/tools
 - [S13] PostgreSQL Row Security: https://www.postgresql.org/docs/current/ddl-rowsecurity.html
+
+2026-09-27 §70：原生v2数据转换工作流复用Java平台、catalog模型和现有PG；单链白名单算子、草稿/CAS、固定模型pin、15分钟预览发布门禁、运行元数据回执及Zeus画布已实现。所有工作流运行均dry-run，指标/关系/实体实例输出和自动采集绑定尚未接通。旧Host v1与Rust诊断边界保持不变，详见[ADR-055](../adr/055-native-transform-workflows.md)。
+
+2026-09-28 §71：数据源中心接入配置与初版工作流共用Java/PG事务；创建时来源模式与模型pin持久保留，可信身份/来源授权不由前端替代。不启用采集，不新增启动单元，详见[ADR-056](../adr/056-source-center-onboarding.md)。
+
+2026-09-28 §74：工作流视图接入 AntV X6，关系类型和资产一跳只读视图接入 G6。图引擎为 TypeScript 适配器，不进入跨语言持久契约；Java 新只读关系查询复用平台、可信对象范围和 PG 当前快照。关系实例采集/编辑和 AI 编排仍未实现，见[ADR-058](../adr/058-antv-workspace-navigation.md)。

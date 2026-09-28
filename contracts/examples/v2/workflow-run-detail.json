@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "2.0",
+  "run": {
+    "workflowId": "fixture-trace",
+    "revision": 1,
+    "mode": "PREVIEW",
+    "receipt": {
+      "id": "10000000-0000-4000-8000-000000000073",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "origin": "MANUAL_SAMPLE",
+      "accepted": 1,
+      "rejected": 1,
+      "filtered": 1,
+      "createdAt": "2026-09-28T02:00:00Z"
+    }
+  },
+  "trace": {
+    "source": {
+      "kind": "MANUAL_SAMPLE",
+      "instanceId": "manual"
+    },
+    "target": {
+      "id": "builtin.service",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "syncRunId": null,
+    "startedAt": "2026-09-28T01:59:59Z",
+    "durationMillis": 1000,
+    "retainedCount": 3,
+    "missingRaw": 0,
+    "truncated": false,
+    "sourceStatus": "MANUAL_SAMPLE",
+    "dryRun": true,
+    "writesPerformed": false,
+    "rows": [
+      {
+        "index": 0,
+        "status": "ACCEPTED",
+        "steps": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "map",
+            "type": "MAP",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "filter",
+            "type": "FILTER",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "validate",
+            "type": "VALIDATE",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "output",
+            "type": "OUTPUT",
+            "status": "OK",
+            "issues": []
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "status": "REJECTED",
+        "steps": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "map",
+            "type": "MAP",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "filter",
+            "type": "FILTER",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "validate",
+            "type": "VALIDATE",
+            "status": "ERROR",
+            "issues": [
+              {
+                "field": "port",
+                "code": "TYPE_MISMATCH"
+              }
+            ]
+          },
+          {
+            "nodeId": "output",
+            "type": "OUTPUT",
+            "status": "SKIPPED",
+            "issues": []
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "status": "FILTERED",
+        "steps": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "map",
+            "type": "MAP",
+            "status": "OK",
+            "issues": []
+          },
+          {
+            "nodeId": "filter",
+            "type": "FILTER",
+            "status": "FILTERED",
+            "issues": []
+          },
+          {
+            "nodeId": "validate",
+            "type": "VALIDATE",
+            "status": "SKIPPED",
+            "issues": []
+          },
+          {
+            "nodeId": "output",
+            "type": "OUTPUT",
+            "status": "SKIPPED",
+            "issues": []
+          }
+        ]
+      }
+    ]
+  }
+}

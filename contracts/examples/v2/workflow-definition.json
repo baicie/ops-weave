@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "2.0",
+  "id": "fixture-service-transform",
+  "revision": 1,
+  "name": "Fixture service cleaning",
+  "source": {
+    "kind": "MANUAL_SAMPLE",
+    "instanceId": "manual"
+  },
+  "target": {
+    "id": "builtin.service",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "nodes": [
+    {
+      "id": "source",
+      "type": "SOURCE",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "id": "mapping",
+      "type": "MAP",
+      "version": "1",
+      "config": {
+        "service_name": "name",
+        "service_port": "port"
+      }
+    },
+    {
+      "id": "trim",
+      "type": "TRIM",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "id": "validate",
+      "type": "VALIDATE",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "id": "output",
+      "type": "OUTPUT",
+      "version": "1",
+      "config": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "source",
+      "to": "mapping"
+    },
+    {
+      "from": "mapping",
+      "to": "trim"
+    },
+    {
+      "from": "trim",
+      "to": "validate"
+    },
+    {
+      "from": "validate",
+      "to": "output"
+    }
+  ]
+}

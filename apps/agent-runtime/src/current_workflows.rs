@@ -150,8 +150,11 @@ async fn execute(
     .map_err(|_| AppError::Timeout)??;
     generated.usage.validate(model.name())?;
     // Record consumed tokens before parsing or rechecking evidence: an invalid answer can still be billed.
-    read.report_model(&permit, &generated.usage).await?;
-    let mut insight = skill.parse_output(&generated.text)?;
+    checked(
+        "usage-report",
+        read.report_model(&permit, &generated.usage).await,
+    )?;
+    let mut insight = checked("model-output", skill.parse_output(&generated.text))?;
     let mut missing = context.missing_data.clone();
     for gap in insight.missing_data {
         if missing.len() < 32 && !missing.contains(&gap) {
@@ -163,8 +166,14 @@ async fn execute(
     insight.limitations.truncate(16);
     insight = skill
         .parse_output(&serde_json::to_string(&insight).map_err(|_| AppError::InvalidOutput)?)?;
-    context::validate_references(&insight, &evidence, Utc::now())?;
-    tokio::try_join!(read.recheck(&incident), read.recheck(&metric))?;
+    checked(
+        "evidence-references",
+        context::validate_references(&insight, &evidence, Utc::now()),
+    )?;
+    checked(
+        "evidence-recheck",
+        tokio::try_join!(read.recheck(&incident), read.recheck(&metric)),
+    )?;
     context::validate_references(&insight, &evidence, Utc::now())?;
     let submitted = InsightSubmission {
         run_id: request.run_id.clone(),
@@ -185,7 +194,11 @@ async fn execute(
         evidence_ids: evidence.into_iter().map(|e| e.id).collect(),
         insight,
     };
-    read.save(&submitted).await
+    checked("insight-save", read.save(&submitted).await)
+}
+
+fn checked<T>(stage: &'static str, result: Result<T, AppError>) -> Result<T, AppError> {
+    result.inspect_err(|_| tracing::warn!(stage, "Current diagnosis failed; content omitted"))
 }
 
 #[cfg(test)]
@@ -515,3 +528,7 @@ mod tests {
         assert!(validate_request(&wrong).is_err());
     }
 }
+
+#[cfg(test)]
+#[path = "current_evaluation_tests.rs"]
+mod evaluation_tests;

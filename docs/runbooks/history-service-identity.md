@@ -22,7 +22,8 @@
 
 | Worker 配置 | 含义 |
 |---|---|
-| `OPSWEAVE_HISTORY_ENABLED=true` | 显式启用单流定时采集 |
+| `OPSWEAVE_HISTORY_ENABLED=true` | 显式启用定时采集，单流兼容或最多8流串行 |
+| `OPSWEAVE_HISTORY_SCHEMA_MODE` | 默认 `verify`，由独立所有者预先迁移；仅显式开发引导选 `migrate`，详见[数据库运行角色](database-runtime-roles.md) |
 | `OPSWEAVE_HISTORY_AUTH_MODE=client-credentials` | 使用服务身份；此时 `OPSWEAVE_HISTORY_PLATFORM_TOKEN` 必须为空 |
 | `OPSWEAVE_HISTORY_PLATFORM_URL` | 平台 HTTPS origin，无路径/用户信息/查询 |
 | `OPSWEAVE_HISTORY_TOKEN_URI` | 提供方固定 HTTPS token endpoint |
@@ -40,7 +41,7 @@
 
 ## 可重复本地检查
 
-先构建两个 Java bootJar、Rust all-features 二进制与 Web 依赖，并准备**专属** loopback PG/VM。设置 `OPSWEAVE_TEST_JDBC_URL/USER/PASSWORD`、`OPSWEAVE_TEST_VM_URL`、`OPSWEAVE_TEST_CHROMIUM_EXECUTABLE`、`JAVA_HOME`。额外提供 `OPSWEAVE_TEST_PG_CONTAINER`，为当前这组 PG 的拥有者提供的容器名；脚本只用 docker exec/psql 查询本次随机 tenant/stream 的 checkpoint，不操作无关容器。
+先构建两个 Java bootJar、Rust all-features 二进制与 Web 依赖，并准备**专属** loopback PG/VM。设置 `OPSWEAVE_TEST_JDBC_URL/USER/PASSWORD`、`OPSWEAVE_TEST_VM_URL`、`OPSWEAVE_TEST_CHROMIUM_EXECUTABLE`、`JAVA_HOME`。另外二选一：`OPSWEAVE_TEST_PG_CONTAINER` 指定这组 PG 的自有容器名，或 `OPSWEAVE_TEST_PSQL_EXECUTABLE` 指定本机 psql 的绝对路径。后者从同一 JDBC URL 提取 loopback 主机、端口与数据库；密码只经环境传入，禁用 psql 启动文件与密码提示。脚本只读取本次随机 tenant/stream 的 checkpoint；仅表或行尚不存在时返回空，查询/认证/连接失败直接中止。两种方式必须显式选择，不会自动切换。
 
 ```text
 node scripts/check_oidc_stack.mjs --history-service
@@ -49,3 +50,9 @@ node scripts/check_oidc_stack.mjs --history-service
 脚本创建本机 RSA/JWKS/OIDC 与独立服务 client fixture，启动真实 Java 平台和 Worker，核对 VM 中 0.4 采样及 PG checkpoint；随后撤销 grant、模拟 token 服务 503、重启 Worker 并轮换 secret，检查失败期间 cursor/revision 不变、恢复后前进。相同平台继续跑 Rust mock 诊断、浏览器刷新/回读/双标签退出和 OIDC 撤权。
 
 产物 `.tmp/oidc-acceptance/service-metric-history-page.json` 与 `history-service-grants.json` 按 canonical Schema 检查；`service-checkpoint-report.json` 只是测试事实记录，不是业务 API。身份 fixture 无真实提供方连接；来源明确 labeled-fixture、模型明确 mock。access token、client secret、Cookie、code 不输出或落盘。此脚本不等同真实 IdP/TLS/厂商/模型验收。
+
+## 多指标与重启
+
+单流沿用 ITEM_ID/STREAM/INITIAL_FROM。多流清空 OPSWEAVE_HISTORY_ITEM_ID，设置 OPSWEAVE_HISTORY_STREAMS=itemId:streamName:initialFrom,...；最多8个唯一item ID，全部由运维可信配置，不能来自模型或请求。起点省略时使用全局 INITIAL_FROM。重启必须沿用每条已存检查点的原名称和原起点，不使用每次启动的当前时间重新生成。
+
+每流继续使用既有窗口、页数、超时、授权与租约预算，串行并发1；失败流不推进检查点，其余流仍处理，重试仅在下一定时周期。超限、重复ID、格式错误或同时配置单项与多项在启动时拒绝。详见[ADR-052](../adr/052-zabbix-bounded-manifest.md)。

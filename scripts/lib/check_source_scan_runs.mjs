@@ -34,6 +34,7 @@ export async function checkSourceScanRuns({ page, expect, request, browserJson, 
   assert.equal(list.dataMode, 'scan-log')
   assert.equal(list.objectType, 'host')
   assert.ok(list.items.some(item => item.syncRunId === hostRunId), 'the stored scan is listed')
+  await writeFile(path.join(root, '.tmp/metrics-acceptance/source-scan-run-page.json'), JSON.stringify(list, null, 2))
   await expect(page.locator(`[data-scan-run-id="${hostRunId}"]`)).toContainText('SUCCEEDED')
   await expect(page.locator('[data-scan-run-list]')).toContainText('labeled-fixture')
   await expect(page.locator('[data-scan-run-list]')).toContainText('边界 已验证 hostid 水位快照')

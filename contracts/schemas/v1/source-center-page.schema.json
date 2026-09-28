@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/source-center-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "types",
+    "models",
+    "modelsTruncated",
+    "setups"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "types": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "connection"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "ZABBIX_HOST",
+              "MANUAL_SAMPLE",
+              "CMDB_SNAPSHOT"
+            ]
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE",
+              "LEGACY_IMPORT"
+            ]
+          },
+          "connection": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "instanceId",
+                  "digest",
+                  "dataMode",
+                  "endpoint",
+                  "credentialRef"
+                ],
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "dataMode": {
+                    "enum": [
+                      "fixture",
+                      "zabbix-jsonrpc",
+                      "MANUAL_SAMPLE"
+                    ]
+                  },
+                  "endpoint": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 1024,
+                    "format": "uri",
+                    "pattern": "^https?://[^@?#\\s]+$"
+                  },
+                  "credentialRef": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^env:[A-Z][A-Z0-9_]{0,127}$"
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "dataMode": {
+                          "const": "zabbix-jsonrpc"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "endpoint": {
+                          "type": "string"
+                        },
+                        "credentialRef": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "endpoint": {
+                          "type": "null"
+                        },
+                        "credentialRef": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "dataMode": {
+                          "const": "MANUAL_SAMPLE"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "instanceId": {
+                          "const": "manual"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "AVAILABLE"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "connection": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "instanceId",
+                    "digest",
+                    "dataMode",
+                    "endpoint",
+                    "credentialRef"
+                  ],
+                  "properties": {
+                    "instanceId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+                    },
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^sha256:[a-f0-9]{64}$"
+                    },
+                    "dataMode": {
+                      "enum": [
+                        "fixture",
+                        "zabbix-jsonrpc",
+                        "MANUAL_SAMPLE"
+                      ]
+                    },
+                    "endpoint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 1024,
+                      "format": "uri",
+                      "pattern": "^https?://[^@?#\\s]+$"
+                    },
+                    "credentialRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^env:[A-Z][A-Z0-9_]{0,127}$"
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "dataMode": {
+                            "const": "zabbix-jsonrpc"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "endpoint": {
+                            "type": "string"
+                          },
+                          "credentialRef": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "else": {
+                        "properties": {
+                          "endpoint": {
+                            "type": "null"
+                          },
+                          "credentialRef": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "dataMode": {
+                            "const": "MANUAL_SAMPLE"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "instanceId": {
+                            "const": "manual"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "connection": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "id": {
+                  "const": "CMDB_SNAPSHOT"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": "LEGACY_IMPORT"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "AVAILABLE",
+                    "UNAVAILABLE"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "id": {
+                  "const": "MANUAL_SAMPLE"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": "AVAILABLE"
+                },
+                "connection": {
+                  "properties": {
+                    "dataMode": {
+                      "const": "MANUAL_SAMPLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "id": {
+                  "const": "ZABBIX_HOST"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "connection": {
+                  "properties": {
+                    "dataMode": {
+                      "enum": [
+                        "fixture",
+                        "zabbix-jsonrpc"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "ZABBIX_HOST"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "MANUAL_SAMPLE"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "CMDB_SNAPSHOT"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "models": {
+      "type": "array",
+      "maxItems": 55,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "definition",
+          "digest"
+        ],
+        "properties": {
+          "definition": {
+            "$ref": "model-definition.schema.json",
+            "properties": {
+              "kind": {
+                "const": "ENTITY"
+              },
+              "fields": {
+                "minItems": 1
+              }
+            }
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "modelsTruncated": {
+      "type": "boolean"
+    },
+    "setups": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "source-setup.schema.json"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

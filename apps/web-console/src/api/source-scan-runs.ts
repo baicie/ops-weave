@@ -145,7 +145,7 @@ export function parseScanRunPage(value: unknown, objectType: ScanObjectType, exp
   const retention = parseRetention(page.retention)
   const items = page.items.map(item => parseScanRun(item, objectType))
   check(new Set(items.map(item => item.syncRunId)).size === items.length)
-  check(retention.retained >= items.length)
+  // The budget counts only ended, unpinned runs. The page also includes protected runs.
   return { ...(page as unknown as ScanRunPage), retention, items }
 }
 

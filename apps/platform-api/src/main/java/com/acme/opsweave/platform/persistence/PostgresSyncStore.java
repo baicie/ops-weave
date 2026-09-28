@@ -5,6 +5,7 @@ import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.api.RawRecordReader;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
 import com.acme.opsweave.integration.domain.ScanRunRetention;
+import com.acme.opsweave.integration.domain.RawRetention;
 import com.acme.opsweave.integration.domain.SyncRun;
 import com.acme.opsweave.integration.domain.SyncRunCursor;
 import com.acme.opsweave.integration.domain.SyncScan;
@@ -24,6 +25,7 @@ import tools.jackson.databind.json.JsonMapper;
 final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.RawRecordCollector, RawRecordReader {
     private final DataSource dataSource;
     private final ScanRunRetention.Policy retention;
+    private final RawRetention.Policy rawRetention;
     private final JsonMapper json = JsonMapper.builder().build();
 
     PostgresSyncStore(DataSource dataSource) {
@@ -31,8 +33,13 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
     }
 
     PostgresSyncStore(DataSource dataSource, ScanRunRetention.Policy retention) {
+        this(dataSource, retention, RawRetention.Policy.defaults());
+    }
+
+    PostgresSyncStore(DataSource dataSource, ScanRunRetention.Policy retention, RawRetention.Policy rawRetention) {
         this.dataSource = dataSource;
         this.retention = retention;
+        this.rawRetention = java.util.Objects.requireNonNull(rawRetention);
     }
 
     @Override
@@ -291,7 +298,35 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
     public String retain(TenantId tenantId, String sourceInstanceId, UUID syncRunId, Connector.RawRecord record) {
         String ref = IngestZabbixHostsUseCase.newRawRef();
         String payload = json.writeValueAsString(record.payload());
+        if (payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > RawRetention.MAX_PAYLOAD_BYTES)
+            throw new RawRetention.Limit(RawRetention.Reason.PAYLOAD_LIMIT);
         Transactions.run(dataSource, connection -> {
+            // All sources share the tenant budget. Serialize admission and insertion across
+            // connections, without deleting Raw data that an Observation or replay may reference.
+            try (var lock = connection.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")) {
+                lock.setQueryTimeout(5);
+                lock.setString(1, "opsweave-raw-retention:" + tenantId.value());
+                lock.execute();
+            }
+            try (var counts = connection.prepareStatement("""
+                SELECT octet_length(?::jsonb::text) AS payload_bytes,
+                       count(*) FILTER (WHERE source_instance_id = ?) AS source_count,
+                       count(*) AS tenant_count
+                  FROM (SELECT source_instance_id FROM integration.raw_record_metadata
+                         WHERE tenant_id = ? LIMIT ?) retained
+                """)) {
+                counts.setQueryTimeout(5);
+                counts.setString(1, payload);
+                counts.setString(2, sourceInstanceId);
+                counts.setString(3, tenantId.value());
+                counts.setInt(4, rawRetention.maxPerTenant());
+                try (var rows = counts.executeQuery()) {
+                    rows.next();
+                    if (rows.getInt("payload_bytes") > RawRetention.MAX_PAYLOAD_BYTES)
+                        throw new RawRetention.Limit(RawRetention.Reason.PAYLOAD_LIMIT);
+                    rawRetention.admit(rows.getLong("source_count"), rows.getLong("tenant_count"));
+                }
+            }
             try (var statement = connection.prepareStatement("""
                 INSERT INTO integration.raw_record_metadata (
                     tenant_id, id, source_instance_id, external_id, observed_at, payload, sync_run_id

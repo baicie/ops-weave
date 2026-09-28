@@ -15,4 +15,9 @@ class HistoryWorkerClosedTest {
         assertEquals(0, context.getBeansOfType(javax.sql.DataSource.class).size());
         assertEquals(0, context.getBeansOfType(com.acme.opsweave.integration.application.IngestMetricHistoryUseCase.class).size());
     }
+    @Test void defaultModeDoesNotCreateAnInteractiveUserOrGeneratedPassword() {
+        var users = context.getBean(org.springframework.security.core.userdetails.UserDetailsService.class);
+        assertThrows(org.springframework.security.core.userdetails.UsernameNotFoundException.class,
+            () -> users.loadUserByUsername("user"));
+    }
 }

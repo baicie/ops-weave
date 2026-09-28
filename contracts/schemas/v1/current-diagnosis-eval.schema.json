@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Current diagnosis evaluation corpus (synthetic inputs, pending human review)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "dataMode": {
+      "const": "labeled-fixture"
+    },
+    "referenceClock": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "skillRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "incident.diagnose"
+        },
+        "version": {
+          "const": "2.0.0"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ]
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "category": {
+            "enum": [
+              "normal",
+              "missing",
+              "conflict",
+              "expired",
+              "unauthorized",
+              "injection",
+              "timeout",
+              "invalid-output"
+            ]
+          },
+          "annotation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "const": "pending-human-review"
+              },
+              "supportedFacts": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "minItems": 1,
+                "maxItems": 8
+              },
+              "forbiddenClaims": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "minItems": 1,
+                "maxItems": 8
+              },
+              "reviewQuestions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "minItems": 1,
+                "maxItems": 8
+              }
+            },
+            "required": [
+              "status",
+              "supportedFacts",
+              "forbiddenClaims",
+              "reviewQuestions"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "context": {
+            "$ref": "current-context.schema.json"
+          },
+          "resourceAuthorized": {
+            "type": "boolean"
+          },
+          "recheck": {
+            "enum": [
+              "ok",
+              "forbidden"
+            ]
+          },
+          "scriptedModel": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "behavior": {
+                "enum": [
+                  "return",
+                  "timeout"
+                ]
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 32768
+              }
+            },
+            "required": [
+              "behavior",
+              "output"
+            ]
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "saved",
+                  "platform-unavailable",
+                  "forbidden",
+                  "timeout",
+                  "invalid-output"
+                ]
+              },
+              "baselineOutcome": {
+                "enum": [
+                  "saved",
+                  "platform-unavailable",
+                  "forbidden",
+                  "timeout",
+                  "invalid-output"
+                ]
+              },
+              "modelCalls": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "usageReports": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "saveAttempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "minRechecks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "maxRechecks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "protectedMissing": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                },
+                "minItems": 1,
+                "maxItems": 32,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "outcome",
+              "baselineOutcome",
+              "modelCalls",
+              "usageReports",
+              "saveAttempts",
+              "minRechecks",
+              "maxRechecks",
+              "protectedMissing"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "annotation",
+          "question",
+          "context",
+          "resourceAuthorized",
+          "recheck",
+          "scriptedModel",
+          "expected"
+        ]
+      },
+      "minItems": 8,
+      "maxItems": 32
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "dataMode",
+    "referenceClock",
+    "skillRef",
+    "cases"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/model-catalog-entry.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "definition",
+    "digest",
+    "state",
+    "editVersion",
+    "updatedAt"
+  ],
+  "properties": {
+    "definition": {
+      "$ref": "model-definition.schema.json"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "state": {
+      "enum": [
+        "DRAFT",
+        "PUBLISHED"
+      ]
+    },
+    "editVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "DRAFT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "editVersion": {
+            "minimum": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "editVersion": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

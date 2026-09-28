@@ -10,6 +10,10 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
+    // Explicit local browser override, shared with the checked-in stack probes. No silent fallback.
+    launchOptions: process.env.OPSWEAVE_TEST_CHROMIUM_EXECUTABLE
+      ? { executablePath: process.env.OPSWEAVE_TEST_CHROMIUM_EXECUTABLE }
+      : undefined,
   },
   webServer: {
     command: 'pnpm build && pnpm preview --host 127.0.0.1 --port 4173 --strictPort',

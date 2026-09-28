@@ -181,7 +181,8 @@ public final class IngestZabbixItemsUseCase {
                 case DEADLINE -> SyncFailureCode.SOURCE_SCAN_DEADLINE;
                 case LIMIT -> SyncFailureCode.SOURCE_SCAN_LIMIT;
             };
-            LOG.log(Level.WARNING, "Zabbix item sync failed: " + failure.name(), failed);
+            // Connector/storage exceptions may contain credentials or raw vendor records.
+            LOG.log(Level.WARNING, "Zabbix item sync failed: " + failure.name());
             try { syncRuns.checkpoint(principal.tenantId(), run.id(), cursor, pages, fetched, accepted, rejected); }
             catch (RuntimeException ignored) { /* Preserve the original failure. */ }
             failQuietly(principal.tenantId(), run.id(), failure, scanConsistency);

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/model-catalog-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "package",
+    "published",
+    "drafts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "enum": [
+        "postgres",
+        "memory"
+      ]
+    },
+    "package": {
+      "$ref": "model-catalog-package.schema.json"
+    },
+    "published": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "model-catalog-entry.schema.json"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "drafts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "model-catalog-entry.schema.json"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

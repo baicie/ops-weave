@@ -6,6 +6,6 @@ export function createHashRoute() {
   const onChange = () => setRoute(routeFromHash(window.location.hash))
   window.addEventListener('hashchange', onChange)
   onCleanup(() => window.removeEventListener('hashchange', onChange))
-  if (!window.location.hash) window.location.hash = '/incidents/diagnose'
+  if (!window.location.hash) window.location.hash = '/start'
   return { route }
 }

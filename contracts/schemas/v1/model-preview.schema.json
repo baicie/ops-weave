@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/model-preview.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "valid",
+    "values",
+    "issues",
+    "changes"
+  ],
+  "properties": {
+    "valid": {
+      "type": "boolean"
+    },
+    "values": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "issues": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "code"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "code": {
+            "enum": [
+              "UNKNOWN_FIELD",
+              "MISSING_REQUIRED",
+              "NULL_REQUIRED",
+              "TYPE_MISMATCH",
+              "TOO_LONG",
+              "EMPTY_REQUIRED",
+              "ENUM_MISMATCH",
+              "OUT_OF_RANGE",
+              "NUMERIC_LIMIT"
+            ]
+          }
+        }
+      }
+    },
+    "changes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "rule"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 48
+          },
+          "rule": {
+            "enum": [
+              "trim-text",
+              "strict-scalar-conversion"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

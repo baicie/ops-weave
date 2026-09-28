@@ -1,0 +1,611 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MVP acceptance probe report v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "mode": {
+      "enum": [
+        "rehearsal",
+        "unverified",
+        "real-candidate"
+      ]
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceDataMode": {
+      "enum": [
+        null,
+        "labeled-fixture",
+        "zabbix-jsonrpc"
+      ]
+    },
+    "modelProvider": {
+      "enum": [
+        null,
+        "mock-deterministic",
+        "rig-openai"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "maxItems": 7,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S1"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "checkId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reportedVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,4}(?![\\s\\S])"
+                },
+                "dataMode": {
+                  "enum": [
+                    "labeled-fixture",
+                    "zabbix-jsonrpc"
+                  ]
+                }
+              },
+              "required": [
+                "checkId",
+                "reportedVersion",
+                "dataMode"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S2"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "syncRunId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "pipelineVersion": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}(?![\\s\\S])"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    },
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "digest"
+                  ]
+                },
+                "dataMode": {
+                  "enum": [
+                    "labeled-fixture",
+                    "zabbix-jsonrpc"
+                  ]
+                }
+              },
+              "required": [
+                "syncRunId",
+                "pipelineVersion",
+                "dataMode"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S3"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "syncRunId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "dataMode": {
+                  "enum": [
+                    "labeled-fixture",
+                    "zabbix-jsonrpc"
+                  ]
+                }
+              },
+              "required": [
+                "syncRunId",
+                "dataMode"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S4"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "entityId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "entityId"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S5"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "entityId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "metricKey": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_.:/%\\-]{1,128}(?![\\s\\S])"
+                },
+                "samples": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 500
+                },
+                "queryWindow": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "to": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to"
+                  ]
+                }
+              },
+              "required": [
+                "entityId",
+                "metricKey",
+                "samples",
+                "queryWindow"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S6"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "incidentId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "incidentVersion": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "entityId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "problems": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 50
+                }
+              },
+              "required": [
+                "incidentId",
+                "incidentVersion",
+                "entityId",
+                "problems"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "S7"
+            },
+            "requestIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "insightId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "modelProvider": {
+                  "enum": [
+                    "mock-deterministic",
+                    "rig-openai"
+                  ]
+                }
+              },
+              "required": [
+                "insightId",
+                "sessionId",
+                "evidenceIds",
+                "modelProvider"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "requestIds",
+            "evidence"
+          ]
+        }
+      ],
+      "items": false
+    },
+    "failedStep": {
+      "enum": [
+        null,
+        "CONFIG",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S6",
+        "S7"
+      ]
+    },
+    "errorCode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z][A-Z0-9_]{0,79}(?![\\s\\S])"
+    },
+    "milestonesSatisfied": {
+      "const": false
+    },
+    "unverified": {
+      "const": [
+        "目标环境真实性、Zabbix 版本兼容与分页语义需要独立核对；自报版本不是兼容性证明",
+        "重复同步、失败不误删除及授权负例需要独立回归；单次成功扫描不证明这些条件",
+        "人工抽样审阅（包括结论是否被证据支持，脚本不能代替）",
+        "真实模型提供方账单与配额对账",
+        "真实 IdP/HTTPS/反向代理与浏览器会话验收（见 OIDC runbook）"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "mode",
+    "status",
+    "startedAt",
+    "completedAt",
+    "sourceDataMode",
+    "modelProvider",
+    "steps",
+    "failedStep",
+    "errorCode",
+    "milestonesSatisfied",
+    "unverified"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "passed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "rehearsal",
+              "real-candidate"
+            ]
+          },
+          "steps": {
+            "minItems": 7
+          },
+          "errorCode": {
+            "const": null
+          },
+          "failedStep": {
+            "const": null
+          },
+          "sourceDataMode": {
+            "enum": [
+              "labeled-fixture",
+              "zabbix-jsonrpc"
+            ]
+          },
+          "modelProvider": {
+            "enum": [
+              "mock-deterministic",
+              "rig-openai"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "rehearsal",
+              "unverified"
+            ]
+          },
+          "steps": {
+            "maxItems": 6
+          },
+          "failedStep": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "real-candidate"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourceDataMode": {
+            "const": "zabbix-jsonrpc"
+          },
+          "modelProvider": {
+            "const": "rig-openai"
+          },
+          "steps": {
+            "prefixItems": [
+              {
+                "properties": {
+                  "evidence": {
+                    "properties": {
+                      "dataMode": {
+                        "const": "zabbix-jsonrpc"
+                      },
+                      "reportedVersion": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "evidence": {
+                    "properties": {
+                      "dataMode": {
+                        "const": "zabbix-jsonrpc"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "evidence": {
+                    "properties": {
+                      "dataMode": {
+                        "const": "zabbix-jsonrpc"
+                      }
+                    }
+                  }
+                }
+              },
+              {},
+              {},
+              {},
+              {
+                "properties": {
+                  "evidence": {
+                    "properties": {
+                      "modelProvider": {
+                        "const": "rig-openai"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

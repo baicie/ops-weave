@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/model-catalog-package.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "version",
+    "definitions",
+    "metrics",
+    "cleaning",
+    "connectorPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "packageId": {
+      "const": "opsweave-core"
+    },
+    "version": {
+      "const": "1.0.0"
+    },
+    "definitions": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "$ref": "model-definition.schema.json"
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label",
+          "entityType",
+          "unit",
+          "kind",
+          "sourceKey",
+          "transform",
+          "mapping"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "entityType": {
+            "type": "string",
+            "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "kind": {
+            "const": "gauge"
+          },
+          "sourceKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "transform": {
+            "enum": [
+              "identity",
+              "percent-to-ratio"
+            ]
+          },
+          "mapping": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "cleaning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rules",
+        "missingPolicy",
+        "sampleLimit",
+        "fieldLimit"
+      ],
+      "properties": {
+        "id": {
+          "const": "safe-scalars-v1"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "trim-text",
+              "strict-scalar-conversion",
+              "required-and-null-check",
+              "enum-and-range-check",
+              "reject-unknown-field"
+            ]
+          }
+        },
+        "missingPolicy": {
+          "const": "preserve-and-report"
+        },
+        "sampleLimit": {
+          "const": 1
+        },
+        "fieldLimit": {
+          "const": 32
+        }
+      }
+    },
+    "connectorPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connector",
+        "discovery",
+        "normalizationBoundary",
+        "locallyVerifiedVersions",
+        "otherVersions",
+        "authentication",
+        "note"
+      ],
+      "properties": {
+        "connector": {
+          "const": "zabbix"
+        },
+        "discovery": {
+          "const": "apiinfo.version"
+        },
+        "normalizationBoundary": {
+          "const": "connector"
+        },
+        "locallyVerifiedVersions": {
+          "type": "array",
+          "items": {
+            "const": "7.0.27"
+          },
+          "maxItems": 1
+        },
+        "otherVersions": {
+          "const": "UNVERIFIED"
+        },
+        "authentication": {
+          "const": "bearer-header"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    }
+  }
+}

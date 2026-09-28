@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt",
+    "evaluation",
+    "retainedCount",
+    "missingRaw",
+    "truncated",
+    "sourceStatus"
+  ],
+  "properties": {
+    "receipt": {
+      "$ref": "workflow-receipt.schema.json"
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows",
+        "accepted",
+        "rejected",
+        "filtered",
+        "dryRun",
+        "writesPerformed"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index",
+              "status",
+              "steps"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "status": {
+                "enum": [
+                  "ACCEPTED",
+                  "REJECTED",
+                  "FILTERED"
+                ]
+              },
+              "steps": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "nodeId",
+                    "type",
+                    "status",
+                    "values",
+                    "issues"
+                  ],
+                  "properties": {
+                    "nodeId": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+                    },
+                    "type": {
+                      "enum": [
+                        "SOURCE",
+                        "MAP",
+                        "TRIM",
+                        "EMPTY_TO_NULL",
+                        "DEFAULT",
+                        "ENUM_MAP",
+                        "SCALE",
+                        "FILTER",
+                        "VALIDATE",
+                        "OUTPUT"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "OK",
+                        "ERROR",
+                        "FILTERED",
+                        "SKIPPED"
+                      ]
+                    },
+                    "values": {
+                      "type": "object",
+                      "maxProperties": 32,
+                      "propertyNames": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,47}$",
+                        "not": {
+                          "enum": [
+                            "tenantId",
+                            "tenant_id",
+                            "Authorization",
+                            "authorization",
+                            "constructor",
+                            "prototype",
+                            "secret",
+                            "token",
+                            "password"
+                          ]
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ],
+                        "maxLength": 2048
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "field",
+                          "code"
+                        ],
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "code": {
+                            "type": "string",
+                            "pattern": "^[A-Z_]{1,32}$"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "accepted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "rejected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "filtered": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "dryRun": {
+          "const": true
+        },
+        "writesPerformed": {
+          "const": false
+        }
+      }
+    },
+    "retainedCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "missingRaw": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "sourceStatus": {
+      "enum": [
+        "MANUAL_SAMPLE",
+        "SUCCEEDED",
+        "FAILED"
+      ]
+    }
+  }
+}

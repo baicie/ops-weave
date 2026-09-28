@@ -1,6 +1,6 @@
 # 本次交付验证报告 · OpsWeave v4
 
-最新本机追加记录见第 28 节。以下早期交付包的“未执行/未实现”按当时状态保留，不代表后续本机增量状态。
+最新本机追加记录见第 74 节。以下早期交付包的“未执行/未实现”按当时状态保留，不代表后续本机增量状态。
 
 日期：2026-09-21。此报告区分实际执行、只提供源码及未具备执行条件三种状态。**未验证 Rust 编译，不声明模板可直接用于生产。**
 
@@ -1268,3 +1268,633 @@ CI 迭代：① 首次 java 失败是本轮新用例把 `Set` 与排序后的 `L
 也不改变 fail-closed 语义（满了仍然拒绝写入）。资产观测**刻意不进入清理候选**：已存储的工具证据引用观测 id，删除观测会
 留下悬空引用（记录在 ADR-048）。备份/恢复/物理擦除仍无任何能力或承诺。M2–M4 与 MVP 估算不变。见
 [ADR-048](adr/048-metadata-retention-backup-lifecycle.md)、[契约](../contracts/schemas/v1/source-receipt-capacity.schema.json)。
+
+## 58. 2026-09-27 验收报告防误判、真实证据回读与当前环境复验（追加）
+
+用户再次要求在当前 main 持续推进 M0–M4 至 100%，不新建分支。本节变更留在 main 工作区，未提交、推送或部署。
+核对退出条件时发现第53节执行包本身会误判：仅凭来源自检不是 fixture 即输出 `mode: real`，并未拒绝 mock 模型；
+S5 与 S6 可选择互不关联的资产和 Incident；S7 只读结果，不实际回读所列 Evidence；一个成功扫描还被映射为
+“重复同步与失败不误删”的证明。故先修复验证入口，不能用这个入口宣布 100%。
+
+修正后的执行包只生成 v2 的 `rehearsal`、`unverified` 或 `real-candidate`，`milestonesSatisfied` 永远为 false。
+非演练要求明确资产/Incident/指标/预期来源版本；每一段复核来源，mock、fixture、unknown 不能通过非演练。
+Host 发布版本/digest 与持久扫描追溯一致；Item 也回读持久扫描；指标资产与 Incident 告警必须真实关联。
+AIInsight 必须匹配本次 run/租户/Incident/版本/资产/窗口，原样回读；随后经固定平台路径逐条读取两类 Evidence，
+检查会话、资源范围、版本、查询窗口、availableAt/asOf 与当前过期时间，metric 证据必须包含所选资产的样本。
+引用只表示完整性，不表示因果支持；契约允许的空 findings 保持有效，不要求模型编造发现。
+
+网络与留证收紧：不跟随 HTTP 重定向，不跟随上游 sourceRef；远端显式启用且必须 HTTPS；单次响应上限 256 KiB，
+普通请求20秒、诊断90秒；无重试。报告与 stdout 不记录 Token、URL、资产名称、异常正文、提问或模型输出，
+只留必要标识、模式、请求 UUID、时间、稳定失败码。配置失败也能落报告，开始时间不再使用结束时间。
+真实目标环境、版本兼容、幂等/失败/授权负例、真实 IdP/TLS/浏览器、账单与人工审阅仍须独立证据。
+
+来源失败日志审计还发现 Item 同步直接记录原始异常（包括嵌套厂商/存储内容）；现与 Host 一致，只记录稳定失败码。
+回归用合成凭据/厂商正文构造两层异常，捕获实际 LogRecord，检查固定文案、WARNING、无 Throwable/参数；
+保留原 SOURCE_FETCH_FAILED、已写页及失败不误删除的行为，不把上游失败变为空快照。
+
+| 检查 | 本轮实际命令 / 方法 | 结果与边界 |
+|---|---|---|
+| 验收入口回归 | `node --test tests/acceptance/*.test.mjs` | **44 passed，0 failed/skipped**。loopback 协议 fixture；覆盖 mock/fixture/unknown、版本/关联/引用/会话/时间、实际证据403、空 findings、合法大写流水线 ID、末尾换行、同 ID 内容变更、重定向、错误正文不泄漏、大小上限及缺配置 CLI。生成43份协议 fixture 报告用于跨校验，不算真实验收 |
+| 结构 / 锁与 Wrapper | `.tmp/mvp-check-venv/Scripts/python.exe scripts/check_repo.py`、同解释器 `scripts/check_release_inputs.py` | **244个结构化文件、6个只读 Tool 通过**；Bootstrap 文件存在。没有生成或升级产品锁文件、Wrapper |
+| 契约全量与报告交叉校验 | `.tmp/mvp-check-venv/Scripts/python.exe -m pytest tests/contracts -q`；随后加 `-X utf8 -o addopts=` 复跑 | 首次**收集失败**：既有 `test_incident.py` 使用默认GBK读取UTF-8中文样例，出现 `UnicodeDecodeError`。本地 `scripts/check.ps1`/`check.sh` 已显式启用UTF-8；UTF-8全量复跑通过；扫描计数样例修正后最终 **800 passed（7.29s），退出码0**，输出在 `.tmp/mvp-contracts-final.log`。包含实际CLI失败报告和43份协议fixture报告的Schema交叉校验 |
+| 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并运行 main | **1141项、41个 main 通过**。新增5项失败日志边界断言；先运行回归，旧实现按预期因原始 Throwable 泄漏失败，修复后全量通过。部分页面已保存且失败不误退休的既有断言仍通过 |
+| Java / 启动包 | `gradlew.bat :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline --console=plain --rerun-tasks` | 首次无存储配置为123通过/122跳过。随后用隔离本机 PG/VM 配置同命令强制复跑：**BUILD SUCCESSFUL（3m33s），两个 bootJar 成功，36任务执行**；XML 平台225、Worker20，合计 **245通过，0失败/错误/跳过** |
+| PostgreSQL / VictoriaMetrics | `docker info`、`docker desktop start --timeout 30`，核对测试环境配置 | Docker Desktop 启动超时且 Linux engine named pipe 不存在。改用校验过的官方 Windows 二进制：**PostgreSQL 17.11、VictoriaMetrics v1.152.0**，独立 `.tmp/mvp-native` 数据、随机PG凭据、仅127.0.0.1；245项Java测试全量零跳过通过。属于真实存储引擎上的合成数据测试，外部来源/模型/IdP仍是未验收 |
+| Rust | `node .tmp/rust-check.cjs`：fmt、默认 `cargo test --workspace --locked -j 1`、`cargo test --workspace --all-features --locked -j 1` | **fmt通过，默认40 / all-features44通过，0 failed/ignored**。Rig用例仍是明确协议桩，无真实提供方请求 |
+| TypeScript / Web build | `pnpm typecheck:web`、`pnpm build:web`；浏览器配置改动后 Playwright 的 build 前置再次执行 | **通过**；Vite生产构建82模块。未升级 pnpm/Zeus/TypeScript 等依赖 |
+| 浏览器 | 显式设置 `OPSWEAVE_TEST_CHROMIUM_EXECUTABLE` 为既有 `.tmp/chromium-1193/chrome-win/chrome.exe`，运行 `pnpm --filter @opsweave/web-console exec playwright test --max-failures=1` | 初轮229项通过；实际整链发现扫描计数误判并修复后最终 **230 passed（2.1m），退出码0**；实际浏览器版本 **140.0.7339.186**。页面/HTTP fixture 回归，不是真实身份/来源/模型验收 |
+| 扫描追溯 HTTP 回归 | 同一 PG 环境 `gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.SourceScanRunHttpIT --offline --console=plain --rerun-tasks` | **2项通过、0跳过（26s）**；新增断言确认被钉住 Host 仍在列表，但 retained=0。全量245项已在新增断言前通过，本次只重跑受影响类 |
+| 实际本机整链 | 显式 PG/VM/Chromium 配置，`node scripts/check_metrics_stack.mjs --pipeline --runtime`；先 `cargo build --workspace --all-features --locked -j 1` | **21组 PASS，退出0**；浏览器→Java→Rust mock→PG/VM、持久AIInsight及证据、旧关联拒绝、页面清理、扫描/连接追溯；112个浏览器响应的UUID/no-store/nosniff检查零失败。新版验收器7步演练通过且非演练按预期拒绝fixture；两个报告均不签署里程碑 |
+| OIDC / Worker 服务身份整链 | 同一专属存储，显式 native psql 路径，`node scripts/check_oidc_stack.mjs --history-service` | **10组 PASS，退出0**；PKCE/nonce、HttpOnly Cookie/CSRF、有界Runtime委托、PG结果刷新、双标签退出/撤权，以及Worker独立服务JWT、VM样本/PG检查点、撤权和提供方故障不推进、轮换后续采。18个浏览器响应边界检查通过；IdP仍为协议fixture、来源fixture、模型mock |
+| 本轮产物契约/截图 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 .tmp/validate-mvp-native.py`；查看实际扫描和AIInsight/证据页截图 | **53份本轮整链产物符合50类已发布Schema**，包含请求/配置/响应/两个验收报告，不能全部称HTTP响应；按文件时间排除旧产物。截图确认钉住记录正常显示、计数语义和fixture/mock/证据局限明确 |
+| 缺真实配置的入口实跑 | `node scripts/acceptance/real-acceptance.mjs --report=.tmp/acceptance/mvp-blocked-20260927.json` | **按预期退出1**：`failedStep=CONFIG`、`errorCode=PLATFORM_URL_REQUIRED`、`mode=unverified`、0步骤。当前进程没有 OPSWEAVE/模型配置，根目录仅 `.env.example`；真实来源/模型/IdP及人工审阅未完成 |
+| 工作区与CI | `git diff --check`、`git status --short --branch`；读取并修改CI | **本机检查通过**，仍在main；新增 CI all-features测试执行和探针回归（原CI只编译全features）。**未推送，未运行新CI**，不能把配置变更称为CI通过 |
+
+实际整链还暴露了扫描追溯页的语义错误：PG retained 排除了已钉住和 RUNNING 记录，页面却要求它至少等于本页条数。
+两条受保护记录、retained=0 的真实响应因此被拒绝。现移除这条错误的大小关系，保留其它闭合/权限/时间/预算检查；
+契约说明、合成样例、页面文案和正向回归统一为“已结束且未钉住的可清理记录计数”，不伪称全部存储的硬上限。
+这不改变清理规则；被钉住和 RUNNING 记录仍受保护，其总量治理仍待完成，修正§54的泛化表述。
+原浏览器成功状态断言保留，修复后完整链通过。随后新增演练一度触发共享四会话上限（HTTP429），
+脚本改为等待原读取会话已发布的60秒截止时间后才执行额外诊断；无放宽上限、隐藏重试或自动fallback。
+OIDC/Worker初轮因脚本要求容器名失败；补充显式native psql模式后全链通过，SQL错误不再伪装未存检查点。
+
+环境恢复过程：初次契约调用缺 pytest，旧检查 venv 也缺 pip。新建隔离环境后 pip 的模块导入持续迟缓，随后使用本机
+已有 uv 将 `requirements-dev.txt` 的15项开发依赖安装到 `.tmp/mvp-check-venv`，不作为应用后端或提交产物。
+首次契约收集暴露Windows默认GBK问题，按UTF-8复跑；另一个Python3.14隔离启动尝试已中止，没有计为验证结果。
+Docker 不可用后，[PostgreSQL 官方 Windows 下载入口](https://www.postgresql.org/download/windows/) 指向 EDB，
+下载 17.11-4 ZIP 并核对 [EDB 发布者校验值](https://github.com/EnterpriseDB/edb-installers/issues/706)：
+`b9424ee7bc60b52450ff910a3630225df32e633f3cb29c1d126d9299d59aea28`；
+[VictoriaMetrics v1.152.0 官方 Release](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.152.0)
+Windows ZIP 核对发布资产 SHA-256 `bee2228ba012881c1867a5bf4cb49aa3fc24d7af8b752602ed77f95b93c7cde5`。
+归档路径检查后只解压所需运行目录；未安装系统服务、未改变产品依赖或新增应用启动单元。
+检查完成后已用本轮数据目录停止PG，并核对本轮VM进程标识后停止；保留忽略目录中的数据与验证产物。
+初次浏览器运行因 Playwright 默认 headless_shell 不存在而失败（单例确认后停止），下载 Chromium 未完成；改为显式
+复用已存在的同版本 Chromium，最终完整复跑230项。配置只接受显式路径，没有失败后自动切换浏览器。
+
+本节不提高阶段估算：M1约90%、M2约93%、M3约90%、M4约80%、MVP约91%；只有M0已完整退出。
+未新增服务、Copilot、动作工具或自动修复。真实配置与人工验收未具备时继续保持目标进行中，不将候选或协议 fixture
+报告签署为真实验收。见 [新版执行说明](runbooks/real-acceptance.md)、[报告契约](../contracts/schemas/v2/mvp-acceptance-report.schema.json)。
+
+## 59. 2026-09-27 M2 Raw 写入容量与原引用保护（追加）
+
+重新按ROADMAP核对M2退出条件，发现Raw“有界保留”此前只在读取侧限量：PG retain直接插入、没有写入总量；
+内存fixture按全局1000条逐出，可能使已保存的Raw引用不可查。此项可以独立于真实来源配置修复，故继续实现。
+
+新增纯领域RawRetention准入：每tenant/source 1000条、每tenant 5000条；Host/Item及不同run共享额度，
+新记录的序列化UTF-8 JSON与PG规范化JSONB文本各不超过65536字节。PG在同一事务内持有租户级advisory lock，
+读取有上限的容量计数并插入；跨连接无法重复使用剩余额度。内存adapter同步检查、使用更保守的大小界，
+不再逐出旧记录；单次Raw读取与端口统一为100条。满额/超大沿用RAW_PERSIST_FAILED，已写页和原引用保留，
+不变成完整空快照、不退休资产。使用现有索引，不增加服务、数据库、后台清理、写入动作或新的HTTP权限。
+
+旧库超额不自动删数据，新准入不是对旧库达标或磁盘物理字节的承诺。受保护扫描总量、Raw显式清理、扩容配置
+与生产最小权限部署仍有边界；不能通过删除原引用使验收变绿。见[ADR-050](adr/050-raw-retention-admission.md)、
+[契约与失败样例](../contracts/source-scan-runs.md)、[运行说明](runbooks/host-pipeline.md)。
+
+| 检查 | 本轮实际执行 | 结果与范围 |
+|---|---|---|
+| 纯领域 | node .tmp/domain-check.cjs | **1161项、42个main通过**；新增Raw容量15项及Host失败5项。覆盖按来源/租户准入、并发争抢、拒绝超大、引用不逐出、第二页容量耗尽仍保留首条和既有资产 |
+| 契约 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest -o addopts= tests/contracts -q | **801 passed（7.46s）**，包含Raw容量失败案例和验收报告交叉校验 |
+| Java / PG / VM / bootJar | 显式自有PG17.11/VM1.152.0配置，gradlew.bat :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline --console=plain --rerun-tasks | **249通过，0失败/错误/跳过；平台229 + Worker20；BUILD SUCCESSFUL（3m32s）**，两个bootJar构建成功。新增PG4项实际证明跨连接来源/租户共享预算、旧引用重开后可读、容量失败回滚，以及UTF-8/JSONB规范化边界和最大可读payload |
+| Rust | node .tmp/rust-check.cjs：fmt、cargo test --workspace --locked -j 1、cargo test --workspace --all-features --locked -j 1 | **fmt通过，默认40 / all-features44通过，0失败/忽略**；仍为显式模型协议桩 |
+| TypeScript / build | pnpm typecheck:web、pnpm build:web | **通过**，Vite82模块。本轮没有前端产品代码改动；230项页面fixture套件的实际结果仍见§58，本轮未重复该套件 |
+| 实际浏览器整链 | node scripts/check_metrics_stack.mjs --pipeline --runtime；随后完整node scripts/check_oidc_stack.mjs --history-service；均显式配置PG/VM/Chromium/native psql | **21组 / 10组PASS，均退出0**。覆盖原引用、版本化同步、指标/Incident、Java→Rust mock、PG AIInsight及证据、七步演练、fixture拒绝真实模式、OIDC/Worker撤权/故障/轮换。IdP与来源为fixture、模型mock，不称真实外部验收 |
+| 本轮产物 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 .tmp/validate-mvp-native.py，截止时间取本轮日志创建时间 | **53份产物符合50类Schema**；包含配置/请求/响应/报告，不全部称HTTP响应 |
+| 静态 / 工作区 | check_repo.py、git diff --check | **245个结构化文件、6个只读Tool通过；diff检查通过**。仍在main，未提交/推送/部署；没有新CI运行 |
+
+失败与修正如实记录：①新领域测试最初把“抓取到第二页、Raw写入失败”的pages误写成1；实际语义为pages=2、
+fetched=2、accepted=1，修正该预期后通过，没有改动原扫描计数逻辑。②额外契约案例最初放在examples根目录，
+根目录规则要求同名Schema，导致1 failed/801 passed；移到examples/cases并显式使用既有source-scan-run Schema，
+复跑801全部通过，没有添加伪Schema或放宽契约。③Rust首次复跑与本机整链同时使用同一个exe，Windows拒绝删除
+运行中的文件（os error 5）；确认两个整链进程正常退出后，重新执行fmt和默认/all-features测试全部通过。
+
+本轮测试进程已停止，忽略目录中的验证产物保留。再次检查当前进程没有OPSWEAVE/模型环境变量，根目录仅.env.example；
+真实Zabbix、模型、IdP/TLS与人工审阅仍未具备，M0–M4目标继续进行中，MVP估算不因本地测试条数提高。
+
+## 60. 2026-09-27 M1 数据库运行角色与 Worker 只读结构校验（追加）
+
+按ROADMAP M1复核数据库最小权限时，发现Worker每次启动都重放V001/V002 DDL，受限角色不能启动。
+现新增OPSWEAVE_HISTORY_SCHEMA_MODE，默认verify：只读检查checkpoint列和有效、非延迟的tenant/source/item主键；
+缺失fencing列、旧四字段stream主键或无读取权限失败关闭。只有显式migrate才执行迁移，未知模式拒绝，无隐式回退。
+平台已有schema_migration账本时本来就跳过DDL，本次不改平台迁移行为；账本没有checksum，不把它称为完整漂移检测。
+
+新增[逐表授权清单](../db/security/runtime-grants.sql)、[ADR-051](adr/051-runtime-database-roles.md)与
+[运行说明](runbooks/database-runtime-roles.md)：迁移所有者、平台、Worker独立；平台只获业务表所需DML与迁移账本SELECT，
+Worker仅获checkpoint SELECT/INSERT/UPDATE，双方不可访问对方模块。清单拒绝共享、提权、有成员关系或对象所有权的角色，
+不自动撤销PUBLIC或既有授权。没有增加服务/数据库、RLS、任意SQL Tool或动作功能；目标部署权限仍需单独审计。
+
+| 检查 | 本轮实际执行 | 结果与范围 |
+|---|---|---|
+| 纯领域 | node .tmp/domain-check.cjs | **1161项、42个main通过** |
+| 契约 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest -o addopts= tests/contracts -q | **801 passed（4.02s）** |
+| Java / PG / VM / bootJar | 显式自有PG/VM配置，gradlew.bat :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline --console=plain --rerun-tasks | **250通过、0失败/错误/跳过（平台229、Worker21）；BUILD SUCCESSFUL（2m5s），36任务执行，两个bootJar成功**。新增PG用例在回滚事务中验证旧主键/缺列拒绝及正常结构恢复 |
+| 数据库角色 | node scripts/check_database_roles.mjs，显式native psql及自有测试库管理员 | **两个随机LOGIN账号，无特权标志/成员关系；15次实际操作以SQLSTATE 42501拒绝**，包括跨模块读取、切换所有者、写账本、删除Raw/检查点、业务表DDL/TRUNCATE；同时查询全部当前表的跨模块权限为0。拒绝探针均在事务中，意外成功也回滚，不破坏业务数据 |
+| 受限角色浏览器整链 | 上述脚本顺序执行check_metrics_stack.mjs --pipeline --runtime与check_oidc_stack.mjs --history-service | **21组 / 10组PASS，脚本退出0**；平台和Worker使用各自受限账号，Worker明确schema-mode=verify。真实PG/VM承载合成fixture，Rust模型mock，OIDC/client_credentials为协议fixture。包含持久AIInsight/证据、撤权、故障不推进、轮换续采；不称真实外部验收 |
+| 角色清理 | 脚本finally撤销并删除精确的本轮随机角色；随后独立psql只读复核 | **ow_platform_/ow_history_临时角色计数为0**，业务表仍归原所有者且数据保留 |
+| Rust | node .tmp/rust-check.cjs：fmt、默认cargo test及all-features测试，均--locked -j 1 | **fmt通过，默认40 / all-features44通过，0失败/忽略**；没有真实模型调用 |
+| TypeScript / build | pnpm typecheck:web、pnpm build:web | **通过，Vite82模块**；OIDC脚本另构建测试前端成功。230项页面fixture套件结果仍引用§58，本轮未重复该套件 |
+| 本轮产物 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 .tmp/validate-mvp-native.py；文件时间下界2026-09-27T03:46:49.223Z | **53份新产物符合50类Schema**，含配置/请求/响应/报告，不全部称HTTP响应 |
+| 静态 | check_repo.py、node --check scripts/check_database_roles.mjs、git diff --check | **245个结构化文件、6个只读Tool通过；脚本语法与diff检查通过**；仍在main，没有新CI、提交、推送或部署 |
+
+本轮失败与环境处置：最初编译因漏传schemaMode失败，补齐注入后编译通过。一次PG验证期间出现4项平台测试失败，
+该轮不是成功证据；同时用户指出本机postgres子进程弹出多个窗口，随即停止自有PG/VM并确认无残留postgres.exe。
+原因是临时启动器把postgres.exe以detached方式启动，仅隐藏父进程不足以让子进程继承隐藏控制台。
+先用短生命周期父/子进程实测隐藏控制台继承，再改本机忽略目录内启动器，确认PG主进程及活动客户端/后台进程共享
+隐藏控制台后才恢复验证。首个窗口探针虽已检查隐藏，但退出时因AttachConsole/FreeConsole改变stdio句柄返回120，
+启动器按失败停止了自有存储；改为私有文件报告并避免刷新失效句柄后，启动与负载期间的窗口检查均退出0。
+上述250项最终全量复跑和两条受限角色整链才是本节通过证据。角色检查脚本另有一次SQL字符串引号语法错误，
+node --check发现并修复，未执行数据库动作；正式运行退出0。测试完成后已停止本轮PG/VM，数据与产物保留。
+
+本机最小权限证据不替代目标部署：PUBLIC TEMPORARY等权限需要单独审计，租户/对象边界仍由平台执行器检查，
+没有宣称PG自动隔离租户或所有临时DDL都被禁止。真实Zabbix、模型、IdP/TLS和人工证据审阅仍缺，M0–M4未达100%，
+阶段估算保持不变。没有扩大到Copilot、自动修复或额外服务。
+
+## 61. 2026-09-27 M4 当前诊断的合成标注集与可审阅评估产物（追加）
+
+按ROADMAP M4核查，旧incident-summary/evals/cases.jsonl只有三个标签，不能作为当前知识诊断的八类评估证据。
+新增contracts/evals/current-diagnosis.json及唯一Schema，10个合成案例覆盖正常、缺失、冲突、访问时过期、越权、
+注入性文本、模型超时、非法输出，并单列伪造引用和模型后撤权。候选事实/禁止推断/人工问题均明确pending-human-review。
+语料钉住现有incident.diagnose@2.0.0及digest：sha256:8c849b1e7829dbff55e47adc101d313cd2400e3568dbbfed815bcad2f1f7d7ed；
+没有覆盖已发布Skill。JSON语料摘要为sha256:93df31126365a7dc050de7080ecfd5a5090f8e08aea56781315fe980a6562261
+（与Skill相同的长度前缀hash方法，不是裸文件hash）。
+
+Rust测试调用实际current_workflows::diagnose，每个案例分别运行既有MockModel与脚本模型。读取/费用许可/保存均为
+内存fixture，外部模型调用为0；报告明确savedResultStorage=memory或null。两种运行使用同一组平移后的合成时间，
+保留原相对时差/查询窗口/过期关系；时间策略在报告公开，不能当成真实采集。恶意日志式文本置于不可信告警标题中，
+原样保留在上下文，LOGS_NOT_CONNECTED仍在；不声称已接入真实日志或已证明真实模型抵抗注入。
+
+实际结果：正常/缺指标/冲突三个脚本案例通过四次读取和权限复核后模拟保存，缺失项由流程强制保留；过期和无资源
+权限的模型步骤/保存均为0；注入动作字段、非法JSON、伪造引用、模型20秒超时、模型后撤权均不保存。超时用Tokio虚拟
+时间触发生产工作流中的实际截止分支，不改生产预算；没有重试或fallback。确定性结果可查看，但不计算或宣称RCA准确率。
+
+| 检查 | 本轮实际执行 | 结果与范围 |
+|---|---|---|
+| 语料契约 | pytest tests/contracts/test_current_diagnosis_eval.py | **8 passed**；原生Context/Evidence契约、八类覆盖/唯一标识、技能摘要、缺失/时间、fixture和人工状态约束 |
+| 全量契约 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest -o addopts= tests/contracts -q | **809 passed（6.55s）** |
+| 纯领域 | node .tmp/domain-check.cjs | **1161项、42个main通过** |
+| Rust默认/all-features | node .tmp/eval-rust-check.cjs：fmt、cargo test --workspace --locked -j 1、cargo test --workspace --all-features --locked -j 1 | **fmt通过；默认41/all-features45，0失败/忽略**。新增一个语料测试包含10个案例×2种明确fixture运行；不是20次真实模型调用 |
+| Rust lint | cargo clippy --workspace --all-targets --all-features --locked -- -D warnings | **通过**，最终全量检查退出0 |
+| 独立评估入口 | node scripts/check_diagnosis_evals.mjs --all-features | **退出0，10案例断言通过**；生成新的report.json与759行review.md，核对语料/Skill摘要、0实际提供方调用、memory模拟保存、realModelComparison=not-run、humanReview=pending、rootCauseAccuracy=null |
+| TypeScript / Web build | pnpm typecheck:web、pnpm build:web | **通过，Vite82模块**；没有Web产品改动 |
+| 静态 | check_repo.py、node --check scripts/check_diagnosis_evals.mjs、git diff --check | **247个结构化文件、6个只读Tool通过**，脚本语法与diff检查通过 |
+| Java / PG / VM / 浏览器 | 本轮不启动存储、不重跑这些检查 | 最近的250项Java零跳过、受限角色21组/10组真实本机整链证据见§60；230项页面fixture套件见§58。不能把历史结果写成本轮重跑 |
+| 真实验收入口 | node scripts/acceptance/real-acceptance.mjs --report=.tmp/acceptance/mvp-blocked-after-evals.json | **按预期退出1**：CONFIG / PLATFORM_URL_REQUIRED、0步骤、mode=unverified、milestonesSatisfied=false；当前进程无OPSWEAVE/OPENAI/AZURE_OPENAI配置变量，根目录只有.env.example |
+
+最终评估产物位于本机忽略目录.tmp/current-diagnosis-eval/2026-09-27T04-13-07-883Z-3134c49a/，report.json为155863字节；
+审阅文档和机器结果均已读取核对。首次Rust编译漏传共享anchor参数，修复后完成上述全量复跑；生成JS入口时一次工具
+字符串解析失败、未写出文件，重新保存并通过语法/实际运行检查。未把失败尝试计入通过结果。
+
+独立工作已补齐本轮发现的M4语料/审阅材料缺口，真实模型对照与人工审阅仍未执行。继续审计M0–M4后，剩余关闭门槛
+需要外部状态：真实受权Zabbix及版本/目标资源、真实指标/告警/Incident、真实模型与费用政策、IdP/TLS/代理及人工证据
+审阅；当前缺配置导致真实验收入口连第一步也不能执行。不能通过增加fixture、放宽真实性判定、扩展M5–M7或模拟人工
+结论替代它们。工作区仍为main，未提交/推送/部署；本轮未启动PG，进程复核postgres.exe为0。
+
+详见[评估执行说明](runbooks/current-diagnosis-evaluation.md)和[MVP退出清单](MVP-CHECKLIST.md)。目标未达到100%，
+本轮不因测试条数或语料数量提高百分比，也不签署任何真实里程碑。
+
+阻塞审计：§59 Raw准入、§60独立数据库角色、§61评估语料三个连续目标增量都确认同一真实环境配置/人工验收缺口；
+其间先完成了可独立推进的工作。当前没有可用真实配置，也不能由代理代替人工签署，目标记录为阻塞而非完成或缩减范围。
+
+## 62. 2026-09-27 本地真实 Zabbix 启动与只读接入凭据（追加）
+
+用户明确请求本地启动Zabbix。WSL uname成功，Docker两处遗留Unix套接字导致启动崩溃；
+完整停止本次失败进程、保留通信目录并重建后，Docker Desktop4.77.0/Engine29.5.3 Linux API恢复。
+没有重置Docker数据或启动原生postgres.exe。已有官方镜像复用并钉住四个RepoDigest，版本Zabbix7.0.27/PG17.10。
+
+Compose项目opsweave-zabbix-local的Server/Web/Agent/PG四容器实际启动，只发布127.0.0.1:18088。
+apiinfo.version返回7.0.27，Web/PG healthcheck healthy。默认Admin密码已改为随机私密值，换密后实际登录成功。
+创建一个local-test主机和三项10秒采集（CPU user、可用内存百分比、系统uptime）；只读token通过item.get/history.get
+读回三个正常采集项，每项至少三条实际历史点。采样是容器Agent可见的Linux/WSL值，不是Windows宿主机或客户资产。
+
+专用opsweave_readonly只允许host.get/item.get/history.get/event.get，只有测试主机组22读权限。
+实测host.get只见一个测试主机，host.update明确返回No permissions；token到期2026-10-27T05:30:35Z，凭据不入报告/仓库。
+Headless Chromium在05:32:35Z完成管理员登录、打开Latest data、应用Container:筛选、看到三个指标，pageErrors=0。
+截图已查看，三行均有最新值和采集时间；node .tmp/zabbix-local/control.cjs status退出0，四容器持续运行。
+
+配置/密码/token/锁定摘要/verification.json/browser-verification.json/截图位于忽略目录.tmp/zabbix-local。
+git check-ignore确认凭据和.env被排除。首次浏览器require路径错误退出1，修正为现有@playwright/test后退出0。
+未把失败启动或失败测试计为通过。启停说明见[local-zabbix](runbooks/local-zabbix.md)。
+
+本轮仅本机环境与文档，没有运行契约、领域、Java、OpsWeave PG/VM、Rust默认/all-features、TS/build全量检查，
+历史结果沿用§60/61范围。本轮未执行OpsWeave连接自检/版本化映射/资产指标入库/Incident关联，
+未制造告警、调用模型、接真实IdP/TLS或代替人工审阅。原fixture标记不变，本地厂商服务已可用于后续联调。
+M0–M4仍未全部退出，MVP约91%的估算不提高，工作区main未新建分支。
+
+## 63. 2026-09-27 本地 OpsWeave 预览与真实 Zabbix CPU 链（追加）
+
+用户请求启动服务查看。创建忽略目录.tmp/local-preview中的专用配置和随机开发凭据，后台启动四个应用单元与独立PG/VM容器。
+Web5173/API8080/Worker8081/Runtime8090/PG15439/VM18428均只监听127.0.0.1，Zabbix沿用§62的18088。
+启动时两个无独立后台进程的尝试随启动终端退出，修正后健康检查返回200；原生postgres.exe没有运行。
+四应用AttachConsole均返回ERROR_INVALID_HANDLE（6），目标未分配控制台；未启动原生PG控制台。
+
+真实连接暴露了此前协议桩遗漏：apiinfo.version带Authorization被Zabbix7.0.27以-32602拒绝，host.get countOutput实际返回字符串。
+修复两类Connector版本探针为匿名请求；配置的secret仍先校验存在。Jackson传输器只允许apiinfo.version匿名，业务匿名请求在发送前拒绝。
+countOutput接受规范非负十进制字符串或整型，并拒绝负数、浮点、符号、空白、前导零和Long溢出；既有信封/字节预算和无重试边界保留。
+探针只证明端点可达及自报版本，不代替带凭据的业务读取权限验证。官方说明：https://www.zabbix.com/documentation/7.0/en/manual/api/reference/apiinfo/version
+
+修复后自检reachable=true/version7.0.27；Host同步fetched1/accepted1、snapshotComplete=true、hostid-watermark-snapshot，
+绑定zabbix-host-default@1及摘要sha256:d18f5f7c5ff7e847eefacaf1e03dc98b30d5046a3b3af7ca9294c66e028f0e06。
+Item同步fetched3/accepted1/rejected2、snapshotComplete=true/itemid-watermark-snapshot；只映射CPU user，未映射的内存百分比/uptime保留拒绝。
+本机tenant-demo/source zabbix-local实际资产和观测存PG。Worker只读Item50740历史，标注zabbix-jsonrpc，写VM并持久化checkpoint。
+Worker首次因VM未设置1ms去重而CONFIGURATION_INVALID，补齐项目既定配置后启动成功；通过平台读回18个实际CPU点，AVAILABLE/fresh=true。
+没有直写模拟指标、改写已有fixture标签或创建伪造告警。以上仅一个本地测试主机和一项CPU指标，不涵盖完整多页厂商扫描或M3告警链。
+
+| 检查 | 本轮实测结果 |
+|---|---|
+| Java定向回归 | ZabbixJsonRpcConnectorIT 3项，0失败/错误/跳过；两类版本探针无认证头、业务匿名拒绝、计数字符串/无损边界、带认证Host同步 |
+| Java打包 | platform-api与ingestion-worker bootJar通过，平台使用修复后Jar重启 |
+| 契约 | 809 passed（24.69s） |
+| 纯领域 | 1161断言、42个main，退出0 |
+| Rust | fmt、默认41/all-features45，0失败/忽略；检查期间停止自有Runtime以释放Windows文件锁，结束后恢复 |
+| Web | typecheck通过，Vite build82模块通过 |
+| 实际浏览器 | 05:48:17Z Chromium→Vite→Java→PG/VM：资产详情含zabbix-jsonrpc、CPU曲线、刷新清Token、pageErrors=0；两张截图已遮蔽凭据并查看 |
+| 本轮未执行 | Java/PG/VM全量测试、全部页面fixture套件、OIDC整链与真实模型诊断 |
+
+运行产物见.tmp/local-preview/source-verification.json、series-verification.json和browser-verification.json，均为本机忽略文件。
+环境是固定开发身份和本机开发数据库账号，模型显式mock；没有生产身份/TLS或模型费用验收。M0–M4未全部退出，MVP估算保持不变。
+运行入口见[预览说明](runbooks/local-preview.md)。保留后台服务供用户查看，main未新建分支、未提交/推送。
+
+## 64. 2026-09-27 真实本地 Zabbix 分页、三指标与告警闭环，以及控制台整理（追加）
+
+用户要求按接入→告警→模型→身份的顺序继续，并改善UI；当前main工作区继续，未新建分支/提交/推送。
+本地来源已可用；模型指定OpenCode/ds4.1flash，但API地址/正式模型ID尚待确认，未向猜测地址发送密钥、未调用真实模型。
+真实IdP/TLS、部署代理与人工审阅仍未执行，不宣称100%。
+
+### 真实来源发现与修正
+
+实际item.get以limit=1、offset=0/1两次均返回50740，证明旧协议桩模拟的offset不受厂商支持。
+Host/Item改为有界ID清单：count≤1000、ID-only limit1001、严格递增/无重复；每页核对方法和成员SHA-256/计数/位置，
+使用hostids/itemids精确取最多500项，逐项核对，末页再读清单。一致才允许缺失对账，漏项/重复/等量成员替换拒绝。
+旧游标格式拒绝；wire标签兼容，但不重写旧记录或将其追认新证明。不是字段事务快照，容量上限不是性能承诺。
+规则与官方链接见[扫描契约](../contracts/host-scan.md)和[ADR-052](adr/052-zabbix-bounded-manifest.md)。
+
+实际本地pageSize=1：原Agent主机10683加两个明确LOCAL TEST、无采集的分页测试对象10684/10685，
+Host 3页/3项/accepted3/retired0，Item 3页/3项/accepted3/retired0，重复两类同步仍通过。
+临时停止自有Zabbix Web容器，平台返回503/SOURCE_FETCH_FAILED/snapshotComplete=false，前后资产完全相同；finally恢复容器。
+同数量成员替换、重复/漏项、非法/超限清单、非法游标、上游失败的负例为协议fixture与真实PG测试，未伪称厂商并发故障实测。
+
+新增内存可用比例（0.01归一化，unit1/gauge）和uptime（seconds/gauge）映射文档1.0.0，保留CPU映射与发布Skill不变。
+单Worker最多8流串行，每流沿用窗口/页数/超时/lease/fence，1流失败不阻止后续流，无轮内重试。
+运维配置可固定每流streamName和initialFrom，保持已存检查点身份。开发启动器的动态initialFrom导致CONFIGURATION_INVALID，
+依照实际已存名称/起点修正可信启动配置并补齐每流配置支持；未清除、改写或跳过旧检查点。
+最终三项均由真实Agent→Zabbix历史→Java→Worker→VM→受权API读取，AVAILABLE/fresh=true/partial=false；
+浏览器最后一次CPU86点、内存87点、uptime87点。数据仅为容器可见Linux/WSL值。
+
+### 告警与持久化
+
+创建名称带[LOCAL TEST]的规则，实际uptime>0触发，再把条件改为<0恢复；厂商事件23关联24。
+不是业务故障或根因样例。平台首次导入创建1个Incident，重复导入created0/changed0；恢复导入changed1，再重复为0/0。
+Incident 7dcf7c03-d3f3-3fae-97a2-e75ce731066c只有PROBLEM/RECOVERY各一条，关联资产5d1c2667-ead8-3995-8cd4-334da6347145；
+日志/变更缺口保留，人工状态仍OPEN，不因来源恢复自动关闭。
+平台进程重启后回读记录内容一致；Worker进程重启后3条检查点保留原名称/起点且completedThrough/revision均增加。
+同轮移除Worker无用的默认交互用户，避免Spring Boot生成密码进入日志；最终启动日志复核无生成密码行。
+
+### UI 与实际检查
+
+控制台改为分组侧栏、图标/当前页指示、统一色彩/原生Zeus控件/表格/留白，窄屏采用可横向滚动的导航。
+提供键盘跳到主要内容，不改变hash路由、凭据保存方式、显式读取或Fixture标记。1440px/390px截图已查看。
+实际浏览器验证真实来源Incident恢复、三个指标曲线及刷新清Token；窄屏无整页水平溢出。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | 809 passed |
+| 纯领域 | 1195断言、43个main通过，含Host/Item分页50项与新指标语义8项 |
+| Java/PG/VM | 平台231、Worker24，合计255；0失败/错误/跳过。隔离数据库opsweave_checks_64，现有容器PG17.10/VM1.152.0 |
+| Java打包 | 两个bootJar成功；Worker最终修改后24项及bootJar复跑成功 |
+| Rust | fmt、默认41/all-features45，0失败/忽略；没有真实模型调用 |
+| TypeScript / build | 类型检查与Vite build通过，82模块 |
+| 页面测试 | 最终232 passed（2.2m），包含1440/390宽度导航、当前页、键盘聚焦与保留hash |
+| 浏览器整链 | check_metrics_stack --pipeline --runtime：21组PASS，Java/PG/VM/Rust真实运行，来源labeled-fixture、模型mock |
+| 身份整链 | check_oidc_stack --history-service：10组PASS，含独立Worker、撤权/失败不推进、轮换续采、双标签退出；IdP/来源仍协议fixture |
+| 本地真实来源 | 多页/重复同步、来源断连保护、三项真实历史与浏览器查询、LOCAL TEST告警恢复/幂等/关联、PG回读与重启续采通过 |
+
+失败尝试：第一次Java因VM变量名写错跳过4项，不计为全量通过，修正后零跳过复跑；首次Windows测试启动命令格式错误未执行，
+改用Wrapper Main直接启动Java。UI首次类型检查失败已修正；初次侧栏用数组map导致Zeus只渲染文本，实际截图与5项页面失败发现，
+改用For后232项复跑通过。旧预览脚本假定只有一个资产，新增测试对象后严格定位失败，改为目标行再通过。
+初次OIDC缺显式PG容器参数失败，补齐自有容器后完整通过；最终Worker关闭默认用户后该整链再次复跑。
+重启记录比较曾受Node REPL跨realm对象原型差异影响，改为递归键排序的内容比较后通过；未改变业务数据。
+上述失败不算成功证据。
+
+产物位于忽略目录.tmp/local-preview，详见[预览说明](runbooks/local-preview.md)；
+完整模拟整链分别在脚本自有.tmp产物目录。预览业务数据与测试DB分开，所有应用/存储均loopback，未启动原生postgres.exe。
+本地厂商接口实测不替代客户环境、真实模型、IdP/TLS和人工签署，原Fixture/Mock标记保持；不提前实施Copilot或自动修复。
+
+收尾复核：check_repo.py通过（249个结构化文件、6个只读Tool定义），git diff --check通过；
+Web、Platform、Worker与Runtime正确健康端点均HTTP 200。4个后台应用进程均无可见控制台窗口，
+Windows原生postgres进程数为0；当前分支main，开发凭据文件仍被Git忽略。
+
+## 65. 2026-09-27 OpenCode Go真实模型与持久诊断候选整链（追加）
+
+用户给出https://opencode.ai/zen/go/v1并指定ds4.1flash；按官方接口表确认模型deepseek-v4.1-flash、Chat Completions协议。用户要求TLS后置，本机继续HTTP；外部模型连接仍使用提供方HTTPS。main未新建分支、未提交/推送。
+
+### 实现
+
+Runtime保持锁定Rig0.42.0，以OPSWEAVE_MODEL_API显式选择responses（默认）或chat-completions，无自动协议或模型fallback。新增Chat有界请求、平台会话UUID头、自己的User-Agent、JSON输出和关闭thinking。协议测试明确标记fixture，不修改发布Skill2.0.0/digest或业务Schema。
+
+接收必须有可核验Token计数及相符total。在SDK归一化前检查原始响应，避免非法工具调用被SDK移除后留下表面合法内容。截断/拒绝/不支持输出先保留有效用量再拒绝草稿；契约、引用、时间/范围、费用、只读工具和保存流程不放宽。新增固定错误阶段/码，不记录模型正文。详见ADR-053。
+
+### 两次真实调用与结果
+
+| 显式调用 | 输入/输出Token | 平台估算USD | 结果 |
+|---|---:|---:|---|
+| f85d0d56-01f3-4ab4-9364-2b6a4439293b | 1894 / 454 | 0.001113 | S7 HTTP503、无AIInsight；账本REPORTED保留，工具会话used_calls=2 |
+| 86eb67ef-983f-4160-a04f-3194393adfc2 | 1887 / 1272 | 0.002093 | S1–S7通过，PostgreSQL保存及回读成功，used_calls=4 |
+
+首次调用返回有效用量，但未完成输出/引用之后的处理。当时缺少分段码，不能确认具体失败项，也不能声明已定位根因。补充不含正文的固定失败阶段诊断后，显式新候选验收成功；没有自动重试、清理费用或改变校验规则。两次共0.003206 USD为可信配置费率估算，并非提供方账单。单次准入0.03 USD、租户每日0.10 USD；峰值费率快照与实际Go额度/峰谷/缓存可能不同。不能由一个成功样本推断模型可靠性。
+
+成功结果model={rig-openai,deepseek-v4.1-flash}，其中rig-openai表示现有兼容适配；实际调用网关是OpenCode Go。来源只有zabbix-jsonrpc，两类证据来自incident.get@2.0.0和metric.summary@2.0.0。CPU用户态指标357个真实样本，模型保留LOCAL TEST告警、OPEN与RECOVERED区别、日志/变更/历史摄入时间缺口，没有调用动作。数据是本地测试容器和受控测试规则，不是客户业务故障。
+
+AIInsight、两类Evidence及费用在Platform/Runtime重启后内容一致。实际Chromium1440/390px页面可读取结果、两类证据和用量；刷新清Token后重新授权可回读，页面读取过程模型POST=0、pageErrors=0、手机无整页水平溢出。截图已遮蔽凭据并查看。
+
+未认证诊断401、请求附加tenantId400、未认证结果读取401；对应探测runId没有费用预留（404）。这是开发身份边界实测，非真实IdP验收。
+
+### 本轮实际检查
+
+| 检查 | 结果 |
+|---|---|
+| 契约 | pytest tests/contracts：809通过，退出0 |
+| 静态 | check_repo：249个结构化文件、6个只读Tool定义通过 |
+| 纯领域 | 1195断言/43个main通过 |
+| Java/PG/VM | Platform231+Worker24=255，0失败/错误/跳过；沿用隔离opsweave_checks_64和现有PG17.10/VM1.152.0容器 |
+| Rust | 最终fmt、默认41/all-features49、clippy -D warnings、all-features build通过；含新增4个Chat协议边界测试 |
+| TypeScript/build | tsc --noEmit与Vite82模块通过 |
+| 浏览器fixture回归 | 232 passed（2.6m），不冒称真实提供方测试 |
+| 实际本地来源+真实模型 | 候选执行包7/7，通过AIInsight/两类证据/用量回读及重启/浏览器验证 |
+| 本轮未复跑 | 21组mock指标整链与10组OIDC协议fixture整链沿用§64，不标成本轮通过；真实IdP/代理、人审语料和提供方账单未验收 |
+
+中间失败：首次Chat协议测试因Rig将文本序列化为数组而失败，修正纯文本数组解析后8个模型适配测试通过，最终Rust全量通过。一次构建因Runtime提前启动占用exe失败，核对PID/可执行路径停止自有进程后重建成功。首次真实验收失败单独保留，不计成功。
+
+模型配置/密钥仅在忽略目录.tmp/local-preview，密钥只注入Runtime；四个应用日志均未出现该密钥或本次模型摘要。Windows原生postgres进程数0，四个后台应用无可见控制台。产物real-candidate-65-attempt1.json、real-candidate-65.json、model-validation-65.json、insight-65.json、insight-restart-65.json、real-browser-65.json、authorization-65.json、java-verification-65.json和截图均留在忽略目录。
+
+报告模式仍为real-candidate，milestonesSatisfied=false；本机真实厂商与模型联调不等于生产M0–M4签署。真实IdP/资源部署授权、人工质量评估与账单核对继续未关闭，TLS按用户要求后置。原fixture/mock测试与页面标记严格保留，无Copilot、修复动作或新增生产服务。
+
+
+## 66. 2026-09-27 参考 Shadcn Admin 的控制台视觉与导航改造（追加）
+
+用户指定参考 [Shadcn Admin](https://github.com/satnaing/shadcn-admin)。已查看仓库与在线演示，参考其浅色侧栏、紧凑顶栏、卡片和表格层级，以现有Zeus及原生Web Components实现；没有引入React、shadcn运行库、额外服务或模板演示业务数据。main继续开发，未新建分支、未提交/推送。
+
+### 本轮变化与边界
+
+- 统一浅色/深色主题、细边框和控件层级；指标曲线有独立明暗配色，图表数据与计算不变。
+- 桌面侧栏可收起，保留13个可访问名称和当前页指示；390px采用原生dialog导航抽屉，支持Esc、关闭后焦点回到触发按钮，窗口变宽时关闭抽屉。
+- Ctrl/⌘+K页面搜索支持名称/路径筛选、方向键/Enter跳转、无结果状态和Esc关闭。仅搜索静态路由，不查询业务数据或触发模型。
+- 资产页增加当前页总数、ACTIVE数、已记录来源实例数和其他生命周期数。未读取显示“—”，切换筛选/凭据清空统计；不标为全租户资产总数或健康统计。整理筛选、表格、分页与强标识定位/查询说明，来源行直接展示dataMode，Raw完整值保留于DOM/标题与详情。
+- 仅主题偏好写入localStorage；开发Token继续仅保存在当前标签页内存。刷新/失权清空、显式读取、URL选择恢复、来源Fixture/Mock标记和服务器授权边界保留。
+
+### 实际执行的检查
+
+| 检查 | 本轮结果 |
+|---|---|
+| 契约 | pytest tests/contracts，809项，退出0 |
+| 纯领域 | 43个main、1195断言通过 |
+| Rust | fmt --check、默认41/all-features49通过，0失败/忽略；最终all-features build通过 |
+| TypeScript/build | tsc --noEmit与Vite build通过，82模块 |
+| 页面fixture回归 | 全量235 passed（2.3m）；最终仅图表配色调整后，指标/变化率/资产/导航31项再通过（26.9s） |
+| 静态 | check_repo：249个结构化文件、6个只读Tool定义；git diff --check通过 |
+| 浏览器布局 | 13路由×1440/390px共26次检查，无页面异常、无整页横向溢出；有数据的窄屏表格只在自身容器内滚动 |
+| 实际本地数据页面 | PG读取3个已保存Zabbix资产（1 ACTIVE、2其他、1来源实例）；VM中CPU user曲线91个真实采样点；已有AIInsight、Incident/Metric两类证据和用量可回读，手机页面可浏览；针对持久读取的5次API请求均为GET、诊断POST为0。不是重新执行真实模型验收 |
+| 服务 | Web、Platform、Worker、Runtime health/ready均200；四个后台应用MainWindowHandle为0，原生postgres.exe数量0 |
+| 本轮未复跑 | Java/PG/VM集成测试、21组指标整链、10组OIDC协议fixture整链和真实模型候选执行包；既有结果见§64–65，不记为本轮执行。真实IdP/人工评估仍未关闭，TLS继续后置 |
+
+初次类型检查发现dialog回调缺类型，修正后通过。Zeus的For内使用带局部语句的JSX回调未渲染搜索项，实际浏览器发现后改为独立组件。首轮全量226通过/9失败：7项由隐藏空alert导致、1项为布局改变后的直接子节点测试定位、1项为测试运行中重建dist造成的短暂HTTP失败；保留可访问alert、更新定位，停止并发重建后235项全量通过。
+Rust首次因自有Runtime占用exe失败，核对PID和可执行路径后停止该进程，再跑默认/all-features及最终build通过，随后后台恢复；未停止其他服务。最后31项检查首次未取得浏览器路径，浏览器启动失败，改用显式环境的隐藏子进程后31项通过，未下载或更换浏览器版本。失败尝试不计成功。
+
+截图、完整日志和ui-66-routes.json/ui-66-browser.json位于忽略目录.tmp/local-preview，截图遮蔽开发Token并已查看。公开文档不记录凭据、模型正文或客户内容。预览入口与操作见[本地预览](runbooks/local-preview.md)。本轮UI改造不提高M0–M4验收比例，不宣称100%。
+
+
+## 67. 2026-09-27 接入工作台与内置/自定义模型的首版需求落档（追加）
+
+用户明确要求数据源中心→配置抽屉→清洗转换画布→平台数据模型、实体关系管理及后续AI扩展位，并进一步确认首版支持自定义实体类型/字段/关系类型，同时先提供内置实体和指标。
+
+本轮只修改设计与计划文档：新增[接入工作台设计](architecture/integration-studio.md)、[ADR-054](adr/054-integration-studio-model-catalog.md)，同步总体架构、ROADMAP、IMPLEMENTATION-STATUS、PROGRESS与MVP-CHECKLIST。定义内置Host/应用/服务/数据库/网络接口模型规划、已有三指标基线、自定义/租户扩展、来源实例配置、v2受限转换/画布、模型版本/预览发布、关系历史/授权，以及AI的后续建议Patch边界。OW-ST01–06均待开发，AI实际实现OW-ST07后置。
+
+代码核查确认：当前PipelineDefinition v1及Java域固定6节点/5边；Entity的类型字符串和attributes不构成可配置模型校验；catalog为模块骨架，Relation仅有概念/表原型；来源仍由可信环境配置。新需求没有被记为已经实现。
+
+实际检查：check_repo.py通过，249个结构化文件、6个只读Tool定义；7份设计/计划文件的55处本地Markdown链接均存在；git diff --check通过。本轮没有修改应用/领域代码、运行契约或数据库迁移，没有调用模型、重启服务或新建分支。契约/领域/Java/PG/VM/Rust/TypeScript/build/浏览器测试未复跑，最近代码验证仍见§64–66，不能计为此次新功能的通过证据。
+
+原M0–M4真实身份/人工评估等退出项保持未完成；新增首版范围另列待办。历史约91%估算只对应旧范围，扩大后的首版未重新估算，本次文档不提高完成比例。
+
+
+## 68. 2026-09-27 模型中心、默认清洗预览与来源版本策略（追加）
+
+用户要求开始实现首版内置/自定义模型，并明确默认清洗规则与Zabbix版本适配。继续在main工作区开发，没有新建分支、提交或推送，保留此前未提交修改。
+
+### 实现范围
+
+- contracts/catalog中的opsweave-core@1.0.0提供5类实体、4类关系和3项已有指标定义；定义不冒充已采集对象。模型Wire契约、私有草稿/发布版本、清洗结果Schema与样例已补充。
+- Java catalog纯领域提供六种标量字段、稳定字段标识/保留字段校验、关系端点固定版本、兼容修订和digest。第一次发布从revision=1开始；后续只允许连续版本、追加可选字段和修改展示说明；不覆盖已发布内容，不悄悄迁移旧资产。
+- 默认safe-scalars-v1提供文本strip、严格数值/布尔/带时区时间转换、必填/null/空串区分、枚举/长度/数值范围与未知字段报告。仅有界手工样本预览，失败时保留问题说明；没有任意脚本、HTTP/SQL或AI执行。
+- Platform新增/api/v1/catalog及V028模型草稿/版本表。读写复用entity.read/entity.manage并要求catalog:*资源范围；实体对象范围本身不能管理目录。tenant/subject来自可信Principal。草稿私有、CAS冲突409；发布绑定已保存editVersion/digest，在PG事务/租户锁内完成版本与端点复核。读取验证digest，PG异常无memory回退。64KiB请求、16KiB单定义、32字段、双列表各50项和truncated；SQL五秒超时。
+- Zeus新增实体模型/指标定义/关系模型三个路由、内置卡片、字段/关系编辑抽屉、私有草稿、发布/下一版本、清洗样本和明确存储模式。16个路由保留原明暗主题与手机导航；会话变化清空私有定义、样本及旧响应。
+- Zabbix现有apiinfo.version探测与Bearer Header保持不变。目录只记录先前本地实测7.0.27，其余版本标为UNVERIFIED；查看官方7.2变更确认auth属性移除。此次没有声称完成6.x/7.2/7.4兼容、运行新版本Zabbix或加入新的可执行版本门禁。
+
+### 实际执行
+
+| 检查 | 本轮结果 |
+|---|---|
+| 契约 | pytest tests/contracts：830项通过，退出0 |
+| 纯领域 | 最终44个main、1250断言通过，含模型55项 |
+| Java/PG/VM | 最终Platform238+Worker24=262，0失败/错误/跳过；真实本机既有PG17.10与VM1.152.0，隔离测试库opsweave_checks_64 |
+| Rust | fmt --check、默认41/all-features49及最终all-features build通过；随后后台恢复Runtime；无新真实模型调用 |
+| TypeScript/build | tsc --noEmit与Vite84模块通过 |
+| 浏览器fixture回归 | 全量241项通过（2.4m）；最终仅样式间距调整后，模型/导航11项通过（17s） |
+| 实际浏览器→Java→PG | 建立明确LOCAL TEST实体模型v1、关系类型v1；手工样本name去空格、port字符串转整数；私有保存→发布→刷新重新授权回读；实体追加可选字段发布v2，原关系仍指向实体v1；平台重启后三个版本及digest一致。页面错误0、诊断调用0 |
+| 布局/截图 | 实体目录1440px与手机390px无整页水平溢出；手机编辑抽屉是真实modal、844px视口内滚动，截图已查看并遮蔽凭据。全页截图的固定层位置会受滚动偏移影响，使用实际视口截图复核 |
+| 静态 | check_repo：256个结构化文件、6个只读Tool通过；实际目录响应通过契约Schema校验，9份文档68处本地链接存在；git diff --check通过 |
+| 本轮未复跑/未完成 | 21组指标Mock整链、10组OIDC协议fixture整链、数据库角色脚本和真实模型候选执行包未复跑；真实IdP、人审语料、其他Zabbix版本仍未验收 |
+
+初次领域检查有BigDecimal scale比较的测试断言错误，改为数值比较后通过；首次TS检查textarea rows类型错误已修复。浏览器首轮4失败/2通过来自fixture拦截glob未覆盖子路径，POST意外到真实API并被401拒绝；改为匹配固定catalog路径的regex后6项通过，再跑全量241通过。
+
+初次Java/PG/VM执行时Docker未启动，真实存储连接失败，该次中止且不计通过。Docker启动又遇到两个残留AF_UNIX socket无法访问；核对Docker自有已崩溃进程及只含socket的临时目录，将Docker/run和docker-secrets-engine临时目录保留为.stale-20260927-68（run另有68b）再恢复，未重置Docker、删除卷或修改客户数据库。原有PG/VM/Zabbix容器恢复后重跑。第二次完整262项有1项失败，发现首次发布纳秒时间与PG微秒回读不一致；统一写入前时间精度，7项模型HTTP/PG复验通过，最后完整262项全通过。四个应用最终health/ready均200，Windows原生postgres进程数0。
+
+OW-ST01仅关闭“模型定义/版本/样本清洗”子项。内置租户字段overlay、已发布类型约束下的实体实例写入/持久详情、来源中心配置抽屉、v2画布、关系实例历史/拓扑继续待实现；自定义指标编辑与规则编辑也未交付。模型中心不是完整接入工作台，不提高原M0–M4的100%退出声明。AI协助/自动修复均未实施，四个启动单元不变。
+
+结果摘要与截图保存在忽略目录.tmp/local-preview/model-68-*；公开文档不记录凭据或模型正文。操作见[模型中心](runbooks/model-catalog.md)，API语义见[模型契约](../contracts/model-catalog.md)。
+
+
+## 69. 2026-09-27 菜单信息架构与导航交互优化（追加）
+
+用户要求继续优化菜单。在main现有工作区修改前端导航、路由元信息、样式及相关浏览器检查，未新建分支、提交或推送；没有新增业务API、契约Schema或数据库迁移。
+
+现有16页按“数据接入→模型中心→资源观测→故障诊断→AI管理→开发演示”组织。分组标题可用鼠标/键盘收起，aria-expanded明确为字符串true/false；默认展开接入、模型、观测及当前组。搜索、直接链接和浏览器前进后退切换页面时自动展开目标组，顶栏显示实际分类。桌面图标模式保留全部16个带名称/提示的入口，手机抽屉使用独立分组状态；菜单滚动区与品牌/底部说明分离。组状态只在内存中，主题仍是唯一持久UI偏好。
+
+Ctrl/⌘+K支持页面名、现有路径、分类与业务关键词，多个词同时匹配；结果附分类和用途说明。例如“技能”“Zabbix 采集”“模型中心 关系”。菜单与搜索共用路由元信息。Fixture演示独立成组且保留合成数据标签；菜单整理不构成授权，不新增来源中心、v2画布或关系实例的空入口。
+
+| 检查 | 本轮结果 |
+|---|---|
+| 契约 | 现有Python3.11开发venv执行pytest tests/contracts，830项全部通过，退出0 |
+| 纯领域 | javac21使用Windows参数文件编译，44个main/1250断言通过，含模型55项 |
+| Rust | fmt --check、默认41/all-features49、最终all-features build通过；核对自有Runtime路径/PID后停下并后台恢复，无外部模型调用 |
+| TypeScript/build | tsc --noEmit与Vite84模块构建通过 |
+| 浏览器fixture回归 | 完整244项通过（2.8m）；最后分组标题样式调整后8项导航复验通过（12.5s） |
+| 页面与截图 | 16路由×1440/390px共32次当前页/布局检查，无整页水平溢出、pageErrors=0、API请求=0；最终构建另经新页面加载并查看桌面浅色、手机深色截图 |
+| 静态 | check_repo：256个结构化文件、6个只读Tool通过 |
+| 预览服务 | Web、Platform、Worker及Runtime healthz/readyz最终均200 |
+| 未复跑 | Java/PG/VM集成、指标Mock整链、OIDC协议fixture整链、数据库角色脚本及真实模型候选执行包，最近相应结果见§64–68，不计为本次执行 |
+
+中间问题：首次构建因Zeus不支持组件展开属性而失败，改为显式属性后构建通过。首轮针对性浏览器31通过/2失败，定位到框架将false布尔aria属性移除，改用true/false字符串后8项导航和244项全量通过。初始全局Python无pytest；已有3.14环境启动等待被中止，未认定通过；改用已有3.11环境执行全部830项通过。领域原Python脚本超过Windows命令行长度，沿用参数文件编译和逐个main执行，全部通过。未安装新依赖或升级锁文件。
+
+实际布局与健康摘要、截图保留在忽略目录.tmp/local-preview/menu-69-*，不含凭据。操作说明见[本地预览](runbooks/local-preview.md)。本次只改善菜单，不改变模型/来源能力、Fixture标识、可信会话边界或M0–M4退出状态。
+
+
+## 70. 2026-09-27 原生数据工作流、受限转换画布与服务端发布门禁（追加）
+
+用户确认“可以实现工作流”。按原生数据接入工作流第一段实现，继续在main当前工作区，保留已有修改；未新建分支、提交或推送。没有部署Dify、引入图形依赖或新增启动单元。范围和取舍见[ADR-055](adr/055-native-transform-workflows.md)，协议见[工作流契约](../contracts/workflows.md)。
+
+### 已实现和未启用的边界
+
+- Java纯领域v2定义及执行器：4到16节点单条主链，SOURCE/MAP/六种可配置清洗/VALIDATE/OUTPUT。TRIM、EMPTY_TO_NULL、DEFAULT、ENUM_MAP、SCALE、FILTER均为确定性内置操作；模型校验复用safe-scalars-v1，固定内置或已发布自定义ENTITY模型id/revision/digest。非法图、版本、目标、字段、数值、样本及超预算失败关闭。
+- V029新增PG工作流草稿、不可变版本和运行回执表，现有连接池/事务所有权不变。可信tenant/subject隔离、source.sync/workflow:*、entity.read/catalog:*及已有来源/每实体范围检查；CAS、租户事务锁、私有草稿、连续发布、模型pin和服务端预览15分钟门禁。布局不进入语义digest，语义变更清除预览；发布后版本从活动草稿列表排除，原内部草稿用于幂等发布确认。
+- Web新增第17个路由#/integrations/workflows。三栏画布、节点增删/排序、拖动及键盘移动、缩放/排列/撤销重做、目标模型/字段映射、样本输入、逐节点值/问题、草稿/固定版本/运行记录、手机布局及AI禁用入口。会话改变立即中止请求、清空私有数据和样本，不把草稿或样本写浏览器持久存储。
+- 来源支持手工样本与当前配置Zabbix已有Host保留批次；后者经过v1映射和每实体授权，只提供name/ip/lifecycle/entity_id。未增加实时采集、任意厂商JSON访问或其他Zabbix版本兼容声明。origin、失败批次、missingRaw、truncated均保留；fixture没有改称真实来源。
+- 所有预览和版本测试均dryRun=true、writesPerformed=false；运行记录只存定义/输入摘要、来源、计数与时间，不保存样本正文或逐步输出。来源配置抽屉、多实例、实例/关系写入、自动启用绑定、分支/循环/脚本、模型协助和修复动作仍未实现；本段不是完整Dify替代或持久调度引擎。
+
+### 实际运行结果
+
+| 检查 | 本轮结果 |
+|---|---|
+| 契约 | 已有Python3.11开发venv运行pytest tests/contracts：849项，退出0；新增19项闭集定义/算子/预算负例 |
+| 纯领域 | javac21参数文件编译，最终45个main/1314断言通过，其中WorkflowSmoke64项；覆盖缺失/null、过滤与拒绝、转换、版本/身份隔离、过期/未来回执、并发修改使旧预览失效、字节预算 |
+| Java/PG/VM | 最终完整Platform244+Worker24=268，85个suite，0失败/错误/跳过；既有本机PG17.10、VM1.152.0和隔离库opsweave_checks_64。新增6项HTTP/PG工作流集成，含真实持久化、重开、并发CAS单赢家、回滚、损坏拒绝、请求身份覆盖/重复键/尾随JSON/超限/不可写/来源错配 |
+| Rust | fmt --check、默认41/all-features49通过，最终all-features build通过；核对自有Runtime路径/PID后停止并后台恢复，未调用真实模型 |
+| TypeScript/build | tsc --noEmit与Vite86模块构建通过 |
+| 浏览器fixture | 全量250项通过（2.7m）；最终来源状态校验/发布后草稿列表调整后14项工作流与导航复验通过（30.2s） |
+| 实际Java/PG浏览器 | 内置Service手工Fixture去空格/port转整数，保存→预览→发布→版本测试；自定义custom.local_web_service@2字段service_name→name映射、默认清洗→发布→刷新模型pin/空样本/活动草稿排除均通过。LOCALTEST标记明确 |
+| 本地真实来源保留批次 | 原本地Zabbix7.0.27的Host批次df87fe48-d2c5-4fa0-aed2-7ac4ccd32699，3条转换通过，origin=zabbix-jsonrpc、SUCCEEDED、无缺Raw；浏览器保存/预览/发布/版本测试/刷新回读通过。是既有Raw批次转换，没有新调用Zabbix API或创建新来源数据，不冒称新厂商采集验收 |
+| 页面与Schema | 桌面1500px、手机390px交互和无整页横向溢出通过；SVG连线及目标模型真实选中复核，截图已查看。3类实际HTTP响应page/entry/result经v2 Schema校验通过 |
+| 静态 | check_repo：262个结构化文件、6个只读Tool；git diff --check通过 |
+| 本轮未复跑 | 独立数据库运行角色脚本、21组指标Mock整链、10组OIDC协议fixture整链、真实模型候选执行包；真实IdP、人审评估、其他Zabbix版本和生产/分布式部署仍未验收 |
+
+实际命令入口：node .tmp/local-preview/menu-69-checks.cjs contracts（复用既有开发venv）、node .tmp/local-preview/menu-69-domain.cjs（Windows javac参数文件）、node .tmp/local-preview/check.cjs java（含--rerun-tasks）、node .tmp/rust-check.cjs、cargo build --workspace --all-features --locked -j 1、pnpm --filter @opsweave/web-console build，以及Playwright全量/最终workflows.spec.ts navigation.spec.ts。领域与契约代码、Java/浏览器测试均在仓库；本机凭据读取包装脚本留在忽略目录，不提交秘密。
+
+中间问题均未计为成功：最初Java Result缺少missingRaw参数、TS运行模式推导为string，修正后构建通过；领域测试枚举字段遗漏maxLength，按真实模型约束补齐后通过。实际浏览器发现Zeus混合动态文本生成错误导致运行记录DOM崩溃、目标select先于选项赋值显示错误、独立path未进入SVG命名空间；合并文本表达式、选项prop:selected与SVG包装修复后，实际链与完整回归通过。首次平台重启期间读取返回502，等待健康恢复后显式重新读取成功，没有业务静默重试。自定义浏览器脚本在已完成发布后的刷新读取阶段遇到Chromium Network.getResponseBody回执读取错误；先核对PG已经发布，避免重复创建，再用现有版本独立复核刷新/模型选择/草稿排除成功。该脚本失败不冒充一次完整通过。
+
+实际结果/截图保存于忽略目录.tmp/workflow-*，内容仅本地测试数据，Token在截图中为密码掩码；没有客户模型正文、凭据或Authorization进入公共文档。受限运行角色授权SQL已增加三表权限，但本轮只在所有者迁移/本机开发连接及测试库验证，角色脚本未执行，不宣称新的角色验收。
+
+本次推进OW-ST03/04的只读工作流子项。OW-ST01实例存储/租户扩展、OW-ST02来源中心/抽屉、OW-ST05关系实例和OW-ST06新首版整链仍缺，不标为100%；原M0–M4真实身份和人工评估退出状态不变。操作见[工作流说明](runbooks/workflows.md)。
+
+最终服务核对：Web/Platform/Worker/Runtime healthz及readyz均200；四个应用进程MainWindowHandle均0，Windows原生postgres进程数0。10份相关文档的187处本地链接均存在。Codex工作流浏览器面板打开请求已入队。
+
+## 71. 2026-09-28 数据源类型选择、配置抽屉与画布衔接（追加）
+
+用户确认补做数据源选择入口。继续main当前工作区，未新建分支/提交/推送，保留已有修改。范围见[ADR-056](adr/056-source-center-onboarding.md)、[数据源配置契约](../contracts/source-setups.md)与[操作说明](runbooks/source-center.md)。
+
+### 实现范围
+
+- 新增第18个页面#/integrations/sources，置于数据接入侧栏首项。Zabbix、JSON手工样本类型卡片，CMDB卡片明确跳转已有快照导入，尚无画布配置。配置抽屉设置名称/说明/固定初始实体模型，Zabbix展示经来源授权的当前平台连接地址及凭据引用，并提供显式连接自检。
+- 确认由Java纯领域SourceSetupService在同一个WorkflowStore事务保存私有接入回执和第一版草稿；V030新表，租户/主体隔离、请求UUID幂等、配置摘要和模型pin校验、每主体200份配置/50份活动草稿上限、最近20份列表截断。既有模型、连接失败无Mock回退。
+- 保存创建时fixture/zabbix-jsonrpc/MANUAL_SAMPLE标记并计入摘要，避免平台配置变化掩盖旧Fixture。默认SOURCE→MAP→TRIM→VALIDATE→OUTPUT；抽屉确认不采集、不执行工作流/模型、不写实体。
+- 画布URL仅携带id/revision/state，读取仍受可信会话控制；异常参数拒绝。配置的继续编排打开初版草稿或其固定发布版本，后续版本显式管理。会话切换中止请求并清空私有数据；未知确认结果保留原命令，供按UUID查询/显式原样重试。
+- 这是一条平台已配置Zabbix连接的选择入口；多个接入方案不等于多个连接。多实例新URL/凭据编辑、来源配置版本生命周期、自动采集绑定、模型实例/关系输出和AI协助尚缺。回执是不可变创建快照，不自动随之后的工作流编辑更新。凭据引用摘要不覆盖密钥值轮换。
+
+### 实际运行结果
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | 已有Python3.11 venv执行pytest tests/contracts，864项全部通过；独立收集复核数量864，退出0 |
+| 纯领域 | javac21参数文件编译与46个main全部通过；SourceSetupSmoke验证初稿、幂等冲突、主体/租户/范围隔离、配置变化、模型pin、发布后回读及截断 |
+| Java/PG/VM | 最终完整Platform250+Worker24=274，87个suite，0失败/错误/跳过；本机PG17.10、VM1.152.0和隔离测试库opsweave_checks_64。新增HTTP/PG共6项，含重开查询、4路并发幂等、两表共同回滚、请求身份/连接覆盖、重复键/尾随JSON/超限、Fixture描述符 |
+| Rust | fmt --check、默认41/all-features49、最终all-features build均通过；自有Runtime按PID/路径核对后后台恢复，没有模型调用 |
+| TypeScript/build | tsc --noEmit及Vite89模块生产构建通过 |
+| 浏览器fixture | 初次来源中心/工作流12项通过；最终全量256项通过（3.1m），包括18路由、桌面/手机、明确测试连接、Fixture标记、固定UUID重试、私有配置清理与异常深链接 |
+| 实际Java/PG浏览器 | 创建并回读两份LOCALTEST配置：MANUAL_SAMPLE→custom.local_web_service@2、zabbix-jsonrpc→builtin.host@1；抽屉确认直接打开对应5节点已保存草稿，刷新后重新授权读取同一工作流，preview仍null，无隐式执行 |
+| 本地来源 | 页面显式调用既有connection-check接口，本地Zabbix实际报告7.0.27、zabbix-jsonrpc/ok；这是连通性探测，不冒称新Host/Item采集、版本全覆盖或生产验收 |
+| Schema/视觉 | 3份实际page/confirmed HTTP响应通过v1/v2 Schema校验；1500px桌面、390px手机与抽屉交互，无整页横向溢出，截图已查看，零页面JS错误 |
+| 静态 | check_repo：267个结构化文件、6个只读Tool；git diff --check通过 |
+| 本轮未复跑 | 数据库受限角色脚本、独立指标Mock整链、OIDC协议fixture整链、真实模型候选执行包。真实IdP、人审评估、其他Zabbix版本、生产/分布式部署仍未验收 |
+
+实际命令入口：node .tmp/local-preview/menu-69-checks.cjs contracts、node .tmp/local-preview/menu-69-domain.cjs、node .tmp/local-preview/check.cjs java（--rerun-tasks）、node .tmp/rust-check.cjs、cargo build --workspace --all-features --locked -j 1、Web build与Playwright全量。来源专项Java/PG、浏览器脚本和实际响应Schema校验也已执行。开发凭据仍只由忽略目录本地包装读取，不打印/提交。
+
+中间失败如实记录：新增PG测试首次编译因assertTrue泛型重载推导失败，显式booleanValue后修正；首轮6项Java测试因V030未打包进processResources而失败，补入迁移资源后专项及最终完整274项通过。中间失败不计为通过。
+
+实际页面产物、响应和截图保留在忽略目录.tmp/source-center-*，仅LOCALTEST数据，Token截图为密码掩码；没有客户模型内容或凭据写入文档。接入配置ID分别为f6af23e8-3e15-4db7-bd86-94d8a1cf8842（手工）和f1c45546-cf3b-497d-ab5c-1804dd9493a7（本地Zabbix），可从我的接入配置继续编排。
+
+最终服务Web/Platform/Worker/Runtime healthz及readyz均200。四个自有应用MainWindowHandle均0，Windows原生postgres进程数0。受限平台运行角色的新表SELECT/INSERT授权SQL已提供，但本轮未执行角色复验脚本。原M0–M4和扩大首版范围不标为100%；当前完成OW-ST02的选择/确认/画布衔接子项。
+
+## 72. 2026-09-28 创建入口会话引导与本地服务恢复（追加）
+
+实际浏览器发现平台开发Token为空，旧来源中心同时依赖会话和先手动读取目录，置灰没有说明。来源卡片现在可点击：缺少会话时说明原因、滚动并聚焦现有Token输入；有会话时有界GET读取授权目录后打开配置抽屉，无需额外手动读取。工作流页增加同样的缺少会话说明。请求仍经原可信会话边界；未认证不发API请求，会话变化仍中断请求并清空私有目录/抽屉，没有持久保存Token或放宽服务端权限。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约/纯领域 | 864项契约通过；javac21编译与46个main通过 |
+| Rust | fmt --check、默认41/all-features49以及all-features build --locked通过 |
+| TypeScript/build | tsc --noEmit、Vite89模块生产构建通过 |
+| 浏览器fixture | source-center、workflows、platform-session共19项通过（1.1m）；新增首次直接点击只GET不POST、缺少Token不发API并显示引导的回归 |
+| 真实本地API | GET /api/v1/integrations/sources返回200、storage=postgres、7个模型、2份既有接入配置；Zabbix AVAILABLE/zabbix-jsonrpc、手工样本AVAILABLE/MANUAL_SAMPLE，CMDB LEGACY_IMPORT |
+| 内置浏览器 | 缺少会话点击配置后聚焦Token并说明原因；填入本机原有devToken后，首次点击Zabbix直接打开配置抽屉、builtin.host@1选中、确认按钮可用；未点击确认创建或连接测试 |
+| 环境 | 原Docker容器恢复；Web5173、Platform8080、Worker8081、Runtime8090 healthz/readyz、Zabbix18088、VM18428健康HTTP均200，PG容器healthy |
+| 静态 | check_repo通过：267个结构化文件、6个只读Tool；git diff --check通过，当前分支main |
+| 未复跑 | Java/PG/VM集成测试、全量浏览器、独立OIDC/模型验收；第71节274项Java和256项浏览器属于前轮结果，不计作本轮 |
+
+开发检查入口与第71节相同，浏览器仅执行三个相关spec。新增交互不修改契约/领域/服务端逻辑。没有新建接入记录、没有显式来源扫描/连接探测、没有模型调用；恢复原Worker后已有配置可按原调度采样，本轮未对其新采样结果作验收。
+
+环境中间失败：初始本地应用与Docker引擎停止。后台启动Web后，平台因PG不可用未健康；Docker4.77.0先后因run/dockerInference与docker-secrets-engine/engine.sock报Windows错误1920，正常重启及单套接字重命名失败，均未计成功。确认本次失败进程路径后结束，保留并改名两个仅含临时套接字的目录，再建立空运行目录，引擎及原容器恢复。保留目录为本机AppData/Local/Docker/run.stale-20260928-0131、run.stale-20260928-0134及AppData/Local/docker-secrets-engine.stale-20260928-0134；未工厂重置、未删除镜像/卷/数据库或更改权限。故障现象与[Docker官方仓库问题625](https://github.com/docker/desktop-feedback/issues/625)一致，本机恢复结果以上述实测为准，不声称永久修复Windows套接字问题。
+
+旧内置浏览器页在服务停止时刷新进入连接失败页；浏览器接口无法操作该data URL，使用同一浏览器新标签验证本地页面，原标签未关闭。截图保留.tmp/source-create-ready-72.png，无密钥明文。继续main当前工作区，未新建分支/提交/推送；MVP真实身份/人工评估等退出条件不改变。
+
+## 73. 2026-09-28 工作流逐条运行记录与节点失败原因（追加）
+
+用户要求流水线能够保留哪些数据解析成功、哪些失败的记录。继续main当前工作区并保留原修改，未新建分支、提交或推送。范围见[ADR-057](adr/057-workflow-run-traces.md)、[工作流契约](../contracts/workflows.md)与[运行记录说明](runbooks/workflows.md)。
+
+### 实现范围
+
+- Java纯领域新增有界WorkflowTrace：每条输入的ACCEPTED/REJECTED/FILTERED、各节点OK/ERROR/FILTERED/SKIPPED、字段/封闭错误码、来源和目标模型pin、开始时间/耗时、来源批次及完整性标记。最多5条样本、16节点；校验输入顺序、相同拓扑、停止后的跳过状态及与回执数量一致性。
+- 运行明细与回执沿用原PG事务原子保存，存于现有JSON，不新增表或迁移。GET /api/v1/integrations/workflows/runs/{runId}按可信tenant/subject及现有权限读取，跨主体/租户或未知记录返回404；禁用任意查询参数。原列表只返回原摘要字段，不泄露完整trace。旧JSON没有trace时返回null，明确未留存，不编造明细或重新执行。
+- 新增第19个页面#/integrations/workflows/runs，侧栏入口“数据接入→工作流运行记录”。最近20条摘要、结果筛选、运行UUID回查、节点统计与逐条折叠明细；失败行默认展开，字段错误码翻译中文，后续未执行节点显示原因。画布回执提供直接链接。每主体原200条上限保持。切换会话立即清除私有数据并中止旧请求。
+- 持久trace只保存元数据：不保存原始样本、输出正文、节点配置、工作流名称或任意异常消息。fixture/MANUAL_SAMPLE/zabbix-jsonrpc标记保留；转换全部成功不等于来源完整、实体落库或生产采集成功，来源失败/截断/缺Raw单独提示。
+- 本次覆盖v2只读预览和发布版本测试。旧Host/CMDB历史继续使用原页面；未实现统一来源执行日志、后台调度、实体写入或AI协助。认证/参数拒绝、采样端口异常、容量拒绝及事务失败仍按原HTTP失败返回，未新增其持久失败审计。
+
+### 实际运行结果
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | pytest tests/contracts共874项通过；独立collect-only复核数量，新增明细样例/旧trace=null及非法状态、错误字段和额外值拒绝 |
+| 纯领域 | javac21编译与46个main全部通过；WorkflowSmoke最终77项，含混合结果、元数据剥离、身份隔离及trace一致性 |
+| Java/PG/VM | 完整Platform252+Worker24=276，87个suite，0失败/错误/跳过；既有本机PG17.10、VM1.152.0与隔离库opsweave_checks_64，--rerun-tasks，BUILD SUCCESSFUL。新增PG重开持久回查、跨主体/租户隔离、回滚、旧记录及损坏计数拒绝；HTTP详情/无缓存/不含正文、未认证、未知UUID与身份查询覆盖拒绝 |
+| Rust | fmt --check、默认41/all-features49全部通过；all-features build --workspace --locked -j 1通过 |
+| TypeScript/build | tsc --noEmit与Vite91模块生产构建通过 |
+| 浏览器fixture | workflow-runs、workflows、navigation、source-center、platform-session最终33项通过（33.6s）；包含1500px/390px、1成功/1失败/1过滤、旧回执、损坏明细拒绝、来源完整性警示、刷新只GET、会话变化丢弃迟到响应；本轮没有重跑全量浏览器 |
+| 实际本地Java/PG | 新建一份明确标记[LOCAL TEST / Fixture]的手工样本草稿local-test-run-records并预览，3条输入得到1成功/1失败/1过滤；运行ID57e35df8-053e-489a-8529-6a5d70099336，MANUAL_SAMPLE、dryRun=true、writesPerformed=false；详情实际从PG回读，未保存无效端口样本文字或配置 |
+| 实际浏览器/Schema | 内置浏览器查看该回执，port字段TYPE_MISMATCH、输出SKIPPED及过滤节点统计可见；真实刷新后重新授权GET仍能回查同一记录。实际result/detail响应均通过仓库v2 Schema校验；截图已查看 |
+| 静态与服务 | check_repo：269个结构化文件、6个只读Tool；git diff --check通过。更新Platform jar并后台恢复自有Runtime，Web/Platform/Worker/Runtime healthz及readyz均200；复用原Docker依赖，无新PG窗口/服务 |
+| 本轮未复跑 | 全量浏览器、数据库受限运行角色脚本、独立指标Mock整链、OIDC协议fixture整链、真实模型候选执行包；真实IdP、人审评估、其他Zabbix版本及生产部署仍未验收 |
+
+实际命令入口：node .tmp/local-preview/menu-69-checks.cjs contracts、node .tmp/local-preview/menu-69-domain.cjs、node .tmp/local-preview/check.cjs java、node .tmp/rust-check.cjs、cargo build --workspace --all-features --locked -j 1、pnpm --filter @opsweave/web-console build，以及node .tmp/local-preview/menu-69-checks.cjs browser workflow-runs.spec.ts workflows.spec.ts navigation.spec.ts source-center.spec.ts platform-session.spec.ts。实际HTTP响应通过.tmp/workflow-run-73-schema.py校验。凭据仍由忽略目录包装读取，不打印或提交。
+
+中间失败如实记录：Rust首次构建因运行中的本项目Runtime锁定exe报Windows os error 5，核实PID/路径后停止该进程，最终检查通过并隐藏恢复。浏览器首轮27通过/6失败，原因是新增mock glob没有匹配嵌套明细URL，修正后31通过/2失败；随后定位Zeus For的块体回调未渲染节点组件，提取NodeStat/StepRow组件后最终33项全部通过。中间结果不计为通过。
+
+本轮只有上述LOCALTEST手工转换，没有触发外部模型、Zabbix连接探测或手动来源扫描；原Worker继续已有配置的只读采样，其本轮新采样没有另作验收。实际样例响应与截图保留在忽略目录.tmp/workflow-run-73-{detail,result}.json、.tmp/workflow-run-73-ui.png，无凭据明文或客户原始日志。M0–M4真实身份/人工评估退出项不改变，不声称MVP100%或统一全量流水线审计已完成。
+
+## 74. 2026-09-28 X6工作流、G6关系图与任务导航（追加）
+
+按用户要求在main当前工作区完成画布引擎替换、关系展示、页面排版和菜单用途说明；保留既有修改，未新建分支、提交或推送。范围与边界见[ADR-058](adr/058-antv-workspace-navigation.md)、[操作说明](runbooks/graphs-and-navigation.md)和[只读关系契约](../contracts/entity-topology.md)。
+
+### 本轮实现
+
+- 固定安装AntV X6 3.1.8与G6 5.1.1，使用真实pnpm锁文件。引擎动态导入并隔离在TypeScript适配层，不把引擎JSON作为跨语言协议，不增加启动单元。X6提供节点拖动/键盘移动、空白平移、缩放、对齐、适应；沿用原布局、撤销/保存/预览/发布/只读版本测试与运行记录。普通滚轮滚动页面，Ctrl/⌘+滚轮缩放。执行仍为受控单链，没有分支、并行、循环或任意连线。
+- G6分别展示授权模型目录中的关系类型及真实平台中已保存的一跳实例关系。新GET /api/v1/entities/{id}/topology使用可信身份、entity.read、tenant及双端点对象权限，在过滤之后限制50条关系/51节点，服务器当前asOf覆盖有效区间。PG只读REPEATABLE READ快照；无权限/未知中心404、参数覆盖400、存储失败503，no-store。无可用关系返回明确空图，memory模式不可用，无Mock回退。
+- V031补入正式迁移链与打包资源，创建原先仅在未应用原型SQL中的inventory.entity_relation并补data_mode；不插入模拟关系，不实现关系写入接口或采集器。受限运行角色SQL只增加该表SELECT。Fixture、Zabbix、导入、unknown及截断独立标示；source_ref不出API。
+- 默认首页为开始使用，提供接入→编排→运行结果和任务入口；21条路径保留导航/搜索。Host采集维护、CMDB快照导入、资产绑定纠错移入接入维护；Incident/Skill/Agent改用中文任务名称。当前分组自动展开，非当前低频分组默认收起，每页都有用途、步骤和相关入口。调整侧栏、标题、间距、卡片、表格、画布与手机/明暗主题。
+
+### 实际验证
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | pytest tests/contracts退出0；独立collect-only核对885项。新增一跳图样例和非法tenant/模式/数量/额外字段等拒绝 |
+| 纯领域 | javac21编译与47个main通过；新增EntityTopologySmoke15项，含对象权限、跨租户、端点、边界与有效时间 |
+| Java/PG/VM | 完整Platform255+Worker24=279，89个suite，0失败/错误/跳过，--rerun-tasks，BUILD SUCCESSFUL；复用本机PG/VM及隔离库opsweave_checks_64。新增3项HTTP/PG，验证55条隐藏边不占可见上限、50条截断、空邻域、过期/未来关系、无缓存和请求边界 |
+| Rust | fmt --check、默认41与all-features49全部通过；all-features build --workspace --locked -j 1通过，自有Runtime隐藏恢复 |
+| TypeScript/build | tsc --noEmit、Vite2339模块生产构建通过。X6约586KB、G6约1.4MB的独立懒加载块仍有大包警告；没有隐藏告警或宣称首载/大图性能达标 |
+| 浏览器fixture | 全量269项通过（3.2m）；人工发现普通滚轮误平移后修正，最终workflows/graph-workspace/navigation共19项再通过（37.3s），包含1500/390px、拖动及键盘布局保存、普通滚轮不改变图内坐标、明暗模式、会话清理、重读目录/离开页面清理、损坏端点拒绝与旧导航 |
+| 实际本地API | 更新平台bootJar并隐藏重启，GET资产列表200/storage=postgres/3项；新关系GET200/no-store/1节点0边/Zabbix来源，实际响应通过v1 Schema。本轮不新增资产或关系，不推断连线 |
+| 实际内置浏览器 | 读取既有LOCALTEST草稿local-test-run-records，5节点X6渲染并适应视图；读取实际PG目录，G6显示7个实体版本节点/5个关系定义（含原LOCALTEST定义）；选择OpsWeave本地测试容器，显示0关系和缺失说明。均为读取，没有触发预览、采集、发布或模型 |
+| 静态 | check_repo通过：270个结构化文件、6个只读Tool；git diff --check通过 |
+| 未复跑 | 数据库受限运行角色脚本、独立OIDC协议fixture整链、独立指标Mock整链、真实模型候选验收包。真实IdP/生产TLS/人工评估、其他Zabbix版本和生产/分布式部署仍未验收 |
+
+命令入口：node .tmp/local-preview/menu-69-checks.cjs contracts、.tmp/mvp-check-venv/Scripts/python.exe -X utf8 .tmp/local-preview/contracts-74-count.py、node .tmp/local-preview/menu-69-domain.cjs、node .tmp/local-preview/check.cjs java、node .tmp/rust-check.cjs、cargo build --workspace --all-features --locked -j 1、node .tmp/local-preview/menu-69-checks.cjs browser以及最终三个spec；浏览器配置执行tsc/Vite生产构建。实际响应由.tmp/workspace-74-schema.py校验。开发凭据从忽略目录读取，不进入普通日志/文档或URL。
+
+中间失败如实保留：初次TypeScript检查因G6联合事件类型直接取target失败，按类型缩窄后通过；新增PG样例首次漏必填last_seen_epoch_nanos，补齐后又发现投影视图重复别名，修正后完整279项通过。首轮相关浏览器26通过/7失败，包含根路由仍指旧演示、旧标题/选择器和资产图清空时读null；修复后27项通过。首次全量266通过/3失败均为旧菜单/未限定summary定位，更新为实际新导航后269通过。人工检查另发现关系模型图清空catalog时残留旧页，补空值处理与重读/会话/导航回归；最终专项也通过。上述中间结果不计作最终通过。
+
+本轮不使用真实模型，不手动触发来源扫描；原Worker继续已有配置，其新采样未另作验收。截图与实际JSON位于忽略目录.tmp/workspace-74-*，仅本地开发/LOCALTEST记录，凭据为密码掩码。关系实例创建/编辑/导入、来源工作流自动启用、AI协助、分支并行仍未实现；不能将关系类型图当成真实资产连线，不能把本轮UI与本机数据库验证计为M0–M4全部退出或生产验收。
+
+最终服务检查：Web5173、Platform8080、Worker8081、Runtime8090 healthz/readyz均HTTP200；四个自有应用MainWindowHandle均0，Windows原生postgres进程数0。继续复用Docker数据库，没有新建PG窗口。

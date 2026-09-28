@@ -38,7 +38,7 @@ test('imports a bounded explicit window, renders missing data and reauthorizes a
   })
   await page.goto('/#/incidents')
   await page.getByRole('textbox', { name: '平台开发 Token（仅保存在当前标签页内存）' }).fill(TOKEN_OK)
-  await page.locator('summary').click()
+  await page.locator('[data-page=incidents] summary').click()
   await page.getByRole('button', { name: '使用 fixture 时间窗口' }).click()
   await page.getByRole('button', { name: '导入告警首批' }).click()
   await expect(page.locator('[data-problem-import]')).toContainText('labeled-fixture / postgres')

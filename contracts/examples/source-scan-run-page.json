@@ -12,7 +12,7 @@
   "retention": {
     "maxRunsPerScope": 1000,
     "maxRunsPerTenant": 5000,
-    "retained": 2
+    "retained": 0
   },
   "items": [
     {

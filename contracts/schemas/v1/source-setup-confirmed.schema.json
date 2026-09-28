@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/source-setup-confirmed.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "setup",
+    "workflow"
+  ],
+  "properties": {
+    "setup": {
+      "$ref": "source-setup.schema.json"
+    },
+    "workflow": {
+      "$ref": "../v2/workflow-entry.schema.json"
+    }
+  }
+}

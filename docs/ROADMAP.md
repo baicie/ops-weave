@@ -1,10 +1,42 @@
 # OpsWeave（观织）产品与 Zeus 生态协同路线图
 
+2026-09-28 第74节：工作流画布已改用 AntV X6 3.1.8；G6 5.1.1 展示关系类型及资产已保存一跳关系。新增Java只读授权查询与V031迁移，不推断连线、不写关系。新增开始使用工作台、21个任务入口、中文菜单及逐页使用说明，调整桌面/手机和明暗主题排版。契约885、领域47个main、Java/PG/VM279零跳过、Rust默认41/all-features49与fmt/build、TS/build、全量269项浏览器fixture通过；最终滚轮/文字调整后相关19项复验通过。本地Java/PG关系查询和实际响应Schema通过，内置浏览器已查看原工作流X6、已发布模型G6及真实本地Zabbix资产的空关系。实例关系写入/采集、分支并行和AI编排仍未实现，原M0–M4退出项不改变。见[图形与菜单说明](runbooks/graphs-and-navigation.md)、[ADR-058](adr/058-antv-workspace-navigation.md)和VALIDATION-REPORT §74。
+
+2026-09-28 第73节：补齐v2工作流的持久逐条运行明细与独立运行记录页面，按成功/失败/规则过滤查询，展示节点状态、失败字段/错误码、版本、来源及耗时。沿用PG私有运行回执和可信会话边界，样本正文不进入运行日志，旧回执明确没有明细。契约874、领域46个main（WorkflowSmoke77项）、Java/PG/VM276零跳过、Rust默认41/all-features49及fmt/build、TS/build与33项相关浏览器fixture通过；本地MANUAL_SAMPLE/LOCALTEST实际保存1成功/1失败/1过滤，刷新回查及实际响应Schema通过。仅覆盖只读预览/版本测试，未统一旧Host/CMDB历史，也未实现请求级失败审计或后台任务。原M0–M4退出状态不变。见[运行记录说明](runbooks/workflows.md)、[ADR-057](adr/057-workflow-run-traces.md)和VALIDATION-REPORT §73。
+
+2026-09-28 第72节：修正来源中心未建立会话/未先读取目录时创建入口无说明置灰的问题；缺少凭据时显示说明并聚焦会话输入，有会话后点击类型直接读取目录并打开配置抽屉，工作流页同步提示会话状态。19项相关浏览器fixture、契约864、领域46个main、Rust默认41/all-features49及fmt/build、TS/build通过。恢复原本地Docker依赖和四个应用，实际受权GET读取PG两份既有配置/7个模型，内置浏览器直接打开Zabbix抽屉且确认按钮可用；本轮未新建配置、未重跑Java/PG/VM测试、未触发模型或手动采集。详见VALIDATION-REPORT §72。
+
+2026-09-28 第71节：数据源中心已提供Zabbix/手工JSON类型选择、配置抽屉、显式连接测试、PG私有接入回执与初版工作流原子确认、准确画布跳转和刷新找回。接入配置保留创建时fixture/zabbix-jsonrpc/MANUAL_SAMPLE标记；仅选择平台已有连接，多实例地址/凭据编辑、采集绑定与实体/关系输出尚未实现。契约864、领域46个main、Java/PG/VM274零跳过、Rust默认41/all-features49与fmt/build、TS/build及全量256项浏览器fixture通过。实际本地Java/PG保存内置Host和自定义实体接入方案、刷新找回，以及Zabbix7.0.27显式自检通过；未触发采集或模型调用。OW-ST02为部分完成，原M0–M4真实身份/人工评估退出状态不变。见[数据源中心说明](runbooks/source-center.md)、[ADR-056](adr/056-source-center-onboarding.md)和VALIDATION-REPORT §71。
+
+2026-09-27 第70节：已实现原生v2数据工作流第一段——内置/自定义实体模型版本绑定、六类确定性清洗节点、Zeus画布/排序/拖动/撤销、PG私有草稿与并发保存、服务端15分钟预览发布门禁、不可变版本及本人运行回执。支持手工样本和现有Zabbix Host保留批次，所有执行只读、不启用采集。契约849、领域45个main/1314断言、Java/PG/VM268零跳过、Rust默认41/all-features49与fmt、TS/build、全量250浏览器fixture及最终14项复验通过。实际浏览器→Java→PG验证内置/自定义模型清洗发布、3条本地Zabbix保留记录转换与刷新回读。来源中心/配置抽屉、实体/关系实例写入、自动启用绑定与AI协助仍待实现，不提高原M0–M4退出比例。详见[工作流说明](runbooks/workflows.md)、[ADR-055](adr/055-native-transform-workflows.md)及VALIDATION-REPORT §70。
+
+2026-09-27 第68节：已实现模型中心第一段——5类内置实体、4类关系、3项指标定义，自定义实体/字段/关系类型的私有PG草稿与不可变发布、兼容性校验，以及safe-scalars-v1默认清洗预览。三个模型页面及真实浏览器→Java→PG保存/发布/刷新/平台重启回读通过；测试定义明确标记LOCAL TEST。OW-ST01仍为部分完成：租户内置扩展、模型约束下的实体实例写入/详情尚缺，来源配置抽屉、v2画布与关系实例管理继续待开发；原MVP真实身份/人审退出项未关闭。详见[操作说明](runbooks/model-catalog.md)、[契约](../contracts/model-catalog.md)及VALIDATION-REPORT §68。
+
+2026-09-27 第67节（需求/设计，未实现）：用户确认首版为“数据源中心→配置抽屉→清洗转换画布→平台模型”，提供内置实体/指标，并同时支持自定义实体类型、字段和关系类型，另有实体关系管理页面；AI协助只预留扩展位。已落成[工作台设计](architecture/integration-studio.md)与[ADR-054](adr/054-integration-studio-model-catalog.md)，按OW-ST01–06分期验收。此轮没有实现新API、画布或模型管理能力；原91%仅适用旧MVP范围，扩大后的首版尚未重新估算。
+
+2026-09-27 第66节：按Shadcn Admin参考完成当前13页的控制台外观/导航升级；明暗主题、页面搜索、手机抽屉和本页资产统计已验证。235项前端回归及最终31项针对性复验通过，契约/领域/Rust默认及all-features/TS/build已运行。此轮不新增业务阶段、不提高M0–M4退出比例；真实IdP与人工评估继续待验收，详见VALIDATION-REPORT §66。
+
+2026-09-27 第65节：用户确认OpenCode Go接口；Runtime新增显式Chat Completions协议，通过真实deepseek-v4.1-flash完成本地Zabbix→Java只读Tool→Rust→PG AIInsight/两类证据/浏览器链，候选验收7/7，重启后结果与费用不变。真实模型共2次显式调用，首次未形成结果但已上报用量，第二次成功；费用保留且没有自动重试或Mock回退。契约809、领域1195/43 main、Java/PG/VM255零跳过、Rust41/49及fmt/clippy、TS/build、232页面回归通过。原fixture标签保留，真实IdP与人工模型评估仍待验收；TLS按用户要求后置，不宣称M0–M4已100%。见[模型协议决策](adr/053-explicit-model-chat-protocol.md)、[预览入口](runbooks/local-preview.md)和验证报告§65。
+
+
+2026-09-27 第64节：本地Zabbix7.0.27已完成Host/Item各3页及重复同步、来源断连不退役、三项真实Agent历史经单Worker/VM/浏览器查询，以及标记为[LOCAL TEST]的告警触发/恢复/幂等Incident/资产关联/平台重启回读。修复厂商忽略offset的问题，改用最多1000对象的ID清单与精确批次；Worker最多8流串行并固定各自起点。UI新增分组侧栏、统一控件与390px窄屏支持。契约809、领域1195/43 main、Java/PG/VM255零跳过、Rust41/45、TS/build、232页面检查与21组/10组整链通过；整链模型仍mock、OIDC仍协议fixture。真实模型API地址/正式模型ID待确认，真实IdP/TLS和人工审阅未关闭，MVP估算不提高。详见[本地预览](runbooks/local-preview.md)、[ADR-052](adr/052-zabbix-bounded-manifest.md)和验证报告§64。
+
+以下带日期/节号的段落保留历史实施记录；旧offset算法和“来源尚未连接”等描述不代表当前状态，当前范围以最新§73与对应契约为准。
+
+2026-09-27 第63节：本地OpsWeave预览已启动并连到Zabbix7.0.27。实际修复版本探针认证头和字符串countOutput差异，来源自检/Host持久同步/CPU历史Worker→VM→平台→浏览器曲线通过。Item3条中仅1条已映射，2条明确拒绝；模型仍mock。Java针对性3项、契约809、领域1161、Rust41/45、TS/build通过；MVP估算不提高。见[预览说明](runbooks/local-preview.md)。
+
+2026-09-27 第62节：按用户要求启动本地真实 Zabbix 7.0.27 + Agent 2 + 独立容器PG，Web仅127.0.0.1:18088；三项实际采样/历史读取、只读账号写入拒绝、浏览器登录和最新数据页面通过。配置与凭据留在忽略目录。当前具备本地厂商API联调来源，OpsWeave接入整链及真实模型/IdP/TLS/人工验收尚未执行，MVP估算不变。见[本地Zabbix说明](runbooks/local-zabbix.md)。
+
+2026-09-27 第61节：新增M4当前知识诊断的10案例合成标注集（覆盖八类场景）、实际Rust流程边界检查及确定性摘要审阅材料；809项契约、Rust默认41/all-features45、clippy、领域与TS/build通过。外部模型调用为0，人工标注未签署，真实模型对照未执行；真实验收入口仍因PLATFORM_URL_REQUIRED在第0步阻塞，MVP估算不提高。见[评估说明](runbooks/current-diagnosis-evaluation.md)。
+
+2026-09-27 第60节：补齐数据库运行角色边界。Worker默认只校验已迁移结构、显式migrate才执行DDL；平台/Worker独立受限LOGIN账号的15项数据库拒绝与21组/10组本机浏览器整链通过，Java/PG/VM250项零跳过通过。测试用PG弹窗问题已修复并实查隐藏继承，结束后服务和临时角色已清理。真实Zabbix/模型/IdP/TLS与人工审阅仍缺，MVP估算不提高。见[运行说明](runbooks/database-runtime-roles.md)。
+
 > 版本：Roadmap 1.1 · 日期：2026-09-21  
 > 适用仓库：`baicie/ops-weave`、`baicie/zeus`、`baicie/zeus-ui`  
 > 技术方向：Java 平台业务 + Rust Agent Runtime + Zeus / Zeus UI 前端。  
 > 范围：从当前初始化工程，推进到真实只读诊断 MVP、可恢复 Agent、配置式 Skill 和受控试点。  
-> 本文是实施建议，不表示功能已经完成。M0—M7 为规划里程碑，不是已有 Git Tag；未获取团队人数、投入强度和生产规模，因此不指定完成日期。  
+> 本文是实施建议，不表示功能已经完成。M0—M7 为规划里程碑，不是已有 Git Tag；未获取团队人数、投入强度和生产规模，因此不指定完成日期。
+> 2026-09-27 验收纪律修正：执行包逐段检查来源/模型、实际关联、结果及受权证据回读，报告最多为 `real-candidate`；成功探针不能替代目标环境真实性、失败/授权负例、真实 IdP/TLS 与人工审阅。旧 `mode: real` 不作为 M4 退出依据。详情见验证报告第58节与真实验收 runbook；MVP估算保持约91%。
 > 2026-09-26 最新增量：第52节补齐 M3 此前唯一的本地缺失项——SUM/计数器变化率与 reset 策略：下降区间按零重计并带 `counterReset`、原始点保留、契约收紧为闭集（`counter-rate` + `reset-counts-from-zero`），Web 指标页默认画变化率曲线并标出 reset 区间、可切回原始累计值（ADR-010 + 指标查询验收手册）。M3 约85%→90%，MVP 约91%；变化率是平台推导视图，真实采样/模型/身份与人工审阅仍缺。
 
 > 2026-09-26 前一增量：第51节补齐只读的来源连接自检（“已声明支持版本”的第一步）：POST 执行一次有界 probe 并写回执、GET 读取最近回执，fixture 保持标注且不声明版本、JSON-RPC 记录来源自报版本、不可达不带版本、抛异常失败关闭，V026 每 tenant/source 保留 100 份（ADR-045 + runbook）。M2 保持约93%。
@@ -185,6 +217,8 @@ Java identity/application 定义主体、租户、资源范围与权限决策。
 
 ## 7. M2：数据接入流水线，而不是直接上 AI 解析
 
+2026-09-27 第67节调整：首版接入体验包括来源中心、配置抽屉、可编辑转换画布和独立关系管理，模型中心同时提供内置实体/指标与自定义实体类型/字段/关系类型。开发先完成模型基础OW-ST01，再按OW-ST02–06交付与验收；详见[工作台设计](architecture/integration-studio.md)。这改变“画布仅远期可选”的优先级，不放宽确定性转换/授权/版本/预览要求；AI实际实现仍后置。以下v1六阶段记录是兼容基线，不代表新的画布与模型中心已经完成。
+
 ### 目标
 
 资产页展示来自外部系统的真实对象，并能解释数据从哪里来。接入必须先有可版本化、可预览、可重放的确定性流水线；**Integration Copilot 写进本阶段规划，但不作为本阶段开工项，更不是退出条件。**
@@ -218,13 +252,15 @@ DataSource 配置、连接测试、分页、同步游标、完整快照标志。
 
 原始记录（或等价的不可变引用）按租户与来源实例隔离，有保留上限。后续映射必须能指回 Raw，禁止“映射成功就丢掉无法复核的原文”。
 
+2026-09-27 核对退出条件后补齐 Raw 写入容量（第59节、ADR-050）：PG与内存执行器按租户/来源限制新写入，超量或超大明确失败、保留旧引用、不触发缺失对账。读取预算与保留容量明确区分；旧库超额不自动清理。该本地缺口已补代码与验证，真实来源退出条件仍保留。
+
 ### M2.3 PipelineDefinition
 
 这是接入配置的唯一修改目标。定义包含：来源、对象类型、节点图或有序列表、字段映射、校验、权威规则、输出到 Observation/Entity 的契约版本。节点来自平台 Catalog，不是任意脚本。
 
 发布产生不可变 `PipelineVersion`（内容摘要固定）。运行绑定版本，不跟随 `latest` 漂移。草稿不能驱动生产同步。
 
-第一版编辑器可以是表单与 JSON Schema；不把完整拖拽画布当作 Zabbix Host 纵向切片的前置。
+早期Zabbix Host切片使用表单与JSON Schema；用户现明确新的首版必须提供受限可编辑画布，按OW-ST03–04新增v2定义及编辑适配，旧v1发布与执行保持兼容。
 
 ### M2.4 Mapping / Transform / Validate
 
@@ -244,7 +280,7 @@ DataSource 配置、连接测试、分页、同步游标、完整快照标志。
 
 不要在没有定义对象时先做“AI 帮我解析数据”。
 
-远期 Integration Studio（表单、可选拖拽、Copilot）都只是同一套定义的编辑面：
+新的首版Integration Studio包含表单和受限可编辑画布；Copilot仅预留为后续能力。三者共用同一套定义：
 
 ```text
                     Integration Studio
@@ -266,7 +302,7 @@ DataSource 配置、连接测试、分页、同步游标、完整快照标志。
               Ingestion Worker
 ```
 
-拖拽画布与 Copilot 都不是第一条 Zabbix 链的阻塞项。Skill DAG（M6）是 Agent 能力编排，与本阶段数据接入流水线分开，不要合成一个“万能工作流引擎”。
+原Zabbix纵向切片不依赖画布。新的首版工作台按用户要求交付画布，AI助手继续后置。Skill DAG（M6）是 Agent 能力编排，与本阶段数据接入流水线分开，不要合成一个“万能工作流引擎”。
 
 ### 前端交付
 
@@ -431,7 +467,7 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | RAG | 有经过授权、版本化、可维护的手册和历史案例 | 小规模检索评估、引用与文档撤权处理 |
 | 异常检测 / 预测 | 指标语义、缺失率、基线与历史长度已达到算法需求 | 先确定性基线，再与模型比较；不先建完整 Feature 平台 |
 | 分布式扩容 | 单节点基准、积压和恢复数据证明确有瓶颈 | 单独扩容瓶颈 Worker，验证重复消息、分区和租户公平性 |
-| 接入流水线拖拽画布 | 表单/JSON 已无法覆盖真实映射，且 Catalog 节点已稳定 | 仍只编辑 PipelineDefinition，不引入任意代码节点 |
+| 接入流水线画布（已提升至首版） | 第67节用户明确要求，先完成内置/自定义模型与受控节点目录 | OW-ST03–04；只编辑版本化定义，不引入任意代码节点 |
 | Skill DAG（与接入流水线分开） | 多个稳定 Skill 模板已无法覆盖真实用户需求 | 受限节点、契约校验、版本化及可恢复执行 |
 | MCP 扩展 | 出现明确外部工具接入需求 | 审查一个 Server，工具准入、授权、限流和审计 |
 | 自动化动作 | 只读诊断经评估，具备执行权限与恢复手册 | ActionProposal → Policy → Approval → 执行前重验 → 验证；仅白名单低风险动作 |
@@ -459,7 +495,7 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | B | 表格/分页/选择/筛选；实际需要时增加虚拟化 | 资产、告警和 Incident 列表 |
 | C | Chat、Tool 卡片、步骤状态、有限窗口、增量更新 | Agent 控制台 |
 | D | 版本差异、Schema 表单等可复用编辑行为 | Skill Builder；接入流水线表单可复用同一类行为 |
-| 暂缓 | 完整拖拽 Pipeline 画布 | 不阻塞 Zabbix Host 纵向切片 |
+| 首版按需 | 受限Pipeline画布 | OW-ST03–04；不扩成通用工作流，AI只留扩展位 |
 
 组件代码、打包产物、原生示例和 OpsWeave 消费测试分别计完成度。headless 行为与产品视觉分离；组件库不得依赖 OpsWeave 业务包。
 
@@ -503,7 +539,7 @@ Kafka、独立缓存、集群化存储、Kubernetes 都按已测量负载与客�
 | OW-R10 | `feat(observability): connect metric catalog, external alarms and incidents` | ops-weave | 进行中 | R06/R07 | 指标链、告警幂等/恢复、PG Incident/人工状态/时间线页面及同窗口跳转本机通过；人工合并/拆分与真实来源仍缺 |
 | OW-R12 | `feat(integration): Integration Copilot against PipelineDefinition` | ops-weave | 暂缓 | R11/R07 可运行 | 只生成定义 diff；经 Preview 后 Draft→Publish；禁止直连来源或发布任意代码 |
 
-当前启动顺序：不要加深 IAM。指标目录、History、单流 Worker、受控查询/指标页与 Host 版本化流水线 API/页面已有本机切片。下一步在获得真实 Zabbix 配置后完成来源验收；等待配置期间推进 R08 资产服务端筛选/分页/详情。写入型历史修复需要独立的幂等/影响范围与恢复设计。不要先做 R12，也不要再迁前端框架。
+当前开发顺序以第67节工作台设计为准：OW-ST01内置/自定义模型 → OW-ST02来源中心与配置抽屉 → OW-ST03确定性转换/预览/发布 → OW-ST04画布 → OW-ST05关系实例与拓扑 → OW-ST06整链验收。真实Zabbix与模型联调已有§64–65证据；原MVP的真实身份与人工评估仍需完成。R12 AI协助只预留，不提前实现；不再迁前端框架。
 
 ### Issue 描述模板
 

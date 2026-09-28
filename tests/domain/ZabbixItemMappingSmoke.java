@@ -27,8 +27,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 public final class ZabbixItemMappingSmoke {
+    private static int checks;
     public static void main(String[] args) throws Exception {
         var tenant = new TenantId("tenant-demo");
         String yaml = Files.readString(Path.of("extensions/mappings/zabbix-cpu-user.yaml"));
@@ -123,12 +129,37 @@ public final class ZabbixItemMappingSmoke {
 
         var kept = new InMemoryMetricDefinitionStore();
         seed(kept, tenant, "29999");
-        var failed = ingest(registry, new FailingSecondPage(), kept, 1).execute(principal, null);
+        var logger = Logger.getLogger(IngestZabbixItemsUseCase.class.getName());
+        var records = new ArrayList<LogRecord>();
+        var capture = new Handler() {
+            @Override public void publish(LogRecord record) { records.add(record); }
+            @Override public void flush() { }
+            @Override public void close() { }
+        };
+        var previousLevel = logger.getLevel();
+        boolean previousParents = logger.getUseParentHandlers();
+        IngestZabbixHostsUseCase.SyncOutcome failed;
+        logger.setUseParentHandlers(false);
+        logger.setLevel(Level.ALL);
+        logger.addHandler(capture);
+        try {
+            failed = ingest(registry, new FailingSecondPage(), kept, 1).execute(principal, null);
+        } finally {
+            logger.removeHandler(capture);
+            logger.setLevel(previousLevel);
+            logger.setUseParentHandlers(previousParents);
+        }
         require("SOURCE_FETCH_FAILED".equals(failed.reasonCode()), "item fetch failure code");
         require(failed.pages() == 1 && failed.accepted() == 1, "failed item scan keeps partial counters");
         require(lifecycle(kept, tenant, "29999") == MetricLifecycle.ACTIVE, "failed item scan does not retire");
         require(lifecycle(kept, tenant, "20001") == MetricLifecycle.ACTIVE, "page written before failure stays");
-        System.out.println("Zabbix item mapping smoke: 41 checks passed");
+        require(records.size() == 1, "source failure produces one bounded diagnostic record");
+        require(records.getFirst().getLevel() == Level.WARNING, "source failure remains visible as a warning");
+        require("Zabbix item sync failed: SOURCE_FETCH_FAILED".equals(records.getFirst().getMessage()),
+            "source failure log contains only the stable reason code");
+        require(records.getFirst().getThrown() == null, "vendor exception and nested cause must not enter ordinary logs");
+        require(records.getFirst().getParameters() == null, "vendor payload must not enter log parameters");
+        System.out.println("Zabbix item mapping smoke: " + checks + " checks passed");
     }
 
     private static IngestZabbixItemsUseCase ingest(
@@ -167,6 +198,7 @@ public final class ZabbixItemMappingSmoke {
     }
 
     private static void require(boolean ok, String reason) {
+        checks++;
         if (!ok) {
             throw new AssertionError(reason);
         }
@@ -188,7 +220,8 @@ public final class ZabbixItemMappingSmoke {
         @Override
         public Page fetch(SourceContext source, String cursor, int limit) {
             if (++calls > 1) {
-                throw new IllegalStateException("page failed");
+                throw new IllegalStateException("synthetic Authorization: Bearer fixture-secret",
+                    new IllegalArgumentException("synthetic vendor payload with customer log text"));
             }
             return new FixtureZabbixItemConnector().fetch(source, cursor, limit);
         }

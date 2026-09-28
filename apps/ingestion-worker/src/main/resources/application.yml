@@ -16,6 +16,7 @@ management:
 opsweave:
   history:
     enabled: ${OPSWEAVE_HISTORY_ENABLED:false}
+    schema-mode: ${OPSWEAVE_HISTORY_SCHEMA_MODE:verify}
     auth-mode: ${OPSWEAVE_HISTORY_AUTH_MODE:dev}
     service:
       token-uri: ${OPSWEAVE_HISTORY_TOKEN_URI:}
@@ -28,6 +29,7 @@ opsweave:
     tenant: ${OPSWEAVE_HISTORY_TENANT:tenant-demo}
     source-instance-id: ${OPSWEAVE_HISTORY_SOURCE:zabbix-1}
     item-id: ${OPSWEAVE_HISTORY_ITEM_ID:}
+    streams: ${OPSWEAVE_HISTORY_STREAMS:}
     stream-name: ${OPSWEAVE_HISTORY_STREAM:history-v1}
     initial-from: ${OPSWEAVE_HISTORY_INITIAL_FROM:-1}
     step-seconds: ${OPSWEAVE_HISTORY_STEP_SECONDS:60}

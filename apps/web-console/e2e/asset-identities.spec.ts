@@ -78,7 +78,7 @@ for(const fault of ['namespace','tenant','revoked','uuid-suffix','namespace-suff
 })
 test('unmapped UUID shows no target and does not create an asset or import',async ({page}) => {
   const f = await fixture(page); await page.getByText('按已登记强标识定位',{exact:true}).click(); await page.getByRole('textbox',{name:'查找资产 UUID',exact:true}).fill(key); await page.getByRole('button',{name:'按强标识定位',exact:true}).click()
-  await expect(page.locator('[data-page="inventory"] > [role="alert"]')).toContainText('未找到'); await expect(page.locator('[data-entity-detail]')).toHaveCount(0); expect(f.writes).toHaveLength(0)
+  await expect(page.locator('[data-page="inventory"]').getByRole('alert')).toContainText('未找到'); await expect(page.locator('[data-entity-detail]')).toHaveCount(0); expect(f.writes).toHaveLength(0)
 })
 test('late identity page cannot reappear after session is cleared',async ({page}) => {
   let release!:()=>void,started!:()=>void; const gate = new Promise<void>(r => {release=r}), sent = new Promise<void>(r => {started=r})

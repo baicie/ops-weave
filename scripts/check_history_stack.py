@@ -73,7 +73,7 @@ try:
     synced = json.loads(request(platform_url + "/api/v1/integrations/zabbix/items/sync", "POST", TOKEN))
     assert synced["dataMode"] == "labeled-fixture" and synced["accepted"] == 1
     worker = spawn("ingestion-worker", port(), {
-        "OPSWEAVE_HISTORY_ENABLED": "true", "OPSWEAVE_HISTORY_PLATFORM_URL": platform_url,
+        "OPSWEAVE_HISTORY_ENABLED": "true", "OPSWEAVE_HISTORY_SCHEMA_MODE": "migrate", "OPSWEAVE_HISTORY_PLATFORM_URL": platform_url,
         "OPSWEAVE_HISTORY_PLATFORM_TOKEN": TOKEN, "OPSWEAVE_HISTORY_DATA_MODE": "labeled-fixture",
         "OPSWEAVE_HISTORY_SOURCE": "zabbix-1", "OPSWEAVE_HISTORY_ITEM_ID": "20001", "OPSWEAVE_HISTORY_STREAM": STREAM,
         "OPSWEAVE_HISTORY_INITIAL_FROM": str(START), "OPSWEAVE_HISTORY_POLL_MILLIS": "1000",

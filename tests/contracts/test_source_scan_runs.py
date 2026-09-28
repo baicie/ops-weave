@@ -12,6 +12,13 @@ def sample(name):
 def test_published_examples_conform(name):
     validate(name,sample(name))
 
+def test_raw_capacity_failure_keeps_a_failed_partial_scan_not_an_empty_snapshot():
+    body = sample('cases/source-scan-run-raw-capacity')
+    validate('source-scan-run', body)
+    assert body['failureCode'] == 'RAW_PERSIST_FAILED'
+    assert body['status'] == 'FAILED' and body['snapshotComplete'] is False
+    assert body['pages'] == 2 and body['fetched'] == 2 and body['accepted'] == 1
+
 @pytest.mark.parametrize('field',['permissions','token','scanConsistency','requestKey','vendor'])
 def test_trace_never_echoes_client_authority_or_unknown_fields(field):
     body=sample('source-scan-run-page');body[field]='override'
@@ -96,7 +103,10 @@ def test_an_item_run_keeps_its_own_bound():
 
 def test_trace_page_states_the_storage_budget_it_holds_rows_against():
     body=sample('source-scan-run-page')
-    assert body['retention']=={'maxRunsPerScope':1000,'maxRunsPerTenant':5000,'retained':2}
+    assert body['retention']=={'maxRunsPerScope':1000,'maxRunsPerTenant':5000,'retained':0}
+    assert len(body['items']) == 2
+    assert all('pipelineVersion' in item for item in body['items'])
+    validate('source-scan-run-page', body)
     del body['retention']
     with pytest.raises(ValidationError):validate('source-scan-run-page',body)
 

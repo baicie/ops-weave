@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "drafts",
+    "published",
+    "models",
+    "modelsTruncated",
+    "zabbixSource",
+    "runs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "drafts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "workflow-entry.schema.json"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "published": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "workflow-entry.schema.json"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "models": {
+      "type": "array",
+      "maxItems": 55,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "definition",
+          "digest"
+        ],
+        "properties": {
+          "definition": {
+            "$ref": "../v1/model-definition.schema.json"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "modelsTruncated": {
+      "type": "boolean"
+    },
+    "zabbixSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "mode"
+      ],
+      "properties": {
+        "instanceId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
+    },
+    "runs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "workflowId",
+              "revision",
+              "mode",
+              "receipt"
+            ],
+            "properties": {
+              "workflowId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              },
+              "mode": {
+                "enum": [
+                  "PREVIEW",
+                  "RUN"
+                ]
+              },
+              "receipt": {
+                "$ref": "workflow-receipt.schema.json"
+              }
+            }
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

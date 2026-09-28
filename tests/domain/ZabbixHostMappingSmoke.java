@@ -198,6 +198,20 @@ public final class ZabbixHostMappingSmoke {
         ).execute(principal, null);
         require("RAW_PERSIST_FAILED".equals(rawFailed.reasonCode()), "raw persist failure code");
         require("ACTIVE".equals(rawStore.find(tenant, staleId).orElseThrow().lifecycle()), "raw failure does not retire");
+        var boundedRaw = new InMemoryRawRecordStore(new com.acme.opsweave.integration.domain.RawRetention.Policy(1, 1));
+        var capacityRuns = new InMemorySyncRunStore();
+        var capacityFailed = new IngestZabbixHostsUseCase(
+            new AuthorizeUseCase(), new FixtureZabbixHostConnector(), rawStore, boundedRaw, capacityRuns,
+            new com.acme.opsweave.integration.infrastructure.InMemoryPipelineVersionStore(),
+            "labeled-fixture", "memory", "zabbix-1", "env:OPSWEAVE_ZABBIX_TOKEN", 1
+        ).execute(principal, null);
+        require("RAW_PERSIST_FAILED".equals(capacityFailed.reasonCode()), "Raw capacity failure uses the stable scan code");
+        require(!capacityFailed.snapshotComplete() && capacityFailed.retired() == 0, "capacity exhaustion never proves an empty snapshot");
+        require(capacityFailed.pages() == 2 && capacityFailed.fetched() == 2 && capacityFailed.accepted() == 1,
+            "both fetched pages and the first committed record remain accounted for");
+        require(boundedRaw.read(tenant, "zabbix-1", capacityFailed.syncRunId(), 100).retainedCount() == 1,
+            "the accepted page keeps its Raw evidence");
+        require("ACTIVE".equals(rawStore.find(tenant, staleId).orElseThrow().lifecycle()), "Raw capacity failure preserves absent inventory");
 
         var presentKey = new ExternalObjectKey(tenant, "zabbix-1", "host", "10084", "1");
         var presentId = EntityIds.fromExternal(presentKey);

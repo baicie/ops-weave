@@ -148,8 +148,19 @@ impl LoadedSkill {
         if text.len() > 32768 {
             return Err(AppError::InvalidOutput);
         }
-        let value: Value = serde_json::from_str(text).map_err(|_| AppError::InvalidOutput)?;
+        let value: Value = serde_json::from_str(text).map_err(|_| {
+            tracing::warn!(
+                code = "MODEL_OUTPUT_JSON_INVALID",
+                empty = text.is_empty(),
+                "Model output rejected; content omitted"
+            );
+            AppError::InvalidOutput
+        })?;
         if !self.output.is_valid(&value) || !self.canonical_output.is_valid(&value) {
+            tracing::warn!(
+                code = "MODEL_OUTPUT_SCHEMA_INVALID",
+                "Model output rejected; content omitted"
+            );
             return Err(AppError::InvalidOutput);
         }
         serde_json::from_value(value).map_err(|_| AppError::InvalidOutput)

@@ -18,9 +18,43 @@ public final class PostgresHistoryCheckpointStore implements CheckpointStore {
 
     public PostgresHistoryCheckpointStore(DataSource dataSource) { this.dataSource = dataSource; }
 
+    /** Explicit owner-only migration entry point; regular Worker startup uses verify. */
     public void initialize() {
         apply("db/ingestion/V001__history_checkpoint.sql");
         apply("db/ingestion/V002__history_checkpoint_lease.sql");
+    }
+
+    public void initialize(String mode) {
+        switch (mode) {
+            case "verify" -> verify();
+            case "migrate" -> { initialize(); verify(); }
+            default -> throw new IllegalArgumentException("History schema mode must be verify or migrate");
+        }
+    }
+
+    /** Read-only check of the columns and non-deferrable series key used by lease/CAS operations. */
+    public void verify() {
+        try (Connection connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.setQueryTimeout(10);
+            try (var columns = statement.executeQuery("""
+                SELECT tenant_id, source_instance_id, item_id, stream_name, initial_from,
+                       completed_through, series_hash, revision, fencing_token, lease_until, updated_at
+                FROM ingestion.history_checkpoint WHERE false
+                """)) { /* Fail closed if the configured role cannot read the expected schema. */ }
+            try (var key = statement.executeQuery("""
+                SELECT array_agg(a.attname::text ORDER BY k.ordinality)::text
+                FROM pg_index i
+                CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ordinality)
+                JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.attnum
+                WHERE i.indrelid='ingestion.history_checkpoint'::regclass
+                  AND i.indisprimary AND i.indisvalid AND i.indisready AND i.indimmediate
+                  AND k.ordinality <= i.indnkeyatts
+                """)) {
+                if (!key.next() || !"{tenant_id,source_instance_id,item_id}".equals(key.getString(1))) {
+                    throw new Failure(Code.CHECKPOINT_FAILED);
+                }
+            }
+        } catch (SQLException failed) { throw new Failure(Code.CHECKPOINT_FAILED); }
     }
 
     @Override

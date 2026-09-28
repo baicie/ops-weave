@@ -14,6 +14,7 @@ import { checkSourceSnapshot } from './lib/check_source_snapshot.mjs'
 import { checkSourceBindingCorrection } from './lib/check_source_binding_correction.mjs'
 import { checkSourceScanRuns } from './lib/check_source_scan_runs.mjs'
 import { checkSourceConnection } from './lib/check_source_connection.mjs'
+import { runAcceptance } from './acceptance/acceptance-runner.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const webRoot = path.join(root, 'apps/web-console')
@@ -661,6 +662,31 @@ try {
   await Promise.all(boundaryChecks); assert.deepEqual(boundaryFailures, []); assert(boundaryChecks.length > 20)
   await writeFile(path.join(root, '.tmp/metrics-acceptance/request-boundary.json'), JSON.stringify({ checkedResponses: boundaryChecks.length, failures: boundaryFailures.length, credentialStorage: 'document-memory-only' }, null, 2))
   console.log('PASS: Shared platform credential across navigation -> every browser API response correlates its request and forbids caching -> logout clears data and disables another page; no persistent credentials.')
+  if (process.argv.includes('--runtime')) {
+    // Earlier probes use the same trusted subject's four live-session slots. Let the first
+    // published deadline expire before another diagnosis; do not relax or retry the budget.
+    const remaining = Date.parse(readSession.deadlineAt) + 20 - Date.now()
+    assert(Number.isFinite(remaining) && remaining <= 60000)
+    if (remaining > 0) {
+      console.log('WAIT: Existing probe read session deadline before the additional rehearsal; shared session limit unchanged.')
+      await delay(remaining)
+    }
+    const acceptanceEnv = {
+      OPSWEAVE_ACCEPTANCE_URL: platformUrl, OPSWEAVE_ACCEPTANCE_TOKEN: token,
+      OPSWEAVE_ACCEPTANCE_ENTITY: entity.id, OPSWEAVE_ACCEPTANCE_INCIDENT: linkedIncident,
+      OPSWEAVE_ACCEPTANCE_METRIC: 'host.cpu.usage.user',
+    }
+    const rehearsal = await runAcceptance(acceptanceEnv, ['--rehearsal'], () => {})
+    await writeFile(path.join(root, '.tmp/metrics-acceptance/mvp-rehearsal.json'), JSON.stringify(rehearsal.report, null, 2))
+    assert.equal(rehearsal.exitCode, 0, `Rehearsal failed: ${rehearsal.report.failedStep}/${rehearsal.report.errorCode}`)
+    assert.equal(rehearsal.report.mode, 'rehearsal'); assert.equal(rehearsal.report.milestonesSatisfied, false)
+    assert.equal(rehearsal.report.steps.length, 7); assert.equal(rehearsal.report.modelProvider, 'mock-deterministic')
+    const rejectedReal = await runAcceptance(acceptanceEnv, [], () => {})
+    await writeFile(path.join(root, '.tmp/metrics-acceptance/mvp-real-rejected.json'), JSON.stringify(rejectedReal.report, null, 2))
+    assert.equal(rejectedReal.exitCode, 2); assert.equal(rejectedReal.report.errorCode, 'FIXTURE_REQUIRES_REHEARSAL')
+    assert.equal(rejectedReal.report.mode, 'unverified'); assert.equal(rejectedReal.report.milestonesSatisfied, false)
+    console.log('PASS: Actual Java/PG/VM/Rust mock -> seven-stage rehearsal and persisted evidence readback; fixture rejected as real, neither report signs off milestones.')
+  }
 } finally {
   runtime?.kill()
   await browser?.close()

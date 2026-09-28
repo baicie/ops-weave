@@ -30,14 +30,17 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
         if (!"http".equalsIgnoreCase(endpoint.getScheme()) && !"https".equalsIgnoreCase(endpoint.getScheme())) {
             throw new IllegalStateException("Zabbix endpoint must be http or https");
         }
-        HttpRequest request = HttpRequest.newBuilder(endpoint)
+        HttpRequest.Builder request = HttpRequest.newBuilder(endpoint)
             .timeout(Duration.ofSeconds(10))
             .header("Content-Type", "application/json")
-            .header("Authorization", "Bearer " + bearerToken)
-            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .build();
+            .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
+        if (bearerToken != null) {
+            request.header("Authorization", "Bearer " + bearerToken);
+        } else if (!"apiinfo.version".equals(mapper.readTree(jsonBody).path("method").asText())) {
+            throw new IllegalStateException("Only Zabbix version discovery may be anonymous");
+        }
         try {
-            HttpResponse<String> response = http.send(request, ignored -> new BoundedBodySubscriber());
+            HttpResponse<String> response = http.send(request.build(), ignored -> new BoundedBodySubscriber());
             if (response.statusCode() / 100 != 2) {
                 throw new IllegalStateException("Zabbix HTTP status " + response.statusCode());
             }
@@ -69,10 +72,20 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
     public long readCount(String responseJson) {
         JsonNode root = envelope(responseJson);
         JsonNode result = root.get("result");
-        if (result == null || !result.isIntegralNumber()) {
+        if (result == null || (!result.isIntegralNumber() && !result.isTextual())) {
             throw new IllegalStateException("Zabbix JSON-RPC did not return a count");
         }
-        return result.asLong();
+        // Zabbix 7.0 serializes countOutput as a decimal string. Do not coerce
+        // fractions, signs, whitespace, or overflowing integers into a snapshot count.
+        String count = result.asText();
+        if (!count.matches("0|[1-9][0-9]{0,18}")) {
+            throw new IllegalStateException("Zabbix JSON-RPC count is invalid");
+        }
+        try {
+            return Long.parseLong(count);
+        } catch (NumberFormatException overflow) {
+            throw new IllegalStateException("Zabbix JSON-RPC count is out of bounds");
+        }
     }
 
     @Override

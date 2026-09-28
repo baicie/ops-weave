@@ -23,6 +23,11 @@ dependencies {
 }
 
 tasks.named<ProcessResources>("processResources") {
+    from(rootProject.file("db/migrations/platform/V031__entity_relation_read.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V030__source_setup.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V029__transform_workflow.sql")) { into("db/migration") }
+    from(rootProject.file("contracts/catalog/opsweave-core-1.0.0.json")) { into("catalog") }
+    from(rootProject.file("db/migrations/platform/V028__model_catalog.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V017__asset_identity.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V018__model_spend.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V019__ai_content_retention.sql")) { into("db/migration") }

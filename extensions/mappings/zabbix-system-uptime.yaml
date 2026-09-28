@@ -1,0 +1,21 @@
+schemaVersion: '1.0'
+id: zabbix-system-uptime
+version: 1.0.0
+status: draft
+source:
+  connector: zabbix
+  itemKeyExact: 'system.uptime'
+target:
+  metric: host.system.uptime
+  displayName: 'Host system uptime'
+  kind: gauge
+  unit: 's'
+  valueType: integer
+  dimensionSchema:
+    - component
+  dimensions:
+    component: os
+transform:
+  operation: identity
+validation:
+  min: 0

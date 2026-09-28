@@ -31,3 +31,6 @@ data/
 
 /target/
 *.rs.bk
+
+# Windows-generated cache directory from local tooling.
+/%SystemDrive%/

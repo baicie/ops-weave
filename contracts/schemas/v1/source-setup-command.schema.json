@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/source-setup-command.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "name",
+    "description",
+    "source",
+    "connectionDigest",
+    "target"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "instanceId"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "MANUAL_SAMPLE",
+            "ZABBIX_HOST"
+          ]
+        },
+        "instanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "MANUAL_SAMPLE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "instanceId": {
+                "const": "manual"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "connectionDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

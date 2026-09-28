@@ -3,6 +3,7 @@ package com.acme.opsweave.integration.infrastructure;
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.api.RawRecordReader;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase;
+import com.acme.opsweave.integration.domain.RawRetention;
 import com.acme.opsweave.sharedkernel.TenantId;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,10 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Bounded in-memory raw retention. Labeled non-production. */
 public final class InMemoryRawRecordStore implements IngestZabbixHostsUseCase.RawRecordCollector, RawRecordReader {
-    private static final int MAX_RECORDS = 1000;
+    private final RawRetention.Policy retention;
     private record Stored(TenantId tenant, String source, UUID run, Connector.RawRecord record) {}
     private final ConcurrentHashMap<String, Stored> records = new ConcurrentHashMap<>();
     private final List<String> order = new ArrayList<>();
+
+    public InMemoryRawRecordStore() { this(RawRetention.Policy.defaults()); }
+    public InMemoryRawRecordStore(RawRetention.Policy retention) {
+        this.retention = java.util.Objects.requireNonNull(retention);
+    }
 
     @Override
     public synchronized String retain(
@@ -23,10 +29,13 @@ public final class InMemoryRawRecordStore implements IngestZabbixHostsUseCase.Ra
         UUID syncRunId,
         Connector.RawRecord record
     ) {
-        while (order.size() >= MAX_RECORDS) {
-            String oldest = order.remove(0);
-            records.remove(oldest);
-        }
+        // Conservative JSON bound for the development adapter, without framework dependencies.
+        if (record.payload().toString().length() > RawRetention.MAX_PAYLOAD_BYTES / 6)
+            throw new RawRetention.Limit(RawRetention.Reason.PAYLOAD_LIMIT);
+        long tenantCount = records.values().stream().filter(raw -> raw.tenant().equals(tenantId)).count();
+        long sourceCount = records.values().stream()
+            .filter(raw -> raw.tenant().equals(tenantId) && raw.source().equals(sourceInstanceId)).count();
+        retention.admit(sourceCount, tenantCount);
         String ref = IngestZabbixHostsUseCase.newRawRef();
         records.put(ref, new Stored(tenantId, sourceInstanceId, syncRunId,
             new Connector.RawRecord(record.externalId(), record.observedAt(), copyMap(record.payload()))));

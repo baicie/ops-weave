@@ -1,6 +1,6 @@
 import type { MetricSeriesRow } from '../../api/metrics.ts'
 
-const COLORS = ['#1d4f91', '#0f7b6c', '#9a3412', '#6d28d9']
+const COLORS = ['var(--chart-1, #1d4f91)', 'var(--chart-2, #0f7b6c)', 'var(--chart-3, #9a3412)', 'var(--chart-4, #6d28d9)']
 
 const SVG = 'http://www.w3.org/2000/svg'
 

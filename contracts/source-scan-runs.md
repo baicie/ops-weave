@@ -29,12 +29,18 @@
   "after": null,
   "hasMore": false,
   "nextCursor": null,
+  "retention": { "maxRunsPerScope": 1000, "maxRunsPerTenant": 5000, "retained": 0 },
   "items": []
 }
 ```
 
 `dataMode: scan-log` 表示这份响应读取的是**持久化的扫描日志**，不是数据面内容，也不代表上游在线。
 每条运行自带 `dataMode`（例如 `labeled-fixture`），如实反映那次扫描写入数据时使用的模式。
+
+`retention` 的预算只针对**已结束且未被映射版本钉住**的可清理记录；`retained` 是本范围这类记录的数量，
+不是本页条数或全部已存储记录数。`RUNNING` 和被钉住的记录不计入预算，但仍可出现在列表中，
+所以 `retained: 0` 与非空 `items` 可以同时成立。读取不会清理记录；受保护记录的总量治理仍未完成，
+不得把 1000/5000 的预算描述为全部扫描记录的硬上限。
 
 ## 单条响应
 
@@ -64,6 +70,9 @@
 - `failureCode` 只可能是平台自己写入的稳定失败码之一；`failureSummary` 是该码的固定摘要。
   存储中出现任何未知文本时，响应**不带** `failureCode`/`failureSummary`，也不会回显原文。
 - `pipelineVersion` 是这次扫描启动时钉住的映射版本（`pipeline-ref` 形状）；没有钉住时不出现。
+- Raw 写入容量或大小耗尽时扫描以既有 `RAW_PERSIST_FAILED` 失败：每 tenant/source 1000条、每 tenant 5000条，
+  Host/Item共享；新payload的UTF-8 JSON及PG规范化文本各不超过65536字节。既有Raw不逐出、不改写；
+  已提交页保留，`snapshotComplete=false`。该失败码还覆盖其它持久化故障，不能仅凭它断定配额耗尽。
 - 授权沿用源级 `source.sync`；只有 `entity.read` 不能读取扫描日志。所有响应禁止缓存。
 - `limit` 上限 50，`after` 只接受服务端签发的不透明值；客户端构造的游标一律 400。
 
@@ -72,5 +81,6 @@
 - [source-scan-run.json](examples/source-scan-run.json)：一条失败的 Host 扫描。
 - [source-scan-run-page.json](examples/source-scan-run-page.json)：成功与失败各一条的列表页。
 - [source-scan-run-read.json](examples/source-scan-run-read.json)：按标识读取成功扫描。
+- [source-scan-run-raw-capacity.json](examples/cases/source-scan-run-raw-capacity.json)：Raw写入失败后的部分扫描，原引用保留。
 
 样例全部是自有合成数据，不代表真实 Zabbix 实例已经接入。

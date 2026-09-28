@@ -75,3 +75,11 @@ PostgreSQL 模式自动应用 V008，报告和请求信息随数据库保留。`
 真实浏览器/Java/PostgreSQL 验收复用 [指标查询验收](metric-query-acceptance.md) 的隔离环境与启动包，构建 Web 后执行 `node scripts/check_metrics_stack.mjs --pipeline`。它先验收指标查询，再通过控制台预览 Raw、发布随机命名版本并重放，比较前后库存完全一致。使用随机开发 Token，业务请求不拦截，所有来源明确为 fixture。脚本关闭自己启动的 Java、浏览器和预览服务，不关闭调用方提供的存储。
 
 已有固定 Host 映射表单、私有持久草稿/并发保存保护、预览、持久只读重放记录与显式恢复；尚无发布审批、后台重放调度或写入型历史修复。也没有厂商 Zabbix 实例验收、生产认证、分布式预算或生产 RLS。后续在可达真实来源上验收；配置未具备期间可继续资产筛选/分页/详情。Copilot 仍暂缓。
+
+## Raw 容量边界（ADR-050）
+
+平台 Raw 写入按 tenant/source 最多1000条、tenant合计5000条准入，Host/Item共享额度；单条UTF-8 JSON及PG规范化文本最多64 KiB。满额或超大时扫描返回既有 `RAW_PERSIST_FAILED`，不表示来源为空；已存Raw、Observation和资产保留，不做缺失对账。错误码也涵盖其它存储故障，不能单凭它认定满额。
+
+旧库超额不自动删数据；重复扫描不会解决容量问题。没有自动扩容/逐出/清理入口，不能手动删除被历史观测或重放引用的Raw来换取成功。需按 [ADR-050](../adr/050-raw-retention-admission.md) 评估容量并设计显式治理。fixture和真实来源都使用同一执行器准入边界，失败不切换数据模式。
+
+2026-09-27：真实Zabbix7.0.27的多页读取现使用有界ID清单与hostids精确批次，不发送offset；最多1000个对象，清单变化或批次不一致不对账。详见[扫描契约](../../contracts/host-scan.md)与[ADR-052](../adr/052-zabbix-bounded-manifest.md)。此前最高ID/计数加offset的描述仅为历史实现。

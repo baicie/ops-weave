@@ -70,7 +70,7 @@ class PostgresHostScanBoundaryIT extends OwnedInventoryTest {
         assertEquals(SyncFailureCode.SOURCE_SCAN_UNVERIFIED.storedReason(),run.failureReason());
         assertEquals("hostid-watermark-snapshot",run.scanConsistency());
         assertEquals("ACTIVE",lifecycle(entity("10084")));
-        assertEquals("ACTIVE",lifecycle(entity("10087")));
+        assertTrue(wiring.query().find(tenant,entity("10087")).isEmpty(),"mismatched page is rejected before writes");
         assertTrue(wiring.query().find(tenant,entity("10086")).isEmpty(),"the row the shift skipped was never seen");
     }
 
@@ -117,7 +117,11 @@ class PostgresHostScanBoundaryIT extends OwnedInventoryTest {
         @Override public String exchange(URI endpoint,String jsonBody,String bearerToken){return jsonBody;}
         @Override public List<Map<String,Object>> readHostArray(String responseJson){
             if(responseJson.contains("countOutput"))throw new IllegalStateException("countOutput is not a host array");
-            if(responseJson.contains("\"sortorder\":\"DESC\""))return watermark==null?List.of():List.of(host(watermark));
+            if (responseJson.contains("\"output\":[\"hostid\"]")) {
+                if (count == 0) return List.of();
+                return java.util.stream.LongStream.rangeClosed(Long.parseLong(watermark) - count + 1, Long.parseLong(watermark))
+                    .mapToObj(id -> host(Long.toString(id))).toList();
+            }
             if(reads>=pages.size())throw new IllegalStateException("No scripted page");
             return pages.get(reads++);
         }

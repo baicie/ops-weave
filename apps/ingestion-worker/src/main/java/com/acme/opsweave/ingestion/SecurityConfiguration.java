@@ -9,6 +9,12 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfiguration {
     @Bean
+    org.springframework.security.core.userdetails.UserDetailsService noInteractiveUsers() {
+        // The Worker is an outbound client, not a password-login service. Suppress Boot's generated user/secret.
+        return new org.springframework.security.provisioning.InMemoryUserDetailsManager();
+    }
+
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // Fail closed until the production OIDC and resource policy adapter is implemented.
         return http

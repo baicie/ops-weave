@@ -52,6 +52,8 @@ class SourceScanRunHttpIT {
         assertEquals(TENANT,pageBody.get("tenantId").asString());
         assertEquals("zabbix-1",pageBody.get("sourceInstanceId").asString());
         assertTrue(pageBody.get("items").size()>=1);
+        assertEquals(0,pageBody.get("retention").get("retained").asInt(),
+            "the budget excludes pinned Host runs even though the trace lists them");
         tools.jackson.databind.JsonNode item=null;
         for(var candidate:pageBody.get("items"))if(runId.equals(candidate.get("syncRunId").asString()))item=candidate;
         assertNotNull(item,"the stored scan is traceable by its syncRunId");

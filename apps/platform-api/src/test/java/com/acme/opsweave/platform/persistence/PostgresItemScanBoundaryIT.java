@@ -110,7 +110,11 @@ class PostgresItemScanBoundaryIT extends OwnedInventoryTest {
         @Override public String exchange(URI endpoint,String jsonBody,String bearerToken){return jsonBody;}
         @Override public List<Map<String,Object>> readHostArray(String responseJson){
             if(responseJson.contains("countOutput"))throw new IllegalStateException("countOutput is not an item array");
-            if(responseJson.contains("\"sortorder\":\"DESC\""))return watermark==null?List.of():List.of(item(watermark));
+            if (responseJson.contains("\"output\":[\"itemid\"]")) {
+                if (count == 0) return List.of();
+                return java.util.stream.LongStream.rangeClosed(Long.parseLong(watermark) - count + 1, Long.parseLong(watermark))
+                    .mapToObj(id -> item(Long.toString(id))).toList();
+            }
             if(reads>=pages.size())throw new IllegalStateException("No scripted page");
             return pages.get(reads++);
         }

@@ -24,6 +24,9 @@ import com.acme.opsweave.telemetry.infrastructure.InMemoryMetricDefinitionStore;
 import com.zaxxer.hikari.HikariDataSource;
 
 public final class InventoryWiring implements AutoCloseable {
+    private final com.acme.opsweave.integration.api.WorkflowStore memoryWorkflows = new com.acme.opsweave.integration.infrastructure.InMemoryWorkflowStore();
+    public com.acme.opsweave.integration.api.WorkflowStore workflows() { return ownedDataSource == null ? memoryWorkflows : new PostgresWorkflowStore(ownedDataSource); }
+    private final com.acme.opsweave.catalog.api.ModelCatalogStore memoryCatalog = new com.acme.opsweave.catalog.infrastructure.InMemoryModelCatalogStore();
     private HikariDataSource ownedDataSource;
     private com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshotsWired;
     private com.acme.opsweave.inventory.api.SourceReviewStore sourceReviewsWired;
@@ -150,6 +153,10 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V025__item_watermark_label.sql", "V025__item_watermark_label");
         new SchemaMigrator(dataSource).apply("db/migration/V026__source_connection_check.sql", "V026__source_connection_check");
         new SchemaMigrator(dataSource).apply("db/migration/V027__rejected_write_audit.sql", "V027__rejected_write_audit");
+        new SchemaMigrator(dataSource).apply("db/migration/V028__model_catalog.sql", "V028__model_catalog");
+        new SchemaMigrator(dataSource).apply("db/migration/V029__transform_workflow.sql", "V029__transform_workflow");
+        new SchemaMigrator(dataSource).apply("db/migration/V030__source_setup.sql", "V030__source_setup");
+        new SchemaMigrator(dataSource).apply("db/migration/V031__entity_relation_read.sql", "V031__entity_relation_read");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
@@ -162,6 +169,11 @@ public final class InventoryWiring implements AutoCloseable {
         var wiring = new InventoryWiring(postgres, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
         wiring.ownedDataSource = dataSource; return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
+    }
+
+    public com.acme.opsweave.inventory.api.TopologyReader topology() {
+        if (ownedDataSource == null) return (tenant,center,scope,at) -> { throw new IllegalStateException("Topology requires PostgreSQL"); };
+        return new PostgresTopologyReader(ownedDataSource);
     }
 
     public InventoryQuery query() {
@@ -251,5 +263,6 @@ public final class InventoryWiring implements AutoCloseable {
         if(ownedDataSource==null)throw new com.acme.opsweave.aicontrol.domain.ToolFailure(com.acme.opsweave.aicontrol.domain.ToolFailure.Code.UNAVAILABLE);
         return new PostgresAiRetentionStore(ownedDataSource,java.time.Clock.systemUTC());
     }
+    public com.acme.opsweave.catalog.api.ModelCatalogStore modelCatalog() { return ownedDataSource == null ? memoryCatalog : new PostgresModelCatalogStore(ownedDataSource); }
     public void close() { if (ownedDataSource != null) ownedDataSource.close(); }
 }

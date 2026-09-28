@@ -1,0 +1,313 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "opsweave-core",
+  "version": "1.0.0",
+  "definitions": [
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.host",
+      "revision": 1,
+      "kind": "ENTITY",
+      "label": "主机",
+      "description": "服务器、虚拟机或宿主节点。现有 Host 采集继续使用原映射；此定义尚未自动迁移历史资产。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [
+        {
+          "id": "hostname",
+          "label": "主机名",
+          "type": "TEXT",
+          "required": true,
+          "maxLength": 255
+        },
+        {
+          "id": "ip",
+          "label": "IP 地址",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        },
+        {
+          "id": "os",
+          "label": "操作系统",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        }
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.application",
+      "revision": 1,
+      "kind": "ENTITY",
+      "label": "应用",
+      "description": "业务应用的逻辑边界。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [
+        {
+          "id": "name",
+          "label": "应用名称",
+          "type": "TEXT",
+          "required": true,
+          "maxLength": 255
+        },
+        {
+          "id": "owner",
+          "label": "负责人",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        },
+        {
+          "id": "environment",
+          "label": "环境",
+          "type": "ENUM",
+          "required": false,
+          "maxLength": 255,
+          "choices": [
+            "production",
+            "staging",
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.service",
+      "revision": 1,
+      "kind": "ENTITY",
+      "label": "服务",
+      "description": "应用内独立运行的服务。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [
+        {
+          "id": "name",
+          "label": "服务名称",
+          "type": "TEXT",
+          "required": true,
+          "maxLength": 255
+        },
+        {
+          "id": "protocol",
+          "label": "协议",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        },
+        {
+          "id": "port",
+          "label": "端口",
+          "type": "INTEGER",
+          "required": false,
+          "min": 1,
+          "max": 65535
+        }
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.database",
+      "revision": 1,
+      "kind": "ENTITY",
+      "label": "数据库",
+      "description": "数据库实例或逻辑数据库。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [
+        {
+          "id": "name",
+          "label": "数据库名称",
+          "type": "TEXT",
+          "required": true,
+          "maxLength": 255
+        },
+        {
+          "id": "engine",
+          "label": "数据库引擎",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        },
+        {
+          "id": "version_name",
+          "label": "版本",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        }
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.network_interface",
+      "revision": 1,
+      "kind": "ENTITY",
+      "label": "网络接口",
+      "description": "主机上的物理或虚拟网络接口。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [
+        {
+          "id": "name",
+          "label": "接口名称",
+          "type": "TEXT",
+          "required": true,
+          "maxLength": 255
+        },
+        {
+          "id": "mac",
+          "label": "MAC 地址",
+          "type": "TEXT",
+          "required": false,
+          "maxLength": 255
+        },
+        {
+          "id": "speed_bps",
+          "label": "速率（bit/s）",
+          "type": "INTEGER",
+          "required": false,
+          "min": 0
+        }
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.contains",
+      "revision": 1,
+      "kind": "RELATION",
+      "label": "包含",
+      "description": "内置关系类型；此定义不代表已有关系实例。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [],
+      "endpoints": {
+        "from": {
+          "id": "builtin.application",
+          "revision": 1
+        },
+        "to": {
+          "id": "builtin.service",
+          "revision": 1
+        },
+        "cardinality": "ONE_TO_MANY"
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.deployed_on",
+      "revision": 1,
+      "kind": "RELATION",
+      "label": "部署于",
+      "description": "内置关系类型；此定义不代表已有关系实例。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [],
+      "endpoints": {
+        "from": {
+          "id": "builtin.service",
+          "revision": 1
+        },
+        "to": {
+          "id": "builtin.host",
+          "revision": 1
+        },
+        "cardinality": "MANY_TO_MANY"
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.depends_on",
+      "revision": 1,
+      "kind": "RELATION",
+      "label": "依赖",
+      "description": "内置关系类型；此定义不代表已有关系实例。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [],
+      "endpoints": {
+        "from": {
+          "id": "builtin.service",
+          "revision": 1
+        },
+        "to": {
+          "id": "builtin.database",
+          "revision": 1
+        },
+        "cardinality": "MANY_TO_MANY"
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "builtin.has_interface",
+      "revision": 1,
+      "kind": "RELATION",
+      "label": "拥有接口",
+      "description": "内置关系类型；此定义不代表已有关系实例。",
+      "cleaningProfile": "safe-scalars-v1",
+      "fields": [],
+      "endpoints": {
+        "from": {
+          "id": "builtin.host",
+          "revision": 1
+        },
+        "to": {
+          "id": "builtin.network_interface",
+          "revision": 1
+        },
+        "cardinality": "ONE_TO_MANY"
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "key": "host.cpu.usage.user",
+      "label": "CPU 用户态占比",
+      "entityType": "builtin.host",
+      "unit": "1",
+      "kind": "gauge",
+      "sourceKey": "system.cpu.util[,user]",
+      "transform": "percent-to-ratio",
+      "mapping": "zabbix-cpu-user@1.0.0"
+    },
+    {
+      "key": "host.memory.available.ratio",
+      "label": "可用内存占比",
+      "entityType": "builtin.host",
+      "unit": "1",
+      "kind": "gauge",
+      "sourceKey": "vm.memory.size[pavailable]",
+      "transform": "percent-to-ratio",
+      "mapping": "zabbix-memory-available@1.0.0"
+    },
+    {
+      "key": "host.system.uptime",
+      "label": "系统运行时间",
+      "entityType": "builtin.host",
+      "unit": "s",
+      "kind": "gauge",
+      "sourceKey": "system.uptime",
+      "transform": "identity",
+      "mapping": "zabbix-system-uptime@1.0.0"
+    }
+  ],
+  "cleaning": {
+    "id": "safe-scalars-v1",
+    "rules": [
+      "trim-text",
+      "strict-scalar-conversion",
+      "required-and-null-check",
+      "enum-and-range-check",
+      "reject-unknown-field"
+    ],
+    "missingPolicy": "preserve-and-report",
+    "sampleLimit": 1,
+    "fieldLimit": 32
+  },
+  "connectorPolicy": {
+    "connector": "zabbix",
+    "discovery": "apiinfo.version",
+    "normalizationBoundary": "connector",
+    "locallyVerifiedVersions": [
+      "7.0.27"
+    ],
+    "otherVersions": "UNVERIFIED",
+    "authentication": "bearer-header",
+    "note": "本地 Zabbix 7.0.27 已联调；其他版本必须独立验证，未知版本不视为兼容。"
+  }
+}

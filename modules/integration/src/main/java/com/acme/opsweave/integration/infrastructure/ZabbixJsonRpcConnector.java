@@ -10,13 +10,9 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Zabbix JSON-RPC host.get client. Transport is injected so this module stays free of HTTP JSON libraries.
- * The walk is bounded before the first request: the highest hostid and the row count are captured, pages
- * are read ascending inside that watermark, and the walk only completes when the observed rows match the
- * captured count and the highest hostid was seen. Hosts created afterwards stay outside this snapshot;
- * a removed row shifts later offsets, which the count check reports instead of reconciling a partial view.
- * The cursor carries the bound so a resumed page cannot silently drop it. Transport failures propagate
- * and are never a complete scan.
+ * Zabbix host.get client using a bounded identity manifest and explicit ID batches.
+ * Membership must remain unchanged through the final page; failures never authorize reconciliation.
+ * Mutable fields can change during this walk. No unsupported offset parameter is sent.
  */
 public final class ZabbixJsonRpcConnector implements Connector {
     private final URI endpoint;
@@ -37,9 +33,9 @@ public final class ZabbixJsonRpcConnector implements Connector {
     @Override
     public ProbeResult probe(SourceContext source) {
         try {
-            String token = secrets.resolve(source.secretRef());
+            secrets.resolve(source.secretRef());
             String body = "{\"jsonrpc\":\"2.0\",\"method\":\"apiinfo.version\",\"params\":{},\"id\":1}";
-            return new ProbeResult(true, "ok", transport.readText(transport.exchange(endpoint, body, token)));
+            return new ProbeResult(true, "ok", transport.readText(transport.exchange(endpoint, body, null)));
         } catch (RuntimeException failed) {
             return new ProbeResult(false, "unreachable");
         }
@@ -47,63 +43,36 @@ public final class ZabbixJsonRpcConnector implements Connector {
 
     @Override
     public Page fetch(SourceContext source, String cursor, int limit) {
+        var position = JsonRpcWatermarkBounds.decode(cursor);
         String token = secrets.resolve(source.secretRef());
-        int bounded = Math.min(Math.max(limit, 1), 500);
-        JsonRpcWatermarkBounds bounds = cursor == null || cursor.isBlank()
-            ? JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid")
-            : JsonRpcWatermarkBounds.decode(cursor);
-        if (bounds.expected() == 0) {
-            // Nothing existed when the watermark was captured: a verified empty snapshot needs no page request.
-            return new Page(List.of(), null, true, SyncScan.HOSTID_WATERMARK);
+        var manifest = JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid");
+        if (position != null && !position.matches(manifest))
+            return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK);
+        int start = position == null ? 0 : position.position();
+        int end = Math.min(start + Math.min(Math.max(limit, 1), 500), manifest.ids().size());
+        var selected = manifest.ids().subList(start, end);
+        List<Map<String, Object>> rows = List.of();
+        if (!selected.isEmpty()) {
+            String body = "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{"
+                + "\"output\":[\"hostid\",\"host\",\"name\",\"status\"],\"selectInterfaces\":[\"ip\",\"main\",\"type\"],"
+                + "\"hostids\":" + selected + ",\"sortfield\":\"hostid\",\"sortorder\":\"ASC\","
+                + "\"limit\":" + selected.size() + "},\"id\":1}";
+            rows = transport.readHostArray(transport.exchange(endpoint, body, token));
+            var returned = rows.stream().map(row -> JsonRpcWatermarkBounds.id(row, "hostid")).toList();
+            if (!selected.equals(returned)) return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK);
         }
-        String body = "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{"
-            + "\"output\":[\"hostid\",\"host\",\"name\",\"status\"],"
-            + "\"selectInterfaces\":[\"ip\",\"main\",\"type\"],"
-            + "\"sortfield\":\"hostid\","
-            + "\"sortorder\":\"ASC\","
-            + "\"limit\":" + bounded + ","
-            + "\"offset\":" + bounds.offset()
-            + "},\"id\":1}";
-        String response = transport.exchange(endpoint, body, token);
-        List<Map<String, Object>> hosts = transport.readHostArray(response);
+        boolean complete = end == manifest.ids().size();
+        if (complete && !manifest.equals(JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid")))
+            return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK);
         Instant observedAt = Instant.now();
         List<RawRecord> records = new ArrayList<>();
-        long last = 0;
-        int inside = 0;
-        boolean ordered = true;
-        boolean beyond = false;
-        for (Map<String, Object> host : hosts) {
-            Object hostId = host.get("hostid");
-            if (hostId == null) {
-                continue;
-            }
-            long id;
-            try {
-                id = Long.parseLong(String.valueOf(hostId).trim());
-            } catch (NumberFormatException invalid) {
-                ordered = false;
-                continue;
-            }
-            if (id > bounds.watermark()) {
-                // Created after the watermark was captured: outside this snapshot.
-                beyond = true;
-                continue;
-            }
-            if (id <= bounds.previous() || (last != 0 && id <= last)) {
-                ordered = false;
-            }
-            last = id;
-            inside++;
-            records.add(new RawRecord(String.valueOf(hostId), observedAt, host));
-        }
-        long observed = bounds.observed() + inside;
-        boolean atEnd = beyond || hosts.size() < bounded || (last != 0 && last >= bounds.watermark());
-        boolean complete = bounds.verified(atEnd, ordered, observed, last);
-        String next = atEnd ? null : bounds.encode(bounds.offset() + hosts.size(), last, observed);
-        return new Page(List.copyOf(records), next, complete, SyncScan.HOSTID_WATERMARK);
+        for (Map<String, Object> row : rows)
+            records.add(new RawRecord(String.valueOf(row.get("hostid")), observedAt, row));
+        return new Page(List.copyOf(records), complete ? null : manifest.cursor(end), complete, SyncScan.HOSTID_WATERMARK);
     }
 
     public interface Transport {
+        /** A null bearer token is reserved for unauthenticated apiinfo.version discovery. */
         String exchange(URI endpoint, String jsonBody, String bearerToken);
 
         List<Map<String, Object>> readHostArray(String responseJson);

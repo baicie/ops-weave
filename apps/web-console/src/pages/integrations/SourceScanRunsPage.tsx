@@ -35,7 +35,7 @@ export function SourceScanRunsPage(){
     <ZwButton variant="outline" disabled={disabled()} onPress={()=>load()}>读取扫描运行</ZwButton>
     <p>按开始时间倒序，每页 10/20/50 条（默认 20，上限 50）；翻页只回填服务端签发的不透明游标，不要自己构造。</p>
     <Show when={page()}><section data-scan-run-list><p>{`${page()?.tenantId} · ${page()?.sourceInstanceId} · ${page()?.objectType} · ${page()?.storage} · 本页 ${page()?.items.length} 条`}</p>
-      <p data-scan-run-retention>{`扫描日志保留上限：本范围 ${page()?.retention.maxRunsPerScope} 条 / 本租户 ${page()?.retention.maxRunsPerTenant} 条；当前本范围存储 ${page()?.retention.retained} 条。读取不会清理记录；超出上限的运行会在下一次扫描开始时从最旧的已结束运行删起，仍在运行或被映射版本钉住的运行不会被删除。`}</p>
+      <p data-scan-run-retention>{`可清理扫描记录保留预算：本范围 ${page()?.retention.maxRunsPerScope} 条 / 本租户 ${page()?.retention.maxRunsPerTenant} 条；当前本范围计入预算 ${page()?.retention.retained} 条。读取不会清理记录；下一次扫描开始时按预算清理最旧的可清理记录。仍在运行或被映射版本钉住的运行不会被删除，也不计入此数量；本页可包含这些受保护记录，此预算不代表总存储量上限。`}</p>
       <Show when={page()!.items.length===0}><p data-scan-run-empty>本页没有存储的扫描运行；这不代表该来源从未被扫描过。</p></Show>
       <For each={page()?.items??[]}>{row=><ScanRunRow run={forItem(row)} />}</For>
       <ZwButton variant="outline" disabled={disabled() || !page()?.nextCursor} onPress={()=>load(page()?.nextCursor??null)}>下一页扫描运行</ZwButton>

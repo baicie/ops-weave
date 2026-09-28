@@ -12,8 +12,9 @@ import java.util.Objects;
  *
  * <p>A page also states how the walk was bounded. {@link SyncScan#OFFSET_ATTEMPT} means the caller
  * only has an offset attempt; {@link SyncScan#HOSTID_WATERMARK} means the page belongs to a walk
- * bounded by a watermark captured before the first request, which is complete only when the
- * observed rows match that snapshot. A connector must never label a walk it cannot verify.
+ * bounded by a captured identity set, which is complete only when all selected IDs were read and
+ * membership was verified. Mutable fields are not a transaction snapshot. A connector must never
+ * label a walk it cannot verify.
  */
 public interface Connector {
     String type();

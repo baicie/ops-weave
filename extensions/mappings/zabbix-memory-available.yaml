@@ -1,0 +1,23 @@
+schemaVersion: '1.0'
+id: zabbix-memory-available
+version: 1.0.0
+status: draft
+source:
+  connector: zabbix
+  itemKeyExact: 'vm.memory.size[pavailable]'
+target:
+  metric: host.memory.available.ratio
+  displayName: 'Host memory available'
+  kind: gauge
+  unit: '1'
+  valueType: double
+  dimensionSchema:
+    - mode
+  dimensions:
+    mode: available
+transform:
+  operation: multiply
+  factor: 0.01
+validation:
+  min: 0
+  max: 1

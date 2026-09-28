@@ -1,17 +1,15 @@
 package com.acme.opsweave.integration.domain;
 
-/** An offset walk is one complete scan attempt, not a consistent database snapshot. */
+/** A verified identity walk permits reconciliation; mutable fields are not a database snapshot. */
 public final class SyncScan {
     public static final String OFFSET_ATTEMPT = "offset-scan-attempt";
     /**
-     * A hostid-watermark walk: the maximum hostid and the row count are captured before the first
-     * request, pages are read ascending inside that watermark, and the walk is complete only when
-     * the observed rows match the captured count. Requires a monotonically increasing hostid.
+     * Compatibility label for a bounded host identity walk. The real connector pins a bounded,
+     * sorted ID manifest digest and reads explicit ID batches; final membership is rechecked.
      */
     public static final String HOSTID_WATERMARK = "hostid-watermark-snapshot";
     /**
-     * The same bounded walk over items: the highest itemid and the row count are captured before the
-     * first request, and the walk is complete only when the observed rows match that snapshot.
+     * The same verified membership walk over item IDs, using the historical wire label.
      */
     public static final String ITEMID_WATERMARK = "itemid-watermark-snapshot";
     public static final String NONE = "none";

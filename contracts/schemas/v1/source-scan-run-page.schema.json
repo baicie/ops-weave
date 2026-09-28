@@ -47,7 +47,7 @@
     "retention": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The published trace-storage budget for this scope and how many rows it currently holds. A read never prunes.",
+      "description": "Budget for ended, unpinned scan runs and their current count in this scope. RUNNING and pinned runs are protected, excluded from retained, and may still appear in items. This is not a bound on total stored rows. A read never prunes.",
       "properties": {
         "maxRunsPerScope": {
           "type": "integer",

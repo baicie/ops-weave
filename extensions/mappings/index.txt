@@ -1,1 +1,3 @@
 zabbix-cpu-user.yaml
+zabbix-memory-available.yaml
+zabbix-system-uptime.yaml
