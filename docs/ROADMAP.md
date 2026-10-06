@@ -1,5 +1,11 @@
 # OpsWeave（观织）产品与 Zeus 生态协同路线图
 
+2026-10-07 第155节：注册连接问题读取加入实例抽屉页签、近一小时默认时间窗和最多24小时的显式时间筛选。事件分页沿用固定时间窗和来源范围，严格核对connection/scope digest；失败保持可见且不自动重试。Chromium四项、全量契约1955项、Java定向边界、Web typecheck/build和静态/私有资料边界检查通过。浏览器数据为契约Fixture，注册来源真实HTTP、PostgreSQL、多实例及生产可靠性仍需验收，完整目标保持active。
+
+2026-10-07 第154节：修复注册问题分页的路径与错误边界。OpenAPI 和 Spring 映射统一为 `{sourceId}`，并显式绑定路径变量；将问题读取异常接入统一 advice，403/429/503 语义固定。新增边界 JUnit；平台编译与定向契约回归通过。真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性继续，完整目标保持 active。
+
+2026-10-07 第153节：注册连接问题分页补齐契约样例和回归断言。Fixture 明确固定连接回显与只读问题项；测试覆盖 authority/连接覆盖字段拒绝、revision/host group/scope digest/游标/页大小边界，以及 OpenAPI 全局 clientRequestId、参数和响应 Schema 的唯一登记。定向契约42项与全量契约回归通过；真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性继续，完整目标保持 active。
+
 2026-10-07 第152节：注册连接问题分页读取进入受控连接闭环。新增固定 source UUID/revision 下的有界问题页，查询只接受时间窗口、事件游标和页大小，响应回显 connection digest、host group 与 scope digest；读取不会创建 Incident 或触发动作。Item Sync 的扫描租约按物理 source 串行并按 scope digest fencing，补充 V062 数据库列和内存实现，避免不同注册 revision 互相错误退休绑定。Java 编译、纯领域 scope smoke、注册问题/Item 专项契约19项、Schema、Web typecheck/build、结构化检查和差异检查实际通过；真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性继续，完整目标保持 active。
 
 2026-10-07 第151节：注册连接版本增加固定指标历史读取。闭合60秒窗口只通过已完成发现回执解析指标 pin，并复用登记 endpoint、credential 与 host group 范围；请求不接受租户、地址或秘密覆盖。新增 v2 Schema、OpenAPI 路径和同步页签回归用例。Java平台/集成编译与Web TypeScript检查通过，Playwright因本机缺少Chromium未执行；真实 PostgreSQL HTTP、多实例并发、真实来源及生产可靠性继续，完整目标保持 active。

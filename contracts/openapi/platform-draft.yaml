@@ -12,6 +12,8 @@ info:
     The optional client request ID is correlation metadata only, not identity or idempotency.
 paths:
   /api/v2/data-sources/{sourceId}/connection/{revision}/problems:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
     get:
       summary: Read a bounded problem page from a registered connection revision
       operationId: readRegisteredProblems

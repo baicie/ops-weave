@@ -36,18 +36,18 @@ public final class RegisteredProblemController {
         this.wiring = wiring;
     }
 
-    @GetMapping("/api/v2/data-sources/{id}/connection/{revision}/problems")
-    public Map<String, Object> read(@PathVariable UUID id, @PathVariable int revision, HttpServletRequest request) {
+    @GetMapping("/api/v2/data-sources/{sourceId}/connection/{revision}/problems")
+    public Map<String, Object> read(@PathVariable("sourceId") UUID sourceId, @PathVariable int revision, HttpServletRequest request) {
         query(request);
         var principal = principals.requirePrincipal();
-        var instance = connections.read(principal, id).instance();
-        SourceConnectionConfiguration fixed = connections.configuration(principal, id, revision)
+        var instance = connections.read(principal, sourceId).instance();
+        SourceConnectionConfiguration fixed = connections.configuration(principal, sourceId, revision)
             .orElseThrow(() -> new WorkflowFailure(WorkflowFailure.Code.NOT_FOUND));
         if (fixed.hostGroupIds().isEmpty()) {
             throw new WorkflowFailure(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
         }
         var source = new WorkflowDefinition.Source("ZABBIX_HOST", instance.source().instanceId(),
-            new WorkflowDefinition.ConfigurationPin(id, revision, fixed.connectionDigest()));
+            new WorkflowDefinition.ConfigurationPin(sourceId, revision, fixed.connectionDigest()));
         fixed = connections.workflowConfiguration(principal, source);
         long from = number(request, "from");
         long till = number(request, "till");
@@ -56,12 +56,12 @@ public final class RegisteredProblemController {
         var window = new ProblemReadWindow(from, till, after, limit);
         var result = reader.readProblems(principal, instance.source().instanceId(), fixed.endpoint().pin(),
             fixed.credentialPin(), fixed.hostGroupIds(), window);
-        var scopeDigest = scopeDigest(id, revision, fixed);
+        var scopeDigest = scopeDigest(sourceId, revision, fixed);
         var body = new LinkedHashMap<String, Object>();
         body.put("schemaVersion", "2.0");
         body.put("storage", wiring.label());
         body.put("dataMode", result.dataMode());
-        body.put("sourceId", id.toString());
+        body.put("sourceId", sourceId.toString());
         body.put("sourceInstanceId", result.sourceInstanceId());
         body.put("configurationRevision", revision);
         body.put("connectionDigest", fixed.connectionDigest());

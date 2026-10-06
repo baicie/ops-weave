@@ -1,5 +1,44 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 155. 2026-10-07 · 注册连接问题页交互与边界验证
+
+在接入实例维护抽屉加入问题读取页签。首次打开自动读取最近一小时；开始/结束时间按本机时区编辑，查询转换为UTC秒，拒绝未来时间、逆序或超过24小时的范围。下一页保留已读取页的时间窗并只推进事件游标；改时间后从第一页重读。页面回显固定source UUID、配置revision、connection digest、host group和scope digest，严格校验页、事件及时间边界；503保持当前状态并要求用户显式刷新。
+
+| 实际检查 | 结果 |
+|---|---|
+| 全量契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q --tb=short`，1955 passed，47.20秒，退出0 |
+| Java边界 | `.\gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.workflow.RegisteredProblemBoundaryTest --rerun-tasks --offline --no-daemon --console=plain`，BUILD SUCCESSFUL，27 tasks executed |
+| Web TypeScript与生产构建 | `pnpm --filter @opsweave/web-console typecheck` 退出0；`pnpm --filter @opsweave/web-console build` 退出0，保留Vite既有大chunk提示 |
+| Chromium浏览器回归 | 显式本机Chromium运行 `registered-item-sync.spec.ts`，4项通过；包含问题页自动读取、翻页范围固定、编辑时间窗后重读、503不自动重试和既有指标同步回归 |
+| 仓库结构与外部资料边界 | `scripts/check_repo.py` 通过，573份结构化文件/6个只读Tool；使用仓库外本机私有策略运行 `scripts/check_reference_boundary.py --policy <本机私有词表路径>`，2203个提交候选文件通过 |
+| 差异 | `git diff --check` 退出0 |
+| 未执行 | 真实PostgreSQL HTTP、多实例并发、真实来源/身份/TLS、完整平台集成测试和生产部署 |
+
+首次浏览器回归为3/4通过：新增时间窗控件使用最近一小时默认值，测试Fixture沿用固定事件时间，页面按契约正确拒绝了窗口外事件。随后将测试Fixture事件时间改为响应当前请求的闭合窗口，复跑最终4/4通过；没有放宽产品校验。以上浏览器响应均为显式Fixture，不证明真实来源读取或数据库持久化。
+
+## 154. 2026-10-07 · 注册问题 HTTP 路由与错误边界
+
+修复问题分页 OpenAPI/Spring 路由占位符不一致和异常未接入统一 advice 的问题。公开路径和 `@GetMapping` 均使用 `{sourceId}`，控制器显式绑定同名 `@PathVariable`；`RegisteredProblemController` 加入 `WorkflowErrors`，`ProblemReadException` 映射为 FORBIDDEN=403、SOURCE_BUSY=429、其他来源失败=503，非法请求仍由既有 400 处理。
+
+| 实际检查 | 结果 |
+|---|---|
+| Java 编译 | `./gradlew.bat :apps:platform-api:compileJava :modules:integration:compileJava :apps:platform-api:compileTestJava --offline --console=plain`，`BUILD SUCCESSFUL` |
+| Java 边界测试 | 新增 `RegisteredProblemBoundaryTest`，随后随 `compileTestJava` 编译通过；本轮未宣称完整平台测试通过 |
+| 定向契约 | `tests/contracts/test_registered_problem.py`、`test_data_source_openapi.py`、`test_request_boundary.py` 共26项通过 |
+| 尚未执行 | 真实 PostgreSQL HTTP、多实例并发、完整平台 Gradle test、真实来源/身份/TLS、生产部署 |
+
+## 153. 2026-10-07 · 注册连接问题契约样例与回归
+
+为注册连接问题分页补充两份 v2 Fixture 和独立契约测试。样例固定 source UUID、configuration revision、connection/scope digest、host group 范围和只读问题结果；测试拒绝额外 endpoint/address/credential/权限字段，覆盖 revision、host group、scope digest、`afterEventId` 和页大小边界，并核对 OpenAPI 参数闭合、无 request body、唯一 operationId 与 200 响应 Schema。
+
+| 实际检查 | 结果 |
+|---|---|
+| 定向契约回归 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts/test_registered_problem.py tests/contracts/test_registered_item_scan.py tests/contracts/test_data_source_openapi.py -q`，42项通过，退出0 |
+| 全量契约回归 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -q`，全量测试通过，退出0；同时发现并修复新增路径缺少全局 `clientRequestId` 参数的问题 |
+| Fixture JSON | `python -m json.tool` 解析问题项和问题页样例均退出0 |
+| 差异检查 | `git diff --check` 通过 |
+| 尚未执行 | 真实 PostgreSQL HTTP、多实例并发、真实来源/身份/TLS、完整契约全集、完整 Playwright、生产部署；本节只证明契约和样例边界 |
+
 ## 152. 2026-10-07 · 注册连接问题分页与扫描范围 fencing
 
 本节记录注册连接问题分页和扫描租约范围隔离的实际检查。问题页只使用路径中的 source UUID/configuration revision 固定连接；服务端从登记 revision 解析 endpoint、credential、tenant 和非空 host group scope，查询仅允许 `from`、`till`、`afterEventId`、`limit`。问题页为只读投影，不创建 Incident、通知或工作流动作。Item Sync 的物理 source 仍共享串行租约，租约比较和持久化额外绑定 `scopeDigest`，因此不同注册 revision 不能互相复用 scope 或把对方范围的缺失对象退休；新增 V062 为既有扫描表增加该列。

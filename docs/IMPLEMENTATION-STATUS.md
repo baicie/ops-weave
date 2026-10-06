@@ -1,5 +1,11 @@
 # 实现状态 · v4
 
+2026-10-07 第155节：注册连接问题分页补齐实例抽屉只读页签与时间窗操作。默认读取最近一小时，支持本机时区录入、不晚于当前且最多24小时的闭合窗口；翻页固定同一时间窗，仅推进事件游标。响应严格校验固定source/revision、连接与范围摘要、主机组、事件ID和问题时间边界；来源不可用不自动重试。Chromium四项回归、Web typecheck/build、全量契约1955项、定向Java边界测试及仓库检查通过。浏览器使用Fixture，不代表真实PG HTTP或来源验收；目标保持active。
+
+2026-10-07 第154节：修复注册问题分页的 HTTP 边界。Spring 路由与 OpenAPI 统一使用 `{sourceId}` 并显式绑定 `@PathVariable("sourceId")`；统一工作流错误 advice 纳入 `RegisteredProblemController`，来源拒绝/忙/不可用分别返回稳定的 403/429/503，不再落到未处理 500。新增 JUnit 边界测试并通过平台 Java 编译与定向契约回归；真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性仍待验收，目标保持 active。
+
+2026-10-07 第153节：为注册连接问题分页补充契约样例与独立回归。新增问题项/问题页 Fixture，覆盖固定 source/revision、connection/scope digest、host group、游标和只读结果；回归拒绝额外的 endpoint/address/credential/权限覆盖字段，校验 revision、host group、scope digest、游标和页大小边界，并核对 OpenAPI operationId、全局 clientRequestId、参数闭合性和 200 响应 Schema 引用。定向契约 42 项和全量 `tests/contracts` 均通过；真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性仍待验收，目标保持 active。
+
 2026-10-07 第152节：注册连接问题分页读取与扫描租约范围隔离已补齐。新增 `GET /api/v2/data-sources/{id}/connection/{revision}/problems`，请求只允许固定连接下的 `from`、`till`、`afterEventId` 和 `limit`，服务端从已登记 revision 解析 endpoint、credential、tenant 与非空 host group 范围；只读分页不会创建 Incident、通知或工作流动作。新增问题项/分页 Schema、OpenAPI 登记和契约说明。扫描租约新增 `scopeDigest`：不同注册 revision 仍按物理 source 串行 fencing，但 scope 不同的运行不会错误复用彼此的租约或退休范围；PostgreSQL 增加 V062 列迁移，内存实现同步保持同一语义。Java 平台/集成主代码与测试编译、纯领域 3 项 scope smoke、注册问题/Item 专项契约19项、问题 Schema 解析、Web typecheck/build、结构化仓库检查和差异检查已通过；真实 PostgreSQL HTTP、多实例并发、真实来源、完整浏览器回归和生产可靠性仍待验收，目标保持 active。
 
 2026-10-07 第151节：注册连接版本增加固定指标历史读取。新增 `GET /api/v2/data-sources/{id}/connection/{revision}/metrics/{itemId}/history`，仅接受闭合60秒窗口和有界点数；服务端从已完成发现回执解析指标 pin，复用登记 endpoint、credential 和 host group 范围，不接受租户、地址或秘密覆盖。响应固定 source UUID、revision、connection digest、scope digest 与完整来源摘要。新增契约 Schema、OpenAPI 登记和指标同步浏览器回归用例；Java平台/集成编译、Web TypeScript检查通过，Playwright仍因本机缺少Chromium未执行。目标保持 active，真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性仍待验收。
