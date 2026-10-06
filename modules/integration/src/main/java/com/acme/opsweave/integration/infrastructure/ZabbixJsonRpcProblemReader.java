@@ -20,12 +20,26 @@ public final class ZabbixJsonRpcProblemReader implements ZabbixProblemPort {
     private final ZabbixJsonRpcConnector.Transport transport;
     private final ZabbixJsonRpcConnector.SecretSource secrets;
     private final Clock clock;
+    private final List<String> hostGroupIds;
     private final Semaphore permits = new Semaphore(2);
     public ZabbixJsonRpcProblemReader(URI endpoint, ZabbixJsonRpcConnector.Transport transport,
             ZabbixJsonRpcConnector.SecretSource secrets, Clock clock) {
+        this(endpoint, transport, secrets, clock, List.of());
+    }
+    /**
+     * Reads problems only for the host groups fixed by a registered connection.
+     * An empty list preserves the legacy source-admin reader semantics; registered
+     * callers must pass the immutable connection scope.
+     */
+    public ZabbixJsonRpcProblemReader(URI endpoint, ZabbixJsonRpcConnector.Transport transport,
+            ZabbixJsonRpcConnector.SecretSource secrets, Clock clock, List<String> hostGroupIds) {
         if (endpoint == null || !Set.of("http", "https").contains(endpoint.getScheme()) || endpoint.getHost() == null
             || endpoint.getUserInfo() != null || endpoint.getFragment() != null) throw new IllegalArgumentException("Invalid configured Zabbix endpoint");
         this.endpoint = endpoint; this.transport = Objects.requireNonNull(transport); this.secrets = Objects.requireNonNull(secrets); this.clock = Objects.requireNonNull(clock);
+        this.hostGroupIds = List.copyOf(hostGroupIds == null ? List.of() : hostGroupIds);
+        if (this.hostGroupIds.stream().anyMatch(id -> id == null || !id.matches("[1-9][0-9]{0,18}"))) {
+            throw new IllegalArgumentException("Invalid host group scope");
+        }
     }
     @Override public Page read(Connector.SourceContext source, ProblemReadWindow window) {
         Objects.requireNonNull(source); Objects.requireNonNull(window);
@@ -41,7 +55,8 @@ public final class ZabbixJsonRpcProblemReader implements ZabbixProblemPort {
         try { token = secrets.resolve(source.secretRef()); }
         catch (RuntimeException unavailable) { throw new ProblemReadException(SOURCE_UNAVAILABLE); }
         String fields = "\"eventid\",\"source\",\"object\",\"objectid\",\"clock\",\"ns\",\"value\",\"name\",\"severity\",\"r_eventid\",\"c_eventid\",\"suppressed\"";
-        String params = "\"source\":0,\"object\":0,\"value\":1,\"output\":[" + fields + "],\"selectHosts\":[\"hostid\"],"
+        String groups = hostGroupIds.isEmpty() ? "" : "\"groupids\":[" + hostGroupIds.stream().map(id -> "\"" + id + "\"").collect(Collectors.joining(",")) + "],";
+        String params = groups + "\"source\":0,\"object\":0,\"value\":1,\"output\":[" + fields + "],\"selectHosts\":[\"hostid\"],"
             + "\"problem_time_from\":" + window.from() + ",\"problem_time_till\":" + window.till()
             + ",\"eventid_from\":\"" + lower + "\",\"sortfield\":\"eventid\",\"sortorder\":\"ASC\",\"limit\":" + window.limit();
         List<Map<String,Object>> problems = exchange(params, token);

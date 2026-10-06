@@ -13,12 +13,24 @@ public final class SourceScan {
     public static final Duration MAX_RUN = Duration.ofMinutes(5);
     private static final long MAX_FENCE = 9_007_199_254_740_991L;
 
-    public record Scope(TenantId tenantId, String sourceInstanceId, String externalType) {
+    public record Scope(TenantId tenantId, String sourceInstanceId, String externalType, String scopeDigest) {
+        /** Legacy/unregistered scans have no immutable connection scope. */
+        public Scope(TenantId tenantId, String sourceInstanceId, String externalType) {
+            this(tenantId, sourceInstanceId, externalType, null);
+        }
         public Scope {
             Objects.requireNonNull(tenantId);
             if (sourceInstanceId == null || !sourceInstanceId.matches("[A-Za-z0-9_.:-]{1,128}")
                 || externalType == null || !externalType.matches("[a-z][a-z0-9-]{0,63}"))
                 throw new IllegalArgumentException("Invalid source scan scope");
+            if (scopeDigest != null && !scopeDigest.matches("sha256:[a-f0-9]{64}"))
+                throw new IllegalArgumentException("Invalid source scan scope digest");
+        }
+        /** Lease ownership is serialized by the physical source, independent of a pinned revision. */
+        public boolean sameLeaseScope(Scope other) {
+            return other != null && tenantId.equals(other.tenantId)
+                && sourceInstanceId.equals(other.sourceInstanceId)
+                && externalType.equals(other.externalType);
         }
         public void require(ExternalObjectKey key) {
             if (!tenantId.equals(key.tenantId()) || !sourceInstanceId.equals(key.sourceInstanceId())
@@ -41,7 +53,7 @@ public final class SourceScan {
         }
         public static Lease acquire(Scope scope, UUID runId, Lease old, Instant now) {
             if (old != null) {
-                if (!old.token.scope().equals(scope)) throw new Failure(Code.LOST);
+                if (!old.token.scope().sameLeaseScope(scope)) throw new Failure(Code.LOST);
                 if (!old.released && now.isBefore(old.leaseUntil)) throw new Failure(Code.BUSY);
                 if (old.token.runId().equals(runId)) throw new Failure(Code.LOST);
                 if (old.token.fence() == MAX_FENCE) throw new Failure(Code.LIMIT);

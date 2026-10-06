@@ -1,5 +1,22 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 152. 2026-10-07 · 注册连接问题分页与扫描范围 fencing
+
+本节记录注册连接问题分页和扫描租约范围隔离的实际检查。问题页只使用路径中的 source UUID/configuration revision 固定连接；服务端从登记 revision 解析 endpoint、credential、tenant 和非空 host group scope，查询仅允许 `from`、`till`、`afterEventId`、`limit`。问题页为只读投影，不创建 Incident、通知或工作流动作。Item Sync 的物理 source 仍共享串行租约，租约比较和持久化额外绑定 `scopeDigest`，因此不同注册 revision 不能互相复用 scope 或把对方范围的缺失对象退休；新增 V062 为既有扫描表增加该列。
+
+| 实际检查 | 结果 |
+|---|---|
+| Java 主代码/测试编译 | `./gradlew.bat :apps:platform-api:compileJava :modules:integration:compileJava :apps:platform-api:compileTestJava --offline --console=plain`，`BUILD SUCCESSFUL` |
+| 问题 Schema 解析 | `python -m json.tool contracts/schemas/v2/registered-problem.schema.json` 与分页 Schema 均退出0 |
+| 差异检查 | `git diff --check` 通过 |
+| 注册问题专项契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts/test_registered_item_scan.py tests/contracts/test_data_source_openapi.py -q`，19项通过，退出0；问题 Schema/OpenAPI 形状包含在该专项回归中 |
+| Java 纯领域边界 | `python scripts/check_java_domain.py` 退出0；包含 `source-scan-scope: 3 checks passed`、`Zabbix problem read smoke: 48 checks passed` 与 `Zabbix registered item connector smoke: 28 checks passed` |
+| Web | `pnpm --filter @opsweave/web-console exec tsc --noEmit` 退出0；`pnpm --filter @opsweave/web-console build` 退出0，保留既有大 chunk warning |
+| 结构化仓库检查 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 scripts/check_repo.py` 退出0，571份结构化文件、6个只读 Tool 定义 |
+| 尚未执行 | 真实 PostgreSQL HTTP、多实例并发、真实来源/身份/TLS、完整契约全集、完整 Playwright、Rust 和 Go 管理器回归；不得将本节 Java 编译或 Schema 解析扩大解释为这些验收 |
+
+迁移、控制器、读取器、范围摘要和契约文件仍未提交；换机检查点已在 `docs/WORKSPACE-CHECKPOINT.md` 更新，提交后以新 commit 为恢复锚点。
+
 ## 150. 2026-10-06 · 注册连接指标目录同步与范围隔离
 
 完成注册连接的 Item Sync 闭环：同步固定 source UUID、配置 revision 和 host group 范围；扫描回执记录 connection/scope digest 与退休数量；只读历史按同一 revision 分页，并在返回前复验租户、物理来源、对象类型、数据模式和摘要。仅已验证的 item 快照允许写入非零退休数；空清单、范围漂移、失租或失败不会退休绑定。前端实例抽屉增加“指标同步”页签，首次打开自动读取历史，手动同步期间禁用重复提交，未知结果提示刷新历史核对且不自动重试。
@@ -3684,6 +3701,6 @@ V060 迁移和实体模型 pin 的 SQL 投影已通过离线 Java 主代码/测�
 | Java | `./gradlew :apps:platform-api:compileJava :modules:integration:compileJava --no-daemon` BUILD SUCCESSFUL |
 | Web | `pnpm --filter @opsweave/web-console exec tsc --noEmit` 退出0；`pnpm --filter @opsweave/web-console build` 退出0并保留既有大 chunk 警告 |
 | 差异 | `git diff --check` 通过 |
-| 浏览器 | 新增 `apps/web-console/e2e/registered-item-sync.spec.ts`，本轮未执行；本机缺少 Chromium 可执行文件 |
+| 浏览器 | 使用仓库外现有 Chromium `D:\\workspace\\git-code\\ops-weave\\.tmp\\chromium-1193\\chrome-win\\chrome.exe`，显式启动生产预览后运行 `registered-item-sync.spec.ts`，2项通过；覆盖首次历史、详情、手动同步和503不自动重试 |
 
-本轮未执行完整契约 pytest（当前 Python 缺少 pytest）、仓库结构检查（当前 Python 缺少 PyYAML）、PostgreSQL HTTP、多实例并发、真实来源/身份/TLS或生产部署。Go 开发管理器测试本轮未通过，Windows 进程树停止用例失败并留下日志句柄，不能视为管理器测试通过。完整目标仍 active。
+本轮追加实际通过：仓库外 `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts/test_registered_item_scan.py tests/contracts/test_data_source_openapi.py -q`，19项通过；`pnpm --filter @opsweave/web-console exec tsc --noEmit` 退出0。仍未执行 PostgreSQL HTTP、多实例并发、真实来源/身份/TLS或生产部署。Go 开发管理器测试本轮未通过，Windows 进程树停止用例失败并留下日志句柄，不能视为管理器测试通过。完整目标仍 active。

@@ -38,43 +38,49 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
     private final Map<String, com.acme.opsweave.inventory.domain.AssetIdentity> identityRecords = new java.util.HashMap<>();
     private final Map<String, java.util.UUID> identityBindings = new java.util.HashMap<>();
     private final Map<String, com.acme.opsweave.inventory.api.AssetIdentityStore.Receipt> identityReceipts = new java.util.HashMap<>();
-    private final Map<SourceScan.Scope, SourceScan.Lease> scans = new java.util.HashMap<>();
+    /** One physical-source lease; a pinned revision is part of the token, not the lease key. */
+    private record LeaseKey(TenantId tenantId, String sourceInstanceId, String externalType) {}
+    private final Map<LeaseKey, SourceScan.Lease> scans = new java.util.HashMap<>();
     private final java.time.Clock scanClock;
     public InMemoryInventoryStore() { this(java.time.Clock.systemUTC()); }
     public InMemoryInventoryStore(java.time.Clock clock) { scanClock = Objects.requireNonNull(clock); }
     @Override public synchronized SourceScan.Token beginScan(SourceScan.Scope scope, java.util.UUID runId) {
-        var value = SourceScan.Lease.acquire(scope, runId, scans.get(scope), scanClock.instant());
-        scans.put(scope, value);
+        var key = key(scope);
+        var value = SourceScan.Lease.acquire(scope, runId, scans.get(key), scanClock.instant());
+        scans.put(key, value);
         return value.token();
     }
     private SourceScan.Lease requireScan(SourceScan.Token scan) {
-        var lease = scans.get(scan.scope());
+        var lease = scans.get(key(scan.scope()));
         if (lease == null) throw new SourceScan.Failure(SourceScan.Code.LOST);
         lease.require(scan, scanClock.instant());
         return lease;
     }
     @Override public synchronized void renewScan(SourceScan.Token scan) {
         var lease = requireScan(scan);
-        scans.put(scan.scope(), lease.renew(scan, scanClock.instant()));
+        scans.put(key(scan.scope()), lease.renew(scan, scanClock.instant()));
     }
     @Override public synchronized void releaseScan(SourceScan.Token scan) {
-        var lease = scans.get(scan.scope());
-        if (lease != null && lease.token().equals(scan)) scans.put(scan.scope(), lease.release());
+        var lease = scans.get(key(scan.scope()));
+        if (lease != null && lease.token().equals(scan)) scans.put(key(scan.scope()), lease.release());
     }
     private void unmanaged(SourceScan.Scope scope) {
-        var lease = scans.get(scope);
+        var lease = scans.get(key(scope));
         if (lease != null && !lease.released()) throw new SourceScan.Failure(SourceScan.Code.BUSY);
+    }
+    private static LeaseKey key(SourceScan.Scope scope) {
+        return new LeaseKey(scope.tenantId(), scope.sourceInstanceId(), scope.externalType());
     }
     @Override public synchronized void upsert(SourceScan.Token scan, Entity entity, Observation observation, ExternalLink link) {
         var renewed = requireScan(scan).renew(scan, scanClock.instant());
         scan.scope().require(link.key());
         upsertInside(entity, observation, link);
-        scans.put(scan.scope(), renewed);
+        scans.put(key(scan.scope()), renewed);
     }
     @Override public synchronized int finishScan(SourceScan.Token scan, Set<String> ids) {
         requireScan(scan);
         int result = retireInside(scan.scope().tenantId(), scan.scope().sourceInstanceId(), scan.scope().externalType(), ids);
-        scans.put(scan.scope(), scans.get(scan.scope()).release());
+        scans.put(key(scan.scope()), scans.get(key(scan.scope())).release());
         return result;
     }
 

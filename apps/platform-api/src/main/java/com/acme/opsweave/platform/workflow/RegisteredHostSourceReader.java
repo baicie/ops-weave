@@ -6,6 +6,7 @@ import com.acme.opsweave.integration.api.RegisteredItemConnector;
 import com.acme.opsweave.integration.application.*;
 import com.acme.opsweave.integration.domain.*;
 import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcConnector;
+import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcProblemReader;
 import com.acme.opsweave.integration.infrastructure.ZabbixMetricMetadataReader;
 import com.acme.opsweave.integration.infrastructure.ClasspathMappingCatalog;
 import com.acme.opsweave.platform.OpsweaveProperties;
@@ -50,6 +51,23 @@ public final class RegisteredHostSourceReader {
             var uri=URI.create(endpoint.address());var bounded=transport.registered(uri,properties);String reference="managed:"+credentialPin.versionId();
             RegisteredItemConnector connector=new com.acme.opsweave.integration.infrastructure.ZabbixRegisteredItemConnector(uri,bounded,ref->{if(!reference.equals(ref))throw new IllegalStateException("Credential reference changed");return new String(secret);},groups);
             return ingest.executeRegistered(principal,sourceInstanceId,reference,connector,sourceScope);
+        });}catch(SourceCredentialFailure failed){throw new WorkflowFailure(failed.code()==SourceCredentialFailure.Code.FORBIDDEN?WorkflowFailure.Code.FORBIDDEN:WorkflowFailure.Code.SOURCE_UNAVAILABLE);}finally{capacity.release();}
+    }
+    /** Read a bounded problem page through the immutable registered connection scope. */
+    public com.acme.opsweave.integration.application.ReadZabbixProblemsUseCase.Result readProblems(
+        Principal principal, String sourceInstanceId, SourceEndpoint.Pin endpointPin,
+        SourceCredential.Pin credentialPin, List<String> hostGroupIds,
+        com.acme.opsweave.integration.domain.ProblemReadWindow window) {
+        var groups=SourceConnectionConfiguration.normalizeHostGroupIds(hostGroupIds);
+        if(groups.isEmpty())throw new WorkflowFailure(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
+        new WorkflowDefinition.Source("ZABBIX_HOST",sourceInstanceId);
+        if(new Authorizer().decide(principal,ResourceRef.source(principal.tenantId(),sourceInstanceId),Permission.SOURCE_SYNC).denied())throw new WorkflowFailure(WorkflowFailure.Code.FORBIDDEN);
+        if(!capacity.tryAcquire())throw new WorkflowFailure(WorkflowFailure.Code.BUSY);
+        try{return service.read(principal,endpointPin,credentialPin,(endpoint,secret)->{
+            var uri=URI.create(endpoint.address());var bounded=transport.registered(uri,properties);String reference="managed:"+credentialPin.versionId();
+            var reader=new ZabbixJsonRpcProblemReader(uri,bounded,ref->{if(!reference.equals(ref))throw new IllegalStateException("Credential reference changed");return new String(secret);},Clock.systemUTC(),groups);
+            var page=reader.read(new Connector.SourceContext(principal.tenantId(),sourceInstanceId,reference),window);
+            return new com.acme.opsweave.integration.application.ReadZabbixProblemsUseCase.Result("zabbix-jsonrpc",sourceInstanceId,page);
         });}catch(SourceCredentialFailure failed){throw new WorkflowFailure(failed.code()==SourceCredentialFailure.Code.FORBIDDEN?WorkflowFailure.Code.FORBIDDEN:WorkflowFailure.Code.SOURCE_UNAVAILABLE);}finally{capacity.release();}
     }
     public SourceMetricPage readMetricPage(Principal p,SourceInstance instance,SourceEndpoint.Pin endpointPin,SourceCredential.Pin credentialPin,List<String> hostGroupIds,SourceInspection pending,SourceMetricPage previous){

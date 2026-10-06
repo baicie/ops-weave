@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/registered-problem.schema.json",
+  "title": "registered connection problem",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "tenantId", "sourceInstanceId", "problemEventId", "triggerId", "title", "severity", "occurredAt", "observedAt", "hostIds", "suppressed", "recoveryEventId", "recoveredAt", "state", "gaps"],
+  "properties": {
+    "schemaVersion": {"const": "2.0"},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "sourceInstanceId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "problemEventId": {"type": "string", "pattern": "^[1-9][0-9]{0,38}$"},
+    "triggerId": {"type": "string", "pattern": "^[1-9][0-9]{0,38}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "severity": {"type": "integer", "minimum": 0, "maximum": 5},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "observedAt": {"type": "string", "format": "date-time"},
+    "hostIds": {"type": "array", "maxItems": 20, "items": {"type": "string", "pattern": "^[1-9][0-9]{0,38}$"}},
+    "suppressed": {"type": "boolean"},
+    "recoveryEventId": {"type": ["string", "null"], "pattern": "^[1-9][0-9]{0,38}$"},
+    "recoveredAt": {"type": ["string", "null"], "format": "date-time"},
+    "state": {"enum": ["ACTIVE", "RECOVERED", "RECOVERY_UNKNOWN"]},
+    "gaps": {"type": "array", "items": {"type": "string", "enum": ["RECOVERY_EVENT_UNAVAILABLE"]}}
+  }
+}

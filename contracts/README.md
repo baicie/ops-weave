@@ -41,3 +41,5 @@
 第122节新增[固定外部日志来源](workflow-log-sources.md)：复用配置/发现、LOG pin、四字段服务器样本输出；旧手工输出和摘要保持。最新最多5条明确为样本，持续日志检查点未提供。见[输出契约](workflow-log-output.md)。
 
 注册连接的指标目录同步与只读扫描记录使用 schemas/v2/registered-item-* 契约：命令固定 source UUID、配置 revision 和已登记 host group 范围，不接受请求内的租户、地址、凭据或范围覆盖。仅完整且已验证的扫描会退休本次 host cohort 内缺失的绑定；范围收窄后离开新范围的旧绑定仍保留，需后续受控清理。
+
+注册连接问题分页使用 `schemas/v2/registered-problem-*` 契约：读取固定 source UUID、配置 revision 和非空 host group 范围，查询只允许有限时间窗口、事件游标和页大小。读取不写入事件、事故或工作流。

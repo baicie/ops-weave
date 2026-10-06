@@ -149,7 +149,12 @@ public final class IngestZabbixItemsUseCase {
         Set<String> verifiedHostExternalIds = null;
         try {
             failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-            scan = inventory.beginScan(new SourceScan.Scope(principal.tenantId(), sourceInstanceId, "item"), run.id());
+            // A registered scan carries the immutable connection scope into the durable fence.
+            // Generic scans retain the legacy null scope and remain serialized by source identity.
+            scan = inventory.beginScan(new SourceScan.Scope(
+                principal.tenantId(), sourceInstanceId, "item",
+                registered ? sourceScope.scopeDigest() : null
+            ), run.id());
             while (pages < MAX_PAGES) {
                 failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
                 inventory.renewScan(scan);

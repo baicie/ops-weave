@@ -44,7 +44,7 @@ function fixtures() {
 }
 
 async function openSync(page: Page, mode: 'history' | 'error' = 'history') {
-  const sourcePage = sample('source-center-page.json')
+  const sourcePage = sample('examples/source-center-page.json')
   const f = fixtures()
   let historyReads = 0
   let syncPosts = 0

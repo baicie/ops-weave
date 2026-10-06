@@ -1,5 +1,7 @@
 # OpsWeave（观织）产品与 Zeus 生态协同路线图
 
+2026-10-07 第152节：注册连接问题分页读取进入受控连接闭环。新增固定 source UUID/revision 下的有界问题页，查询只接受时间窗口、事件游标和页大小，响应回显 connection digest、host group 与 scope digest；读取不会创建 Incident 或触发动作。Item Sync 的扫描租约按物理 source 串行并按 scope digest fencing，补充 V062 数据库列和内存实现，避免不同注册 revision 互相错误退休绑定。Java 编译、纯领域 scope smoke、注册问题/Item 专项契约19项、Schema、Web typecheck/build、结构化检查和差异检查实际通过；真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性继续，完整目标保持 active。
+
 2026-10-07 第151节：注册连接版本增加固定指标历史读取。闭合60秒窗口只通过已完成发现回执解析指标 pin，并复用登记 endpoint、credential 与 host group 范围；请求不接受租户、地址或秘密覆盖。新增 v2 Schema、OpenAPI 路径和同步页签回归用例。Java平台/集成编译与Web TypeScript检查通过，Playwright因本机缺少Chromium未执行；真实 PostgreSQL HTTP、多实例并发、真实来源及生产可靠性继续，完整目标保持 active。
 
 2026-10-06 第150节：注册连接的指标目录同步完成固定连接版本与 host group 范围闭环。扫描回执、历史分页和详情均绑定 source UUID/revision，并复验 scope digest；完整已验证快照才在 captured host cohort 内退休缺失绑定。前端实例抽屉加入手动同步与只读历史，未知结果只提示核对，不自动重试。真实 PostgreSQL HTTP、多实例并发和前端浏览器验收仍待环境执行；旧环境配置驱动的全局 History/Problem 入口仍未迁入注册连接，目标保持 active。

@@ -1,5 +1,7 @@
 # 实现状态 · v4
 
+2026-10-07 第152节：注册连接问题分页读取与扫描租约范围隔离已补齐。新增 `GET /api/v2/data-sources/{id}/connection/{revision}/problems`，请求只允许固定连接下的 `from`、`till`、`afterEventId` 和 `limit`，服务端从已登记 revision 解析 endpoint、credential、tenant 与非空 host group 范围；只读分页不会创建 Incident、通知或工作流动作。新增问题项/分页 Schema、OpenAPI 登记和契约说明。扫描租约新增 `scopeDigest`：不同注册 revision 仍按物理 source 串行 fencing，但 scope 不同的运行不会错误复用彼此的租约或退休范围；PostgreSQL 增加 V062 列迁移，内存实现同步保持同一语义。Java 平台/集成主代码与测试编译、纯领域 3 项 scope smoke、注册问题/Item 专项契约19项、问题 Schema 解析、Web typecheck/build、结构化仓库检查和差异检查已通过；真实 PostgreSQL HTTP、多实例并发、真实来源、完整浏览器回归和生产可靠性仍待验收，目标保持 active。
+
 2026-10-07 第151节：注册连接版本增加固定指标历史读取。新增 `GET /api/v2/data-sources/{id}/connection/{revision}/metrics/{itemId}/history`，仅接受闭合60秒窗口和有界点数；服务端从已完成发现回执解析指标 pin，复用登记 endpoint、credential 和 host group 范围，不接受租户、地址或秘密覆盖。响应固定 source UUID、revision、connection digest、scope digest 与完整来源摘要。新增契约 Schema、OpenAPI 登记和指标同步浏览器回归用例；Java平台/集成编译、Web TypeScript检查通过，Playwright仍因本机缺少Chromium未执行。目标保持 active，真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性仍待验收。
 
 2026-10-06 第150节：注册连接 Item Sync 已迁入固定 source UUID、配置 revision 与 host group 范围。同步前通过已登记 endpoint/credential pin，扫描分页受预算限制；成功回执和持久扫描记录保存 connection digest、scope digest、accepted/rejected/retired。只有已验证完整 item snapshot 才允许 cohort 内退休，失败、空清单、范围漂移和失租保持旧绑定。新增注册扫描历史分页/详情 API 与契约，前端实例抽屉提供首次读取历史、手动同步、结果详情和分页。真实 PostgreSQL HTTP、多实例并发及前端浏览器验收尚未运行；完整目标仍 active。实际检查见验证报告第150节。
