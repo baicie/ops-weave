@@ -3675,3 +3675,15 @@ Web指标/日志共用纯WorkflowReplayPanel，API和请求容器各自闭合。
 | PostgreSQL HTTP / 多实例 | 未运行：`OPSWEAVE_TEST_JDBC_URL` 未配置 |
 
 V060 迁移和实体模型 pin 的 SQL 投影已通过离线 Java 主代码/测试编译，但本轮没有真实 PostgreSQL 执行迁移或 HTTP 集成。Fixture Playwright 只验证协议形状和前端恢复行为；不代表数据库持久化联测完成。
+## 151. 2026-10-07 注册连接固定指标历史（追加）
+
+新增注册连接版本指标历史读取：请求固定 source UUID、配置 revision、指标 itemId、闭合60秒窗口和最多600点；服务端从已完成发现回执解析完整来源 pin，复用登记 endpoint、credential 和 host group 范围，响应保留 connection digest、scope digest 和完整来源定义。没有新增启动单元、数据库或浏览器可覆盖的上游参数。同步页签新增回归用例覆盖首次读取历史、查看详情、手动同步和503不自动重试路径。
+
+| 检查 | 实际结果 |
+|---|---|
+| Java | `./gradlew :apps:platform-api:compileJava :modules:integration:compileJava --no-daemon` BUILD SUCCESSFUL |
+| Web | `pnpm --filter @opsweave/web-console exec tsc --noEmit` 退出0；`pnpm --filter @opsweave/web-console build` 退出0并保留既有大 chunk 警告 |
+| 差异 | `git diff --check` 通过 |
+| 浏览器 | 新增 `apps/web-console/e2e/registered-item-sync.spec.ts`，本轮未执行；本机缺少 Chromium 可执行文件 |
+
+本轮未执行完整契约 pytest（当前 Python 缺少 pytest）、仓库结构检查（当前 Python 缺少 PyYAML）、PostgreSQL HTTP、多实例并发、真实来源/身份/TLS或生产部署。Go 开发管理器测试本轮未通过，Windows 进程树停止用例失败并留下日志句柄，不能视为管理器测试通过。完整目标仍 active。

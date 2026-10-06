@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/registered-metric-history.schema.json",
+  "title": "registered metric history window",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "storage", "dataMode", "source", "sourceId", "configurationRevision", "connectionDigest", "scopeDigest", "from", "till", "limit", "windowComplete", "points"],
+  "properties": {
+    "schemaVersion": {"const": "2.0"},
+    "storage": {"enum": ["postgres", "memory"]},
+    "dataMode": {"const": "zabbix-jsonrpc"},
+    "source": {
+      "allOf": [{"$ref": "workflow-source.schema.json"}, {"properties": {"kind": {"const": "ZABBIX_METRIC"}}, "required": ["configuration", "metric"]}]
+    },
+    "sourceId": {"type": "string", "format": "uuid"},
+    "configurationRevision": {"type": "integer", "minimum": 1, "maximum": 100},
+    "connectionDigest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "scopeDigest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "from": {"type": "integer", "minimum": 0},
+    "till": {"type": "integer", "minimum": 60},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 600},
+    "windowComplete": {"const": true},
+    "points": {
+      "type": "array",
+      "maxItems": 600,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["timestamp", "sourceKey", "value"],
+        "properties": {
+          "timestamp": {"type": "string", "format": "date-time"},
+          "sourceKey": {"type": "string", "minLength": 1, "maxLength": 2048},
+          "value": {"type": "string", "minLength": 1, "maxLength": 64}
+        }
+      }
+    }
+  }
+}

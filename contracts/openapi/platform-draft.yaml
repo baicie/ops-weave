@@ -3139,6 +3139,27 @@ paths:
             application/json:
               schema: {$ref: '../schemas/v2/workflow-metric-source-page.schema.json'}
         default: {description: 400 invalid path or query; 401 unauthenticated; 403 denied; 404 hidden discovery; 503 source metadata unavailable}
+  /api/v2/data-sources/{id}/connection/{revision}/metrics/{itemId}/history:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {name: itemId, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}}
+    get:
+      operationId: readRegisteredMetricHistory
+      description: Read one closed 60-second metric window through a fixed registered connection revision. The server resolves the discovery pin, endpoint, credential and host-group scope; query parameters contain only the closed window and point limit.
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: integer, minimum: 0}}
+        - {name: till, in: query, required: true, schema: {type: integer, minimum: 60}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 600, default: 600}}
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Bounded metric points and fixed source provenance
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/registered-metric-history.schema.json'}
+        default: {description: 400 invalid or open window; 401 unauthenticated; 403 denied; 404 missing connection revision; 503 source metadata or upstream unavailable}
   /api/v2/data-sources/{id}/connection/{revision}/workflow-logs:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}

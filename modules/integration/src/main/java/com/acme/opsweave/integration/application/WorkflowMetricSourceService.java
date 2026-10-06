@@ -38,6 +38,17 @@ public final class WorkflowMetricSourceService {
     public Page list(Principal p,WorkflowDefinition.Source configuredHost) {
         if(!configuredHost.kind().equals("ZABBIX_HOST")||configuredHost.configuration()==null)throw new IllegalArgumentException();
         return store.transaction(p.tenantId(),s->{
+            var selected=selections(s,p,configuredHost);
+            var rows=new ArrayList<>(selected.values());return new Page(rows.subList(0,Math.min(100,rows.size())),rows.size()>100||s.sourceInspections(p.subjectId().value(),configuredHost.configuration().sourceId()).size()==20);
+        });
+    }
+    /** Resolve one source item without exposing whether an unowned item exists. */
+    public Optional<Selection> find(Principal p,WorkflowDefinition.Source configuredHost,String itemId) {
+        SourceMetricDiscovery.numericId(itemId);
+        if(!configuredHost.kind().equals("ZABBIX_HOST")||configuredHost.configuration()==null)throw new IllegalArgumentException();
+        return store.transaction(p.tenantId(),s -> Optional.ofNullable(selections(s,p,configuredHost).get(itemId)));
+    }
+    private LinkedHashMap<String,Selection> selections(WorkflowStore.Session s,Principal p,WorkflowDefinition.Source configuredHost) {
             connections.workflowConfiguration(s,p,configuredHost,true);var c=configuredHost.configuration();var selected=new LinkedHashMap<String,Selection>();
             var receipts=s.sourceInspections(p.subjectId().value(),c.sourceId());
             for(var r:receipts) {
@@ -54,8 +65,7 @@ public final class WorkflowMetricSourceService {
                         r.metricPage()!=null?r.metricPage().manifest().expiresAt():r.expiresAt()));
                 }
             }
-            var rows=new ArrayList<>(selected.values());return new Page(rows.subList(0,Math.min(100,rows.size())),rows.size()>100||receipts.size()==20);
-        });
+            return selected;
     }
     private static List<SourceMetricDiscovery.Item> items(SourceInspection r) {
         if(r.kind().equals("DISCOVER_METRICS")&&r.metricDiscovery()!=null&&r.metricDiscovery().complete()

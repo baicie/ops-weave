@@ -1,5 +1,7 @@
 # OpsWeave（观织）产品与 Zeus 生态协同路线图
 
+2026-10-07 第151节：注册连接版本增加固定指标历史读取。闭合60秒窗口只通过已完成发现回执解析指标 pin，并复用登记 endpoint、credential 与 host group 范围；请求不接受租户、地址或秘密覆盖。新增 v2 Schema、OpenAPI 路径和同步页签回归用例。Java平台/集成编译与Web TypeScript检查通过，Playwright因本机缺少Chromium未执行；真实 PostgreSQL HTTP、多实例并发、真实来源及生产可靠性继续，完整目标保持 active。
+
 2026-10-06 第150节：注册连接的指标目录同步完成固定连接版本与 host group 范围闭环。扫描回执、历史分页和详情均绑定 source UUID/revision，并复验 scope digest；完整已验证快照才在 captured host cohort 内退休缺失绑定。前端实例抽屉加入手动同步与只读历史，未知结果只提示核对，不自动重试。真实 PostgreSQL HTTP、多实例并发和前端浏览器验收仍待环境执行；旧环境配置驱动的全局 History/Problem 入口仍未迁入注册连接，目标保持 active。
 
 2026-10-06 第149节：固定连接范围下的指标与日志历史窗补齐协议回归。两类读取都验证 item 查询带 `groupids`，并在 history 请求前后独立核对固定 host 的组成员；范围外 host 在 history IO 前失败，读取期间成员变化则整窗失败。单窗最多20个 history 分页请求；再加前后 item/host 成员核验，最坏24个 JSON-RPC 请求，整体仍受20秒共享时限约束。旧环境变量驱动的全局 History、Item Sync 与 Problem 入口尚未迁入注册连接。Item Sync 的缺失退休范围尚未按连接范围隔离，直接增加过滤可能错误退休数据；迁移前需先定义范围分区、并发和退休规则。该边界与本轮验证见[实现状态](IMPLEMENTATION-STATUS.md)和[验证报告](VALIDATION-REPORT.md)§149；目标保持active。

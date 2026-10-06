@@ -1,5 +1,7 @@
 # 实现状态 · v4
 
+2026-10-07 第151节：注册连接版本增加固定指标历史读取。新增 `GET /api/v2/data-sources/{id}/connection/{revision}/metrics/{itemId}/history`，仅接受闭合60秒窗口和有界点数；服务端从已完成发现回执解析指标 pin，复用登记 endpoint、credential 和 host group 范围，不接受租户、地址或秘密覆盖。响应固定 source UUID、revision、connection digest、scope digest 与完整来源摘要。新增契约 Schema、OpenAPI 登记和指标同步浏览器回归用例；Java平台/集成编译、Web TypeScript检查通过，Playwright仍因本机缺少Chromium未执行。目标保持 active，真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性仍待验收。
+
 2026-10-06 第150节：注册连接 Item Sync 已迁入固定 source UUID、配置 revision 与 host group 范围。同步前通过已登记 endpoint/credential pin，扫描分页受预算限制；成功回执和持久扫描记录保存 connection digest、scope digest、accepted/rejected/retired。只有已验证完整 item snapshot 才允许 cohort 内退休，失败、空清单、范围漂移和失租保持旧绑定。新增注册扫描历史分页/详情 API 与契约，前端实例抽屉提供首次读取历史、手动同步、结果详情和分页。真实 PostgreSQL HTTP、多实例并发及前端浏览器验收尚未运行；完整目标仍 active。实际检查见验证报告第150节。
 
 2026-10-06 第149节：指标与日志工作流历史窗的固定连接组范围已补独立协议测试。两种读取均要求 item 查询固定带 `groupids`，并在 history 前后独立核验 host 成员；越界成员不触发 history，读取中途移出范围则不返回完整窗口。窗口分页最多20个 history 请求，叠加两次 item 元数据与两次 host 成员核验，最多24个 RPC，受单次20秒预算限制。旧环境变量驱动的全局 History、Item Sync、Problem 入口仍未绑定注册连接。全量 Item Sync 的退休范围目前没有按连接范围分区，迁移前需解决范围收窄/切换时旧绑定如何保留；当前不宣称所有来源读取都受连接快照约束。实际验证见[报告](VALIDATION-REPORT.md)§149，完整目标仍 active。
