@@ -1,10 +1,13 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { readBrowserSession } from '../api/browser-session.ts'
+import { readLocalPreviewSession } from '../api/local-preview-session.ts'
 import { platformCredentials, type BrowserSession, type SessionChange } from '../api/credential-session.ts'
 
 export const oidcMode = import.meta.env.VITE_PLATFORM_AUTH === 'oidc'
-if (import.meta.env.VITE_PLATFORM_AUTH && !['dev', 'oidc'].includes(import.meta.env.VITE_PLATFORM_AUTH)) throw new Error('平台会话模式配置不正确')
+export const localPreviewMode = import.meta.env.VITE_PLATFORM_AUTH === 'local-preview'
+if (import.meta.env.VITE_PLATFORM_AUTH && !['dev', 'oidc', 'local-preview'].includes(import.meta.env.VITE_PLATFORM_AUTH)) throw new Error('平台会话模式配置不正确')
 if (oidcMode) platformCredentials.enableCookieMode()
+if (localPreviewMode) platformCredentials.enableLocalPreviewMode()
 
 type Snapshot = { token: string; ready: boolean; browser: BrowserSession | null }
 
@@ -61,12 +64,12 @@ export function useSessionLifecycle() {
     const unsubscribe = platformCredentials.subscribe(change => { if (change.reason === 'logout') channel?.postMessage('logout') })
     let restore: AbortController | undefined
     const show = (event: PageTransitionEvent) => {
-      if (event.persisted && oidcMode) {
+      if (event.persisted && (oidcMode || localPreviewMode)) {
         restore?.abort()
         const active = new AbortController()
         restore = active
         const before = platformCredentials.capture(Date.now(), true)
-        void readBrowserSession(active.signal).catch(() => {
+        void (localPreviewMode ? readLocalPreviewSession(active.signal) : readBrowserSession(active.signal)).catch(() => {
           if (restore === active && !active.signal.aborted && platformCredentials.current(before)) platformCredentials.clear('expired')
         })
       }

@@ -8,6 +8,8 @@ public enum Permission {
     ENTITY_READ("entity.read"),
     ENTITY_MANAGE("entity.manage"),
     METRIC_READ("metric.read"),
+    LOG_READ("log.read"),
+    LOG_WRITE("log.write"),
     INCIDENT_READ("incident.read"),
     INCIDENT_MANAGE("incident.manage"),
     EVIDENCE_READ("evidence.read"),
@@ -16,7 +18,9 @@ public enum Permission {
     AI_RETENTION_MANAGE("ai.retention.manage"),
     SKILL_READ("skill.read"),
     SKILL_MANAGE("skill.manage"),
-    SOURCE_SYNC("source.sync");
+    SOURCE_SYNC("source.sync"),
+    SOURCE_CONFIGURE("source.configure"),
+    WORKFLOW_REPLAY("workflow.replay");
 
     private final String wireValue;
 

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-connection-read.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "instance",
+    "connection",
+    "availability",
+    "canConfigure"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "instance": {
+      "$ref": "source-instance.schema.json"
+    },
+    "connection": {
+      "oneOf": [
+        {
+          "$ref": "source-connection-configuration.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "availability": {
+      "enum": [
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "ARCHIVED",
+        "LEGACY"
+      ]
+    },
+    "canConfigure": {
+      "type": "boolean"
+    }
+  }
+}

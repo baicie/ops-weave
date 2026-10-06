@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "2.0",
+  "id": "fixture-standard-cpu",
+  "revision": 1,
+  "name": "Fixture 标准CPU转换",
+  "source": {
+    "kind": "MANUAL_SAMPLE",
+    "instanceId": "manual"
+  },
+  "target": {
+    "kind": "METRIC",
+    "schemaVersion": "1.1",
+    "metricKey": "host.cpu.usage.user",
+    "mappingPin": {
+      "id": "zabbix-cpu-user",
+      "revision": 1,
+      "digest": "sha256:99a6d3d6b549bd47da048352fd902f2eb4a3ca54a4c6c8824be20bef33877247"
+    }
+  },
+  "nodes": [
+    {
+      "id": "source",
+      "type": "SOURCE",
+      "version": "1",
+      "config": {},
+      "operatorDigest": "sha256:1141dac39060457ec26c10197b83d77f32a65548cc14a904e0f62a8750924acf"
+    },
+    {
+      "id": "mapping",
+      "type": "MAP",
+      "version": "1",
+      "config": {
+        "timestamp": "timestamp",
+        "value": "value",
+        "sourceKey": "sourceKey"
+      },
+      "operatorDigest": "sha256:5c373b8a6c54a9e05329d515882d0a9a2eed510c4bb57cda414c3f2ca1726108"
+    },
+    {
+      "id": "validate",
+      "type": "VALIDATE",
+      "version": "1",
+      "config": {},
+      "operatorDigest": "sha256:d8523dfb46ca7b39b246b4ee62283d8741ea4fcdff367d0cb6313378e1c20509"
+    },
+    {
+      "id": "output",
+      "type": "OUTPUT",
+      "version": "1",
+      "config": {},
+      "operatorDigest": "sha256:3bda820c247daa8d4494fc9fa6bc665ed78dc78c46be7d40610af14a485f0ef5"
+    }
+  ],
+  "edges": [
+    {
+      "from": "source",
+      "to": "mapping"
+    },
+    {
+      "from": "mapping",
+      "to": "validate"
+    },
+    {
+      "from": "validate",
+      "to": "output"
+    }
+  ]
+}

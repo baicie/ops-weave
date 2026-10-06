@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metric-mapping-view",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "binding",
+    "canConfigure",
+    "candidates"
+  ],
+  "properties": {
+    "binding": {
+      "$ref": "metric-mapping-binding.schema.json"
+    },
+    "canConfigure": {
+      "type": "boolean"
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "metric-mapping-definition.schema.json"
+      }
+    }
+  }
+}

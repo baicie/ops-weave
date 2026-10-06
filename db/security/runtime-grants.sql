@@ -1,4 +1,4 @@
--- Apply as the schema owner AFTER platform V002..V031 and ingestion V001..V002 migrations.
+-- Apply as the schema owner AFTER platform V002..V043 and ingestion V001..V002 migrations.
 -- Supply psql identifier variables platform_role and history_role (distinct, newly provisioned
 -- LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS roles).
 -- This file adds only explicit privileges. It does not revoke PUBLIC or existing role grants;
@@ -18,7 +18,17 @@ WHERE r.rolname IN (:'platform_role', :'history_role')
 BEGIN;
 GRANT USAGE ON SCHEMA inventory, integration, telemetry, alerting, incident, ai_control, audit, catalog TO :"platform_role";
 GRANT SELECT, INSERT ON integration.source_setup TO :"platform_role";
+GRANT SELECT, INSERT, UPDATE ON integration.source_instance TO :"platform_role";
+GRANT SELECT, INSERT ON integration.source_configuration, integration.source_command TO :"platform_role";
+GRANT SELECT, INSERT ON integration.source_connection_configuration TO :"platform_role";
+GRANT SELECT, INSERT, UPDATE ON integration.source_inspection TO :"platform_role";
+GRANT SELECT, INSERT, UPDATE ON integration.source_credential TO :"platform_role";
+GRANT SELECT, INSERT ON integration.source_credential_version, integration.source_credential_revocation, integration.source_credential_command TO :"platform_role";
 GRANT SELECT, INSERT ON integration.workflow_version, integration.workflow_run TO :"platform_role";
+GRANT SELECT, INSERT ON integration.workflow_execution TO :"platform_role";
+GRANT SELECT, INSERT, UPDATE ON integration.workflow_task TO :"platform_role";
+GRANT SELECT, INSERT ON integration.workflow_control_command TO :"platform_role";
+GRANT SELECT, INSERT, UPDATE ON integration.workflow_metric_output TO :"platform_role";
 GRANT SELECT, INSERT, UPDATE ON integration.workflow_draft TO :"platform_role";
 GRANT SELECT, INSERT ON catalog.model_version TO :"platform_role";
 GRANT SELECT, INSERT, UPDATE ON catalog.model_draft TO :"platform_role";
@@ -53,3 +63,5 @@ TO :"platform_role";
 GRANT USAGE ON SCHEMA ingestion TO :"history_role";
 GRANT SELECT, INSERT, UPDATE ON ingestion.history_checkpoint TO :"history_role";
 COMMIT;
+
+GRANT SELECT, INSERT, UPDATE ON integration.workflow_host_checkpoint, integration.workflow_host_batch TO :"platform_role";

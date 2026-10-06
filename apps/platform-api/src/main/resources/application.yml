@@ -14,6 +14,10 @@ management:
         enabled: true
       show-details: never
 opsweave:
+  sources:
+    endpoints-path: ${OPSWEAVE_SOURCE_ENDPOINTS_PATH:}
+  credentials:
+    keyring-path: ${OPSWEAVE_CREDENTIAL_KEYRING_PATH:}
   ai:
     retention-policies-file: ${OPSWEAVE_AI_RETENTION_POLICIES_FILE:}
     runtime-url: ${OPSWEAVE_RUNTIME_URL:}
@@ -66,6 +70,10 @@ opsweave:
     page-size: ${OPSWEAVE_ZABBIX_PAGE_SIZE:100}
   metrics:
     victoria-url: ${OPSWEAVE_VICTORIAMETRICS_URL:}
+  logs:
+    url: ${OPSWEAVE_LOGS_URL:}
+    username: ${OPSWEAVE_LOGS_USER:}
+    password: ${OPSWEAVE_LOGS_PASSWORD:}
   # Trace storage is bounded. These may only tighten the published defaults
   # (1000 rows per source/object-type scope, 5000 per tenant); a larger or inconsistent value is rejected.
   scan-run-retention:

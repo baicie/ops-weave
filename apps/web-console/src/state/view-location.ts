@@ -1,10 +1,14 @@
 import { useLayoutEffect, useRef } from 'react'
 import { platformCredentials, type SessionChange } from '../api/credential-session.ts'
+import { usePageActive } from './page-workspace.ts'
 
 /** The same-path popstate/hashchange pair is processed once; self writes do not discard current results. */
 export function useViewLocation<T>(path: string, decode: (hash: string) => T, encode: (value: T) => string,
   restore: (value: T) => void, reject: (error: Error) => void) {
   const seen = useRef('')
+  const active = usePageActive()
+  const activeRef = useRef(active)
+  activeRef.current = active
   const decodeRef = useRef(decode)
   const restoreRef = useRef(restore)
   const rejectRef = useRef(reject)
@@ -12,6 +16,7 @@ export function useViewLocation<T>(path: string, decode: (hash: string) => T, en
   restoreRef.current = restore
   rejectRef.current = reject
   useLayoutEffect(() => {
+    if (!active) return
     function read() {
       const current = window.location.hash
       if (current === seen.current || current.split('?')[0] !== `#${path}`) return
@@ -25,9 +30,10 @@ export function useViewLocation<T>(path: string, decode: (hash: string) => T, en
       window.removeEventListener('hashchange', read)
       window.removeEventListener('popstate', read)
     }
-  }, [path])
+  }, [path, active])
   return {
     write(value: T, replace = false) {
+      if (!activeRef.current) return
       const next = encode(value)
       if (window.location.hash.split('?')[0] !== `#${path}` || next === window.location.hash) return
       window.history[replace ? 'replaceState' : 'pushState'](null, '', window.location.pathname + window.location.search + next)

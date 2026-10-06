@@ -10,19 +10,14 @@ import {
 } from './helpers.ts'
 
 test.describe('diagnose page', () => {
-  test('upgrades Zeus UI native controls in the production bundle', async ({ page }) => {
+  test('exposes labelled password input and keyboard accessible native controls', async ({ page }) => {
     await openDiagnose(page)
-    await expect.poll(async () => page.evaluate(() => ({
-      buttonDefined: Boolean(customElements.get('zw-button')),
-      inputDefined: Boolean(customElements.get('zw-input')),
-      innerButton: Boolean(document.querySelector('zw-button button')),
-      innerInput: Boolean(document.querySelector('zw-input input')),
-    }))).toEqual({
-      buttonDefined: true,
-      inputDefined: true,
-      innerButton: true,
-      innerInput: true,
-    })
+    const token = page.getByRole('textbox', { name: '开发 Token（仅保存在当前页面内存）' })
+    await expect(token).toHaveAttribute('type', 'password')
+    await token.focus()
+    await expect(token).toBeFocused()
+    await page.keyboard.type(TOKEN_OK)
+    await expect(page.getByRole('button', { name: '运行只读诊断' })).toBeEnabled()
   })
 
   test('keeps run disabled until a long enough in-memory token is entered', async ({ page }) => {
@@ -32,7 +27,7 @@ test.describe('diagnose page', () => {
     await expect(page.getByRole('button', { name: '运行只读诊断' })).toBeEnabled()
   })
 
-  test('submits via zw-input value-change and zw-button press, then shows evidence as text', async ({ page }) => {
+  test('submits through the form controls, then shows evidence as text', async ({ page }) => {
     const posts: unknown[] = []
     await mockDiagnose(page, async ({ authorization, body }) => {
       posts.push({ authorization, body })
@@ -98,6 +93,7 @@ test.describe('diagnose page', () => {
   })
 
   test('does not apply a completed request after the page unmounts', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('opsweave.ui.layout', 'standard'))
     let fulfill!: (value: { status: number; json: unknown }) => void
     const gate = new Promise<{ status: number; json: unknown }>(resolve => {
       fulfill = resolve
@@ -113,8 +109,7 @@ test.describe('diagnose page', () => {
     fulfill({ status: 200, json: diagnosePayload({ insight: { ...(diagnosePayload().insight), summary: '迟到结果不得出现' } }) })
     await page.waitForTimeout(300)
     await expect(page.getByText('迟到结果不得出现')).toHaveCount(0)
-    if (!(await page.getByRole('link', { name: 'Fixture 诊断演示' }).isVisible())) await page.getByRole('button', { name: '开发演示', exact: true }).click()
-    await page.getByRole('link', { name: 'Fixture 诊断演示' }).click()
+  await page.evaluate(() => { location.hash = '#/incidents/diagnose' })
     await expect(page.getByRole('heading', { name: '只读诊断 Demo' })).toBeVisible()
     await expect(page.getByText('迟到结果不得出现')).toHaveCount(0)
   })

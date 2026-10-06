@@ -1,0 +1,11 @@
+.workflow-log-output{padding:0 16px 16px;font-size:13px;color:var(--foreground)}
+.workflow-log-output header,.workflow-log-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.workflow-log-output header h3{flex:1;margin:0;font-size:14px}.workflow-log-output p{line-height:1.6;overflow-wrap:anywhere}
+.workflow-log-output button{padding:6px 10px;border:1px solid var(--border);border-radius:5px;background:var(--background);color:inherit;font:inherit;cursor:pointer}.workflow-log-output button:disabled{opacity:.5;cursor:default}
+.workflow-log-receipt{display:flex;flex-direction:column;gap:6px;padding:12px;margin:12px 0;border:1px solid var(--border);border-radius:6px}.workflow-log-receipt code,.workflow-log-output code{overflow-wrap:anywhere}
+.workflow-log-data article{border:1px solid var(--border);padding:12px;margin:10px 0;border-radius:6px;min-width:0}.workflow-log-data header{font-size:12px;justify-content:space-between;overflow-wrap:anywhere}.workflow-log-data pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.6;margin:12px 0}.workflow-log-data dl{display:grid;grid-template-columns:70px minmax(0,1fr);gap:4px;margin:0;font-size:12px}.workflow-log-data dd{margin:0;overflow-wrap:anywhere}.workflow-log-data dt{opacity:.65}
+.workflow-log-output ul{list-style:none;padding:0;display:grid;gap:6px}.workflow-log-output li button{width:100%;text-align:left;display:flex;flex-direction:column;gap:4px}.workflow-log-output [role=alert]{color:var(--destructive)}
+@media(max-width:600px){.workflow-log-output{padding:12px}.workflow-log-data header{align-items:flex-start;flex-direction:column}}
+
+.workflow-log-output button:focus-visible{outline:2px solid var(--ring);outline-offset:2px}.workflow-log-output>p{font-size:12px;color:var(--muted-foreground)}
+.workflow-log-context{display:contents}.workflow-log-data>header{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}.workflow-log-data>header span{color:var(--muted-foreground);overflow-wrap:anywhere}

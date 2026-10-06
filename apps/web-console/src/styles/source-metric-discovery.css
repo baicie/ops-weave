@@ -1,0 +1,14 @@
+.source-metric-discovery-table { min-width: 0; width: 100%; table-layout: fixed; }
+.source-metric-discovery-table th:first-child { width: 42%; }
+.source-metric-discovery-table th:nth-child(2) { width: 20%; }
+.source-metric-discovery-table td, .source-metric-discovery-table td:last-child, .source-metric-discovery-table th { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+.source-metric-discovery-table strong, .source-metric-key { display: block; white-space: normal; overflow-wrap: anywhere; }
+.source-metric-discovery-table small { display: block; margin-top: 6px; color: var(--ow-muted); }
+.source-metric-discovery-table details { margin-top: 4px; padding: 0; border: 0; background: transparent; border-radius: 0; }
+.source-metric-discovery-table td a.source-metric-key { display: block; margin-right: 0; white-space: normal; color: var(--ow-accent); text-underline-offset: 3px; }
+.source-metric-discovery-table summary { padding: 0; cursor: pointer; color: var(--ow-muted); }
+@media (max-width: 520px) {
+  .source-metric-discovery-table th:first-child { width: 38%; }
+  .source-metric-discovery-table th:nth-child(2) { width: 22%; }
+  .source-metric-discovery-table th, .source-metric-discovery-table td { padding: 9px 6px; }
+}

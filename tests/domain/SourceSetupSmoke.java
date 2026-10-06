@@ -22,6 +22,22 @@ public final class SourceSetupSmoke {
   var changed=new SourceSetupService(store,(who,t)->MODEL,(who,s)->new SourceSetupService.Connection("sha256:"+"b".repeat(64),"MANUAL_SAMPLE"),Clock.systemUTC());failure(WorkflowFailure.Code.SOURCE_UNAVAILABLE,()->changed.confirm(p,c));
   var bad=new SourceSetupService.Command(UUID.randomUUID(),"Fixture","",c.source(),HASH,new Target(MODEL.id(),1,HASH));failure(WorkflowFailure.Code.MODEL_CHANGED,()->service.confirm(p,bad));check(service.list(p).items().size()==1);
   var flow=new WorkflowService(store,(who,t)->MODEL,(who,s,b)->{throw new AssertionError("No source call for manual");},Clock.systemUTC());var d=result.workflow().definition();var preview=flow.evaluate(p,d.id(),1,1,d.digest(),false,List.of(Map.of("name"," Fixture ")),null);check(preview.evaluation().accepted()==1);var published=flow.publish(p,d.id(),1,1,d.digest(),preview.receipt().id());check(service.read(p,c.requestId()).workflow().equals(published));check(service.confirm(p,c).workflow().equals(published));
+  check(service.continueWorkflow(p,c.requestId()).workflow().equals(published));
+  var next=new WorkflowDefinition(d.id(),2,d.name(),d.source(),d.target(),d.nodes(),d.edges());
+  var second=flow.save(p,next,result.workflow().layout(),0);check(service.continueWorkflow(p,c.requestId()).workflow().equals(second));
+  check(service.read(p,c.requestId()).workflow().equals(published));
+  var secondPreview=flow.evaluate(p,next.id(),2,second.editVersion(),next.digest(),false,List.of(Map.of("name","Fixture second")),null);
+  var secondPublished=flow.publish(p,next.id(),2,second.editVersion(),next.digest(),secondPreview.receipt().id());
+  check(service.continueWorkflow(p,c.requestId()).workflow().equals(secondPublished));
+  var otherDraft=new WorkflowDefinition(d.id(),3,d.name(),d.source(),d.target(),d.nodes(),d.edges());
+  flow.save(user("setup-a","two"),otherDraft,result.workflow().layout(),0);
+  check(service.continueWorkflow(p,c.requestId()).workflow().equals(secondPublished));
+  failure(WorkflowFailure.Code.NOT_FOUND,()->service.continueWorkflow(user("setup-a","two"),c.requestId()));
+  failure(WorkflowFailure.Code.NOT_FOUND,()->service.continueWorkflow(user("setup-b","one"),c.requestId()));
+  failure(WorkflowFailure.Code.FORBIDDEN,()->service.continueWorkflow(noPermission,c.requestId()));
+  var sourceOnly=service.confirm(p,new SourceSetupService.Command(UUID.randomUUID(),"Fixture no version","",c.source(),HASH,null));
+  check(service.continueWorkflow(p,sourceOnly.setup().id()).workflow()==null);
+  failure(WorkflowFailure.Code.CONFLICT,()->service.confirm(user("setup-a","two"),new SourceSetupService.Command(sourceOnly.setup().id(),"Other Fixture","",c.source(),HASH,null)));
   for(int i=0;i<21;i++)service.confirm(p,command(UUID.randomUUID(),"Fixture "+i));check(service.list(p).items().size()==20&&service.list(p).truncated());
   System.out.println("SourceSetupSmoke: "+checks+" checks passed");
  }

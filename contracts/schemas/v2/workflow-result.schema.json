@@ -82,7 +82,8 @@
                         "SCALE",
                         "FILTER",
                         "VALIDATE",
-                        "OUTPUT"
+                        "OUTPUT",
+                        "MERGE"
                       ]
                     },
                     "status": {
@@ -94,34 +95,41 @@
                       ]
                     },
                     "values": {
-                      "type": "object",
-                      "maxProperties": 32,
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,47}$",
-                        "not": {
-                          "enum": [
-                            "tenantId",
-                            "tenant_id",
-                            "Authorization",
-                            "authorization",
-                            "constructor",
-                            "prototype",
-                            "secret",
-                            "token",
-                            "password"
-                          ]
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "maxProperties": 32,
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,47}$",
+                            "not": {
+                              "enum": [
+                                "tenantId",
+                                "tenant_id",
+                                "Authorization",
+                                "authorization",
+                                "constructor",
+                                "prototype",
+                                "secret",
+                                "token",
+                                "password"
+                              ]
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ],
+                            "maxLength": 2048
+                          }
+                        },
+                        {
+                          "$ref": "workflow-standard-metric-record.schema.json"
                         }
-                      },
-                      "additionalProperties": {
-                        "type": [
-                          "string",
-                          "number",
-                          "boolean",
-                          "null"
-                        ],
-                        "maxLength": 2048
-                      }
+                      ]
                     },
                     "issues": {
                       "type": "array",
@@ -146,7 +154,60 @@
                         }
                       }
                     }
-                  }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "VALIDATE",
+                              "OUTPUT"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "status"
+                        ],
+                        "allOf": [{"properties":{"status":{"const":"OK"}}}]
+                      },
+                      "else": {
+                        "properties": {
+                          "values": {
+                            "type": "object",
+                            "maxProperties": 32,
+                            "propertyNames": {
+                              "type": "string",
+                              "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,47}$",
+                              "not": {
+                                "enum": [
+                                  "tenantId",
+                                  "tenant_id",
+                                  "Authorization",
+                                  "authorization",
+                                  "constructor",
+                                  "prototype",
+                                  "secret",
+                                  "token",
+                                  "password"
+                                ]
+                              }
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ],
+                              "maxLength": 2048
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }

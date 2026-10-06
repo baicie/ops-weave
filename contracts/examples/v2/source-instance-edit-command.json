@@ -1,0 +1,8 @@
+{
+  "requestId": "99a1f225-a532-4aca-9062-ec36ca413028",
+  "expectedEditVersion": 1,
+  "name": "Fixture Zabbix onboarding amended",
+  "description": "Synthetic contract example; no source connection claim",
+  "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": "ACTIVE"
+}

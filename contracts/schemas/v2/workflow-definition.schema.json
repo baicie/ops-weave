@@ -32,66 +32,10 @@
       "maxLength": 80
     },
     "source": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "kind",
-        "instanceId"
-      ],
-      "properties": {
-        "kind": {
-          "enum": [
-            "MANUAL_SAMPLE",
-            "ZABBIX_HOST"
-          ]
-        },
-        "instanceId": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "MANUAL_SAMPLE"
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "instanceId": {
-                "const": "manual"
-              }
-            }
-          }
-        }
-      ]
+      "$ref": "workflow-source.schema.json"
     },
     "target": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "revision",
-        "digest"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
-        },
-        "revision": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10000
-        },
-        "digest": {
-          "type": "string",
-          "pattern": "^sha256:[a-f0-9]{64}$"
-        }
-      }
+      "$ref": "workflow-output.schema.json"
     },
     "nodes": {
       "type": "array",
@@ -119,10 +63,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [],
                 "properties": {}
               }
             }
@@ -146,6 +93,10 @@
               },
               "version": {
                 "const": "1"
+              },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
               },
               "config": {
                 "type": "object",
@@ -208,10 +159,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [],
                 "properties": {}
               }
             }
@@ -236,12 +190,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "field"
-                ],
                 "properties": {
                   "field": {
                     "type": "string",
@@ -260,7 +215,10 @@
                       ]
                     }
                   }
-                }
+                },
+                "required": [
+                  "field"
+                ]
               }
             }
           },
@@ -284,13 +242,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "field",
-                  "value"
-                ],
                 "properties": {
                   "field": {
                     "type": "string",
@@ -313,7 +271,11 @@
                     "type": "string",
                     "maxLength": 512
                   }
-                }
+                },
+                "required": [
+                  "field",
+                  "value"
+                ]
               }
             }
           },
@@ -337,14 +299,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "field",
-                  "from",
-                  "to"
-                ],
                 "properties": {
                   "field": {
                     "type": "string",
@@ -371,7 +332,12 @@
                     "type": "string",
                     "maxLength": 512
                   }
-                }
+                },
+                "required": [
+                  "field",
+                  "from",
+                  "to"
+                ]
               }
             }
           },
@@ -395,13 +361,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "field",
-                  "factor"
-                ],
                 "properties": {
                   "field": {
                     "type": "string",
@@ -425,7 +391,11 @@
                     "maxLength": 64,
                     "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
                   }
-                }
+                },
+                "required": [
+                  "field",
+                  "factor"
+                ]
               }
             }
           },
@@ -449,13 +419,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "field",
-                  "equals"
-                ],
                 "properties": {
                   "field": {
                     "type": "string",
@@ -478,7 +448,42 @@
                     "type": "string",
                     "maxLength": 512
                   }
-                }
+                },
+                "required": [
+                  "field",
+                  "equals"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "version",
+              "config"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+              },
+              "type": {
+                "const": "MERGE"
+              },
+              "version": {
+                "const": "1"
+              },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
               }
             }
           },
@@ -502,10 +507,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [],
                 "properties": {}
               }
             }
@@ -530,10 +538,13 @@
               "version": {
                 "const": "1"
               },
+              "operatorDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
               "config": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [],
                 "properties": {}
               }
             }
@@ -544,7 +555,7 @@
     "edges": {
       "type": "array",
       "minItems": 3,
-      "maxItems": 15,
+      "maxItems": 32,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -564,5 +575,314 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": {
+              "kind": {
+                "const": "ZABBIX_HOST"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "$ref": "workflow-output.schema.json#/oneOf/0"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "LOG"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "MAP"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "config": {
+                        "additionalProperties": {
+                          "enum": [
+                            "eventTime",
+                            "body",
+                            "severityText",
+                            "serviceName",
+                            "traceId",
+                            "spanId"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "config": {
+                        "required": [
+                          "field"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "config": {
+                        "properties": {
+                          "field": {
+                            "enum": [
+                              "eventTime",
+                              "body",
+                              "severityText",
+                              "serviceName",
+                              "traceId",
+                              "spanId"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "required": [
+              "kind",
+              "schemaVersion"
+            ],
+            "properties": {
+              "kind": {
+                "const": "METRIC"
+              },
+              "schemaVersion": {
+                "const": "1.0"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "MAP"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "config": {
+                        "additionalProperties": {
+                          "enum": [
+                            "timestamp",
+                            "metricKey",
+                            "value",
+                            "unit",
+                            "metricType"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "config": {
+                        "required": [
+                          "field"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "config": {
+                        "properties": {
+                          "field": {
+                            "enum": [
+                              "timestamp",
+                              "metricKey",
+                              "value",
+                              "unit",
+                              "metricType"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "required": [
+              "kind",
+              "schemaVersion"
+            ],
+            "properties": {
+              "kind": {
+                "const": "METRIC"
+              },
+              "schemaVersion": {
+                "const": "1.1"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "MAP"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "config": {
+                        "additionalProperties": {
+                          "enum": [
+                            "timestamp",
+                            "sourceKey",
+                            "value"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "config": {
+                        "required": [
+                          "field"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "config": {
+                        "properties": {
+                          "field": {
+                            "enum": [
+                              "timestamp",
+                              "sourceKey",
+                              "value"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": {
+              "kind": {
+                "const": "ZABBIX_METRIC"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "$ref": "workflow-output.schema.json#/oneOf/2"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": {
+              "kind": {
+                "const": "ZABBIX_LOG"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "properties": {
+              "kind": {
+                "const": "LOG"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metric-mapping-definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mappingPin",
+    "connector",
+    "sourceKey",
+    "metricKey",
+    "displayName",
+    "metricType",
+    "unit",
+    "valueType",
+    "dimensionSchema",
+    "fixedDimensions",
+    "valueTransform",
+    "minimum",
+    "maximum"
+  ],
+  "properties": {
+    "mappingPin": {
+      "$ref": "metric-mapping-pin.schema.json"
+    },
+    "connector": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "sourceKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "metricKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "metricType": {
+      "enum": [
+        "GAUGE",
+        "SUM",
+        "HISTOGRAM"
+      ]
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "valueType": {
+      "enum": [
+        "DOUBLE",
+        "INTEGER",
+        "STRING",
+        "BOOLEAN",
+        "UNKNOWN"
+      ]
+    },
+    "dimensionSchema": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "fixedDimensions": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "valueTransform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "minimum": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "maximum": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

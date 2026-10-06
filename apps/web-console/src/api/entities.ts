@@ -7,6 +7,7 @@ export type EntityItem = {
   name: string
   lifecycle: string
   version: number
+  model?: EntityModelPin
   attributes: {
     owner?: string
     environment?: string
@@ -23,7 +24,12 @@ export type EntityItem = {
     pipelineRevision: number | null
     pipelineDigest: string
   }
+  modelAttributes: Record<string, EntityAttributeValue>
 }
+
+export type EntityModelPin = { id: string; revision: number; digest: string }
+
+export type EntityAttributeValue = string | number | boolean | null
 
 export type EntityList = {
   items: EntityItem[]
@@ -44,6 +50,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function parseModelPin(value: unknown): EntityModelPin | undefined {
+  if (value === undefined) return undefined
+  if (!isRecord(value) || Object.keys(value).length !== 3 || !/^(builtin|custom)\.[a-z][a-z0-9_]{0,47}$/.test(String(value.id))
+      || !Number.isSafeInteger(value.revision) || (value.revision as number) < 1 || (value.revision as number) > 10000
+      || typeof value.digest !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(value.digest)) throw new Error('资产模型版本固定信息不正确')
+  return { id: value.id as string, revision: value.revision as number, digest: value.digest }
 }
 
 function parseAuthority(value: unknown): FieldAuthorityInfo | undefined {
@@ -67,6 +81,16 @@ export function parseEntityList(value: unknown): EntityList {
       throw new Error('接口响应结构不正确')
     }
     const attributes = item.attributes
+    const model = parseModelPin(item.model)
+    const modelAttributes: Record<string, EntityAttributeValue> = Object.create(null)
+    const reserved = new Set(['hostId', 'ip', 'status', 'source', 'lastSeen', 'rawReference', 'sourceInstanceId', 'dataMode',
+      'pipelineId', 'pipelineRevision', 'pipelineDigest', 'fieldAuthority'])
+    for (const [key, field] of Object.entries(attributes)) {
+      if (reserved.has(key)) continue
+      if (field === null || typeof field === 'string' || typeof field === 'number' && Number.isFinite(field) || typeof field === 'boolean') {
+        modelAttributes[key] = field
+      }
+    }
     return {
       id: item.id,
       tenantId: text(item.tenantId),
@@ -74,6 +98,7 @@ export function parseEntityList(value: unknown): EntityList {
       name: item.name,
       lifecycle: item.lifecycle,
       version: typeof item.version === 'number' ? item.version : 0,
+      ...(model ? { model } : {}),
       attributes: {
         owner: text(attributes.owner),
         environment: text(attributes.environment),
@@ -85,11 +110,12 @@ export function parseEntityList(value: unknown): EntityList {
         lastSeen: text(attributes.lastSeen),
         rawReference: text(attributes.rawReference),
         sourceInstanceId: text(attributes.sourceInstanceId),
-        dataMode: ['labeled-fixture', 'zabbix-jsonrpc'].includes(String(attributes.dataMode)) ? String(attributes.dataMode) : '',
+        dataMode: ['labeled-fixture', 'zabbix-jsonrpc', 'MANUAL_SAMPLE'].includes(String(attributes.dataMode)) ? String(attributes.dataMode) : '',
         pipelineId: text(attributes.pipelineId),
         pipelineRevision: typeof attributes.pipelineRevision === 'number' ? attributes.pipelineRevision : null,
         pipelineDigest: text(attributes.pipelineDigest),
       },
+      modelAttributes,
     }
   })
   return { items }
@@ -148,6 +174,74 @@ export async function getEntity(id: string, signal: AbortSignal): Promise<Entity
   const item = entity(await request(`/api/v1/entities/${encodeURIComponent(id)}`, 'GET', signal))
   if (item.id !== id) throw new Error('资产详情与请求不一致')
   return item
+}
+
+export type EntityInstanceCommand = {
+  requestId: string
+  entityId: string
+  model: { id: string; revision: number }
+  name: string
+  lifecycle?: EntityItem['lifecycle']
+  attributes: Record<string, EntityAttributeValue>
+  expectedVersion?: number
+}
+
+export type EntityInstanceReceipt = {
+  entity: EntityItem
+  replayed: boolean
+  storage: string
+  model: EntityModelPin
+}
+
+export class EntityWriteUnknownError extends Error {}
+
+export async function createEntityInstance(command: EntityInstanceCommand, signal: AbortSignal): Promise<EntityInstanceReceipt> {
+  const uuidPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
+  if (!uuidPattern.test(command.requestId) || !uuidPattern.test(command.entityId)
+    || !/^(builtin|custom)\.[a-z][a-z0-9_]{0,47}$/.test(command.model.id)
+    || !Number.isSafeInteger(command.model.revision) || command.model.revision < 1
+    || !command.name.trim() || command.name.length > 255 || Object.keys(command.attributes).length > 32
+    || command.lifecycle !== undefined && !['DISCOVERED', 'ACTIVE', 'INACTIVE', 'DELETED', 'ARCHIVED'].includes(command.lifecycle)
+    || command.expectedVersion !== undefined && (!Number.isSafeInteger(command.expectedVersion) || command.expectedVersion < 1 || command.expectedVersion > 9_007_199_254_740_990)
+    || Object.values(command.attributes).some(value => value !== null && !['string', 'number', 'boolean'].includes(typeof value)
+      || typeof value === 'number' && !Number.isFinite(value))) throw new Error('资产实例命令不符合契约')
+
+  const body = {
+    requestId: command.requestId,
+    entityId: command.entityId,
+    model: { id: command.model.id, revision: command.model.revision },
+    name: command.name,
+    ...(command.lifecycle === undefined ? {} : { lifecycle: command.lifecycle }),
+    attributes: { ...command.attributes },
+    ...(command.expectedVersion === undefined ? {} : { expectedVersion: command.expectedVersion }),
+  }
+  let value: unknown
+  try {
+    value = await platformClient.request('/api/v1/entities', {
+      method: 'POST', body, signal,
+      error: status => new EntityRequestError(status, status === 403
+        ? '当前身份无权创建此资产。'
+        : status === 409 ? '模型或资产版本已变化，请重新读取后再提交。'
+          : status >= 500 ? '服务端未确认创建结果；请使用同一请求重试以核对原回执。'
+            : `资产创建失败（HTTP ${status}）。`),
+    })
+  } catch (cause) {
+    if (cause instanceof EntityRequestError && cause.status < 500) throw cause
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
+    throw new EntityWriteUnknownError('资产创建结果待确认。保留原请求标识后可安全重试。')
+  }
+  try {
+    if (!isRecord(value) || value.schemaVersion !== '1.0' || typeof value.storage !== 'string' || !value.storage
+      || typeof value.replayed !== 'boolean' || typeof value.tenantId !== 'string' || !value.tenantId
+      || !isRecord(value.model) || value.model.id !== command.model.id || value.model.revision !== command.model.revision
+      || typeof value.model.digest !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(value.model.digest)) throw new Error('receipt')
+    const item = entity(value.entity)
+    if (item.id !== command.entityId || item.tenantId !== value.tenantId || item.model?.id !== value.model.id
+      || item.model.revision !== value.model.revision || item.model.digest !== value.model.digest) throw new Error('receipt')
+    return { entity: item, replayed: value.replayed, storage: value.storage, model: value.model as EntityInstanceReceipt['model'] }
+  } catch {
+    throw new EntityWriteUnknownError('服务端已响应，但创建回执无法确认；请使用原请求重试核对。')
+  }
 }
 
 export function listEntities(signal: AbortSignal): Promise<EntityList> {

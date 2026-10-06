@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-host-schedule-status",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "mode": {
+      "enum": [
+        "LOCAL_DEV_ENTITY",
+        "DELEGATED_ENTITY"
+      ]
+    },
+    "pollSeconds": {
+      "const": 5
+    },
+    "maxSessionBatches": {
+      "const": 20
+    },
+    "schedule": {
+      "anyOf": [
+        {
+          "$ref": "workflow-host-schedule.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "task": {
+      "anyOf": [
+        {
+          "$ref": "workflow-runtime-task.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "available",
+    "mode",
+    "pollSeconds",
+    "maxSessionBatches",
+    "schedule",
+    "task"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "2.0",
+  "mode": "MANUAL_LOG_BATCH",
+  "available": false,
+  "maxRecords": 5,
+  "readAllowed": false,
+  "writeAllowed": false
+}

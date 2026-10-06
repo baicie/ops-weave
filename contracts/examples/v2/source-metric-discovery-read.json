@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "2.0",
+  "storage": "memory",
+  "view": {
+    "inspection": {
+      "requestId": "10000000-0000-4000-8000-000000000072",
+      "sourceId": "10000000-0000-4000-8000-000000000071",
+      "kind": "DISCOVER_METRICS",
+      "configurationRevision": 1,
+      "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dataMode": "fixture",
+      "commandDigest": "sha256:0aa20356fa99c6f0ddc90179e9d4eeb1527525e36c0c18b581b8476065bccaa4",
+      "state": "COMPLETED",
+      "asOf": "2026-10-03T00:00:00Z",
+      "deadline": "2026-10-03T00:01:05Z",
+      "availableAt": "2026-10-03T00:00:01Z",
+      "expiresAt": "2026-10-03T00:15:01Z",
+      "check": null,
+      "discovery": null,
+      "metricDiscovery": {
+        "items": [
+          {
+            "itemId": "20001",
+            "hostId": "10084",
+            "sourceKey": "system.cpu.util[,user]",
+            "name": "Fixture CPU user time",
+            "sourceUnit": "%",
+            "sourceValueType": "FLOAT",
+            "mappingStatus": "MAPPED",
+            "mapping": {
+              "id": "fixture-cpu-user",
+              "revision": 1,
+              "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "metricKey": "fixture.cpu.usage.user",
+              "unit": "1",
+              "valueType": "DOUBLE",
+              "valueTransform": "multiply:0.01"
+            }
+          },
+          {
+            "itemId": "20002",
+            "hostId": "10084",
+            "sourceKey": "fixture.unmapped.metric",
+            "name": "Fixture unmapped item",
+            "sourceUnit": "",
+            "sourceValueType": "TEXT",
+            "mappingStatus": "NO_MAPPING",
+            "mapping": null
+          }
+        ],
+        "complete": true,
+        "scanConsistency": "LABELED_FIXTURE",
+        "statusCode": "READ_VERIFIED",
+        "fingerprint": "sha256:cf86856e5daed0c8b3a56e1ddb1c13e4c18993eddfc2f12203b5c26196c727a4",
+        "scope": "FIRST_ITEM_PAGE",
+        "limit": 20
+      }
+    },
+    "validity": "CURRENT"
+  }
+}

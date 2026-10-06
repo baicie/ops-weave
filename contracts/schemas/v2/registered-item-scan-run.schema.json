@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "registered-item-scan-run",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "syncRunId": { "type": "string", "format": "uuid" },
+    "sourceId": { "type": "string", "format": "uuid" },
+    "configurationRevision": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "connectionDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}(?![\\s\\S])" },
+    "scopeDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}(?![\\s\\S])" },
+    "objectType": { "const": "item" },
+    "status": { "enum": ["RUNNING", "SUCCEEDED", "FAILED"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": ["string", "null"], "format": "date-time" },
+    "cursor": { "type": ["string", "null"], "maxLength": 256 },
+    "pages": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "fetched": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "accepted": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "rejected": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "retired": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "snapshotComplete": { "type": "boolean" },
+    "dataMode": { "enum": ["labeled-fixture", "zabbix-jsonrpc", "closed"] },
+    "scanConsistency": { "enum": ["offset-scan-attempt", "hostid-watermark-snapshot", "itemid-watermark-snapshot"] },
+    "failureCode": { "enum": ["SOURCE_SCAN_BUSY", "SOURCE_SCAN_LOST", "SOURCE_SCAN_DEADLINE", "SOURCE_SCAN_LIMIT", "SOURCE_SCAN_UNVERIFIED", "SOURCE_FETCH_FAILED", "RAW_PERSIST_FAILED", "MAPPING_FAILED", "INVENTORY_WRITE_FAILED", "CHECKPOINT_FAILED", "PAGE_NOT_ADVANCED", "PAGE_LIMIT_EXCEEDED"] },
+    "failureSummary": { "type": "string", "minLength": 1, "maxLength": 200 }
+  },
+  "required": ["syncRunId", "sourceId", "configurationRevision", "connectionDigest", "scopeDigest", "objectType", "status", "startedAt", "completedAt", "cursor", "pages", "fetched", "accepted", "rejected", "retired", "snapshotComplete", "dataMode", "scanConsistency"],
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "RUNNING" } }, "required": ["status"] },
+      "then": { "properties": { "snapshotComplete": { "const": false }, "completedAt": { "type": "null" }, "retired": { "const": 0 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "FAILED" } }, "required": ["status"] },
+      "then": { "properties": { "snapshotComplete": { "const": false }, "completedAt": { "type": "string" }, "retired": { "const": 0 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "SUCCEEDED" } }, "required": ["status"] },
+      "then": { "properties": { "snapshotComplete": { "const": true }, "completedAt": { "type": "string" } } }
+    }
+  ]
+}

@@ -161,7 +161,7 @@ public final class VictoriaMetricsQueryAdapter implements MetricQueryPort {
     private record SeriesKey(String sourceInstanceId, String dataMode, String externalItemId, long mappingRevision,
                              String unit, Map<String, String> dimensions) {}
 
-    private static final class BoundedBody implements HttpResponse.BodySubscriber<String> {
+    static final class BoundedBody implements HttpResponse.BodySubscriber<String> {
         private final HttpResponse.BodySubscriber<String> delegate = HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8);
         private Flow.Subscription subscription;
         private long bytes;

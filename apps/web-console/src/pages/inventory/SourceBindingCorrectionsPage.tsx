@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePageCloseGuard } from '../../state/page-workspace.ts'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { usePlatformSession } from '../../state/platform-session.ts'
@@ -24,6 +26,7 @@ export function SourceBindingCorrectionsPage() {
   const [id, setId] = useState(new URLSearchParams(location.hash.split('?')[1]).get('requestId') ?? '')
   const controllerRef = useRef<AbortController | undefined>(undefined)
   const sequenceRef = useRef(0)
+  usePageCloseGuard(busy || pending ? { message: pending ? '操作结果待确认，请先查询原请求回执。' : '请求正在处理，请等待结果后关闭。', blocked: true } : !receipt && (previous || external || target || reason || raw !== '{}') ? { message: '来源绑定有尚未提交的修改。' } : null)
 
   function invalidate() { setPreview(null); setConfirmed(false); setReceipt(null); setPage(null) }
   function clear() {
@@ -65,8 +68,8 @@ export function SourceBindingCorrectionsPage() {
     void run(async (signal, current) => { const p = await correctionHistory(previous.trim(), after, signal); if (current()) setPage(p) })
   }
   function edit(set: (v: string) => void, value: string) { set(value); invalidate() }
-  return <section className="panel" data-page="source-binding-corrections"><h2>来源绑定更正</h2>
-    <p>人工核对错误绑定后，使用目标资产已登记的 UUID 和一份新的来源观测更正当前绑定。原观测、指标、Incident、字段审核和旧回执保留原资产归属；新字段仍需审核。</p>
+  return <section className="panel" data-page="source-binding-corrections"><PageHeader title="来源绑定更正" description="人工核对错误绑定后，使用目标资产已登记的 UUID 和一份新的来源观测更正当前绑定。原观测、指标、Incident、字段审核和旧回执保留原资产归属；新字段仍需审核。" />
+    <PageBody className="console-maintenance">
     <p>这是固定 CMDB 人工导入入口。若原绑定存在生效字段，请先在原资产详情撤销；不会自动搬移或批准字段。</p>
     <label>原资产 ID<Input value={previous} disabled={disabled} onChange={event => edit(setPrevious, event.currentTarget.value)} /></label>
     <label>待更正来源外部 ID<Input value={external} disabled={disabled} onChange={event => edit(setExternal, event.currentTarget.value)} /></label>
@@ -87,6 +90,7 @@ export function SourceBindingCorrectionsPage() {
     <h3>资产更正历史</h3><p>按上方原资产 ID 查询参与过的更正，显示当时操作者与新旧归属。每页10条，读取需要当前整源管理权限。</p>
     <Button variant="outline" disabled={disabled || !previous} onClick={() => historyPage()}>读取更正历史</Button><Button variant="outline" disabled={disabled || !page?.nextCursor} onClick={() => historyPage(page?.nextCursor ?? null)}>下一页更正历史</Button>
     {page ? <section data-correction-history><p>{`本页 ${page.items.length} 条；历史记录不会按当前绑定改写。`}</p>{page.items.map(row => <article key={row.command.requestId}><ReceiptContent receipt={row} /></article>)}</section> : null}
+    </PageBody>
   </section>
 }
 

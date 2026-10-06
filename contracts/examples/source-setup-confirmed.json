@@ -1,0 +1,18 @@
+{
+  "setup": {
+    "id": "10000000-0000-4000-8000-000000000071",
+    "name": "Fixture Zabbix onboarding",
+    "description": "Synthetic contract example; no source connection claim",
+    "source": {
+      "kind": "ZABBIX_HOST",
+      "instanceId": "zabbix-fixture"
+    },
+    "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "initialTarget": null,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "createdAt": "2026-09-27T00:00:00Z",
+    "workflowId": "source-10000000-0000-4000-8000-000000000071",
+    "dataMode": "fixture"
+  },
+  "workflow": null
+}

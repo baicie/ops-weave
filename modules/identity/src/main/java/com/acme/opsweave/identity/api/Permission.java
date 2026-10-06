@@ -12,4 +12,8 @@ public final class Permission {
     public static final String SKILL_READ = "skill.read";
     public static final String SKILL_MANAGE = "skill.manage";
     public static final String SOURCE_SYNC = "source.sync";
+    public static final String LOG_READ = "log.read";
+    public static final String LOG_WRITE = "log.write";
+    public static final String SOURCE_CONFIGURE = "source.configure";
+    public static final String WORKFLOW_REPLAY = "workflow.replay";
 }

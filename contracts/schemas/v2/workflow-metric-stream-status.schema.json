@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-metric-stream-status",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "mode": {
+      "enum": [
+        "LOCAL_DEV_METRIC",
+        "DELEGATED_METRIC"
+      ]
+    },
+    "windowSeconds": {
+      "const": 60
+    },
+    "settleSeconds": {
+      "const": 10
+    },
+    "maxBatchPoints": {
+      "const": 600
+    },
+    "maxSessionBatches": {
+      "const": 20
+    },
+    "task": {
+      "anyOf": [
+        {
+          "$ref": "https://contracts.opsweave.invalid/v2/workflow-metric-stream-task"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "batches": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "https://contracts.opsweave.invalid/v2/workflow-metric-stream-batch"
+      }
+    },
+    "maxHistoryRequests": {
+      "const": 20
+    },
+    "lookbackSeconds": {
+      "const": 60
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation",
+        "startAllowed",
+        "recoveryClosed"
+      ],
+      "properties": {
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000001
+        },
+        "startAllowed": {
+          "type": "boolean"
+        },
+        "recoveryClosed": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "startAllowed": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "generation": {
+                "maximum": 999998
+              },
+              "recoveryClosed": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "available",
+    "mode",
+    "windowSeconds",
+    "settleSeconds",
+    "maxBatchPoints",
+    "maxSessionBatches",
+    "task",
+    "batches",
+    "maxHistoryRequests",
+    "lookbackSeconds"
+  ]
+}

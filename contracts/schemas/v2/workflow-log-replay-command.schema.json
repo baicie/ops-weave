@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-replay-command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "id",
+    "revision",
+    "digest",
+    "from",
+    "till"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$(?![\\s\\S])"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$(?![\\s\\S])"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+    },
+    "from": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    },
+    "till": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    }
+  }
+}

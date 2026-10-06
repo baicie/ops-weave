@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v1/model-references",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "id",
+            "revision",
+            "digest"
+          ]
+        },
+        "inspectedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "workflowsAvailable": {
+          "type": "boolean"
+        },
+        "references": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "RELATION",
+                      "WORKFLOW"
+                    ]
+                  },
+                  "id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+                      }
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "state": {
+                    "enum": [
+                      "PUBLISHED",
+                      "DRAFT"
+                    ]
+                  },
+                  "editVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "OUTPUT",
+                        "FROM",
+                        "TO"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "uniqueItems": true
+                  },
+                  "fieldIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,47}$"
+                    },
+                    "minItems": 0,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "HOST_SCAN",
+                            "HOST_SCHEDULE"
+                          ]
+                        },
+                        "state": {
+                          "enum": [
+                            "RUNNING",
+                            "STOPPED",
+                            "FAILED"
+                          ]
+                        },
+                        "generation": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000001
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "state",
+                        "generation"
+                      ]
+                    },
+                    "minItems": 0,
+                    "maxItems": 2
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id",
+                  "revision",
+                  "digest",
+                  "label",
+                  "state",
+                  "editVersion",
+                  "roles",
+                  "fieldIds",
+                  "tasks"
+                ],
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "kind": {
+                          "const": "RELATION"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10000
+                        },
+                        "state": {
+                          "const": "PUBLISHED"
+                        },
+                        "roles": {
+                          "items": {
+                            "enum": [
+                              "FROM",
+                              "TO"
+                            ]
+                          }
+                        },
+                        "fieldIds": {
+                          "maxItems": 0
+                        },
+                        "tasks": {
+                          "maxItems": 0
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+                        },
+                        "roles": {
+                          "const": [
+                            "OUTPUT"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "state": {
+                          "const": "PUBLISHED"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "editVersion": {
+                          "const": 0
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "editVersion": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "minItems": 0,
+              "maxItems": 50
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "items",
+            "truncated"
+          ]
+        }
+      },
+      "required": [
+        "target",
+        "inspectedAt",
+        "workflowsAvailable",
+        "references"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "workflowsAvailable": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "references": {
+                "properties": {
+                  "items": {
+                    "items": {
+                      "properties": {
+                        "kind": {
+                          "const": "RELATION"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "report"
+  ]
+}

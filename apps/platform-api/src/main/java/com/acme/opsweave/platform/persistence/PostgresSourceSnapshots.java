@@ -35,7 +35,7 @@ final class PostgresSourceSnapshots implements SourceSnapshotStore, SourceReceip
         """;
     // Expiry/revocation is evaluated at read time before lifecycle filtering and pagination.
     static final String ENTITY_VIEW = """
-        (SELECT e.id,e.tenant_id,e.entity_type,e.name,e.version,e.attributes,
+        (SELECT e.id,e.tenant_id,e.entity_type,e.name,e.version,e.attributes,e.model_id,e.model_revision,e.model_digest,
           CASE WHEN EXISTS(SELECT 1 FROM inventory.entity_source_authority a WHERE a.tenant_id=e.tenant_id AND a.entity_id=e.id
              AND a.primary_snapshot->>'lifecycle'='INACTIVE') THEN CASE WHEN %s THEN 'ACTIVE' ELSE 'INACTIVE' END
              ELSE e.lifecycle END AS lifecycle FROM inventory.entity e) inventory_view
@@ -45,7 +45,7 @@ final class PostgresSourceSnapshots implements SourceSnapshotStore, SourceReceip
         if(primary.lifecycle()!=Lifecycle.INACTIVE)return p;
         try(var s=c.prepareStatement("SELECT "+LIVE+" FROM inventory.entity e WHERE e.tenant_id=? AND e.id=?")){
             s.setString(1,primary.tenantId().value());s.setObject(2,primary.id().value());try(var r=s.executeQuery()){
-                if(r.next() && r.getBoolean(1))return new Entity(p.id(),p.tenantId(),p.entityType(),p.name(),Lifecycle.ACTIVE,p.version(),p.lastSeen(),p.attributes());
+                if(r.next() && r.getBoolean(1))return new Entity(p.id(),p.tenantId(),p.entityType(),p.name(),Lifecycle.ACTIVE,p.version(),p.lastSeen(),p.attributes(),p.model());
             }
         }return p;
     }

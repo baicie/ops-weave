@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "2.0",
+  "sourceId": "10000000-0000-4000-8000-000000000071",
+  "items": [
+    {
+      "sourceId": "10000000-0000-4000-8000-000000000071",
+      "revision": 1,
+      "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dataMode": "fixture",
+      "createdAt": "2026-09-27T00:00:00Z"
+    }
+  ]
+}

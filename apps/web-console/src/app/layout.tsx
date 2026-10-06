@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { AppNav, RouteIcon } from './navigation.tsx'
-import { groupFor, pathFor, ROUTES, searchRoutes, type Route, type RouteName } from '../state/routes.ts'
+import { groupFor, pathFor, searchRoutes, type Route, type RouteName } from '../state/routes.ts'
 import { oidcMode } from '../state/platform-session.ts'
+import { SidebarFooter } from '../components/navigation/SidebarFooter.tsx'
+import { LayoutSettings } from '../components/navigation/LayoutSettings.tsx'
 
 const uiIcons = {
   sidebar: 'M4 4h16v16H4z M9 4v16',
@@ -18,16 +20,16 @@ function UiIcon(props: { name: keyof typeof uiIcons }) {
 function Brand(props: { onNavigate?: () => void }) {
   return <a className="brand" href="#/start" onClick={props.onNavigate} aria-label="观织 OpsWeave 首页">
     <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
-    <span className="brand-copy"><strong>观织 <small>OpsWeave</small></strong><em>可观测与智能运维</em></span>
+    <span className="brand-copy"><strong>观织<span>OpsWeave</span></strong><em>运维管理平台</em></span>
   </a>
 }
-function SidebarContent(props: { route: RouteName; onNavigate?: () => void; compact?: boolean; surface: 'desktop' | 'mobile' }) {
+function SidebarContent(props: { route: RouteName; onNavigate?: () => void; onToggle?: () => void; compact?: boolean; surface: 'desktop' | 'mobile' }) {
   return <><Brand onNavigate={props.onNavigate} /><AppNav route={props.route} onNavigate={props.onNavigate} compact={props.compact} surface={props.surface} />
-    <div className="sidebar-note"><UiIcon name="shield" /><span className="sidebar-note-copy"><strong>只读诊断</strong><small>关联上下文 · 追溯证据</small></span><span className="sidebar-version">MVP</span></div>
+    <SidebarFooter collapsed={props.compact} onToggle={props.onToggle} environment={oidcMode ? '身份会话模式' : '本地开发环境'} />
   </>
 }
-export function AppSidebar(props: { route: RouteName; collapsed: boolean }) {
-  return <aside className="app-sidebar" id="desktop-navigation"><SidebarContent route={props.route} compact={props.collapsed} surface="desktop" /></aside>
+export function AppSidebar(props: { route: RouteName; collapsed: boolean; onToggle: () => void }) {
+  return <aside className="app-sidebar" id="desktop-navigation"><SidebarContent route={props.route} compact={props.collapsed} onToggle={props.onToggle} surface="desktop" /></aside>
 }
 
 function initialTheme(): 'light' | 'dark' {
@@ -107,12 +109,11 @@ export function AppHeader(props: { route: RouteName; collapsed: boolean; toggleS
     <header className="app-header">
       <div className="header-leading">
         <button className="icon-button sidebar-toggle" type="button" aria-label="切换导航" title={props.collapsed ? '展开导航' : '收起导航'} onClick={toggleNavigation}><UiIcon name="sidebar" /></button>
-        <div className="header-divider" />
-        <div className="breadcrumb" aria-label="当前位置"><span>{groupFor(props.route).label}</span><span className="breadcrumb-separator">/</span><strong>{ROUTES.find(item => item.name === props.route)?.label ?? '工作台'}</strong></div>
+        <button className="search-trigger" type="button" onClick={openFinder} aria-label="搜索页面"><UiIcon name="search" /><span>搜索页面</span><kbd>Ctrl K</kbd></button>
       </div>
       <div className="header-tools">
-        <button className="search-trigger" type="button" onClick={openFinder} aria-label="搜索页面"><UiIcon name="search" /><span>搜索页面…</span><kbd>⌘ / Ctrl K</kbd></button>
         <button className="icon-button theme-toggle" type="button" onClick={toggleTheme} aria-label={themeLabel} title={themeLabel}>{theme === 'light' ? <UiIcon name="sun" /> : null}{theme === 'dark' ? <UiIcon name="moon" /> : null}</button>
+        <LayoutSettings />
         <span className="environment-badge"><span className="status-dot" />{oidcMode ? '受控会话' : '本地开发'}</span>
       </div>
     </header>
@@ -132,5 +133,5 @@ export function AppHeader(props: { route: RouteName; collapsed: boolean; toggleS
 }
 
 export function AppFooter() {
-  return <footer><span>OpsWeave <span className="footer-dot">·</span> 只读诊断 MVP</span><span>证据引用校验不代表根因已经被证明。开发预览不代表生产验收。</span></footer>
+  return <footer><span>OpsWeave <span className="footer-dot">·</span> 运维管理平台</span><span>{oidcMode ? '平台会话' : '本地开发预览'}</span></footer>
 }

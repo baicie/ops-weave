@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-source.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "instanceId"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "MANUAL_SAMPLE",
+        "ZABBIX_HOST",
+        "ZABBIX_METRIC",
+        "ZABBIX_LOG"
+      ]
+    },
+    "instanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+    },
+    "configuration": {
+      "$ref": "workflow-source-configuration-pin.schema.json"
+    },
+    "metric": {
+      "$ref": "workflow-metric-source-pin.schema.json"
+    },
+    "log": {
+      "$ref": "workflow-log-source-pin.schema.json"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "MANUAL_SAMPLE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "instanceId": {
+            "const": "manual"
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "configuration"
+              ]
+            },
+            {
+              "required": [
+                "metric"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "ZABBIX_METRIC"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "configuration",
+          "metric"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "metric"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "ZABBIX_LOG"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "configuration",
+          "log"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "log"
+          ]
+        }
+      }
+    }
+  ]
+}

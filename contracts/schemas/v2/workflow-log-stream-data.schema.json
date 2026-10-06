@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "batchId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "readAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "storage": {
+      "const": "clickhouse"
+    },
+    "expectedRecords": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "afterIndex": {
+      "type": "integer",
+      "minimum": -1,
+      "maximum": 999
+    },
+    "nextIndex": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "workflow-log-window-record.schema.json"
+      }
+    }
+  },
+  "required": [
+    "batchId",
+    "readAt",
+    "storage",
+    "expectedRecords",
+    "complete",
+    "afterIndex",
+    "nextIndex",
+    "records"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "nextIndex": {
+            "type": "integer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "minItems": 50
+          }
+        }
+      }
+    }
+  ],
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-stream-data"
+}

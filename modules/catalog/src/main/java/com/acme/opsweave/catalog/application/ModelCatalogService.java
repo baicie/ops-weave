@@ -32,6 +32,14 @@ public final class ModelCatalogService {
         authorize(p, false);
         return store.find(p.tenantId(), ref).orElseThrow(() -> new CatalogFailure(CatalogFailure.Code.NOT_FOUND));
     }
+    public ModelDefinition resolve(Principal p,ModelDefinition.Ref ref){authorize(p,false);return builtins.stream().filter(d->d.ref().equals(ref)).findFirst().orElseGet(()->find(p,ref).definition());}
+    public ModelRevisionReview.Review review(Principal p,ModelDefinition.Ref ref,int expected,String digest){
+        authorize(p,false);if(!ref.id().startsWith("custom.")||expected<1||expected>1000000||digest==null||!digest.matches("sha256:[a-f0-9]{64}"))throw new IllegalArgumentException();
+        var candidate=store.draft(p.tenantId(),p.subjectId().value(),ref).orElseThrow(()->new CatalogFailure(CatalogFailure.Code.NOT_FOUND));if(candidate.editVersion()!=expected||!candidate.digest().equals(digest)||store.find(p.tenantId(),ref).isPresent())throw new CatalogFailure(CatalogFailure.Code.CONFLICT);
+        var previous=store.latest(p.tenantId(),ref.id()).map(ModelCatalogStore.Entry::definition).orElse(null);boolean endpoints=true;
+        var e=candidate.definition().endpoints();if(e!=null)for(var endpoint:List.of(e.from(),e.to())){var target=builtins.stream().filter(d->d.ref().equals(endpoint)).findFirst().or(()->store.find(p.tenantId(),endpoint).map(ModelCatalogStore.Entry::definition));if(target.isEmpty()||target.get().kind()!=ModelDefinition.Kind.ENTITY)endpoints=false;}
+        return ModelRevisionReview.compare(previous,candidate.definition(),expected,clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS),endpoints);
+    }
     public ModelPreview preview(Principal p, ModelDefinition definition, Map<String, Object> sample) {
         authorize(p, false); return ModelPreview.evaluate(definition, sample);
     }

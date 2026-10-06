@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-replay-execute",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "planId",
+    "inputDigest",
+    "batchDigest"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$(?![\\s\\S])"
+    },
+    "planId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$(?![\\s\\S])"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+    },
+    "batchDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+    }
+  }
+}

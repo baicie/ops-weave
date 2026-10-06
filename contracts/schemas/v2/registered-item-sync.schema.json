@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "registered-item-sync",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "2.0" },
+    "storage": { "enum": ["postgres", "memory"] },
+    "dataMode": { "enum": ["labeled-fixture", "zabbix-jsonrpc", "closed", "unavailable", "none"] },
+    "sourceId": { "type": "string", "format": "uuid" },
+    "sourceInstanceId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}(?![\\s\\S])" },
+    "configurationRevision": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "connectionDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}(?![\\s\\S])" },
+    "hostGroupIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[1-9][0-9]{0,19}(?![\\s\\S])" }
+    },
+    "scopeDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}(?![\\s\\S])" },
+    "pages": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "fetched": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "accepted": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "rejected": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "retired": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "snapshotComplete": { "type": "boolean" },
+    "scanConsistency": { "enum": ["offset-scan-attempt", "hostid-watermark-snapshot", "itemid-watermark-snapshot", "none"] },
+    "syncRunId": { "type": ["string", "null"], "format": "uuid" },
+    "error": { "enum": ["forbidden", "source_unavailable"] },
+    "failureCode": { "enum": ["SOURCE_SCAN_BUSY", "SOURCE_SCAN_LOST", "SOURCE_SCAN_DEADLINE", "SOURCE_SCAN_LIMIT", "SOURCE_SCAN_UNVERIFIED", "SOURCE_FETCH_FAILED", "RAW_PERSIST_FAILED", "MAPPING_FAILED", "INVENTORY_WRITE_FAILED", "CHECKPOINT_FAILED", "PAGE_NOT_ADVANCED", "PAGE_LIMIT_EXCEEDED"] },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 200 }
+  },
+  "required": ["schemaVersion", "storage", "dataMode", "sourceId", "sourceInstanceId", "configurationRevision", "connectionDigest", "hostGroupIds", "scopeDigest", "pages", "fetched", "accepted", "rejected", "retired", "snapshotComplete", "scanConsistency", "syncRunId"],
+  "allOf": [
+    {
+      "if": { "properties": { "error": { "const": "forbidden" } }, "required": ["error"] },
+      "then": { "properties": { "dataMode": { "const": "none" }, "snapshotComplete": { "const": false }, "pages": { "const": 0 }, "fetched": { "const": 0 }, "accepted": { "const": 0 }, "rejected": { "const": 0 }, "retired": { "const": 0 }, "scanConsistency": { "const": "none" }, "syncRunId": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "error": { "const": "source_unavailable" } }, "required": ["error"] },
+      "then": { "properties": { "snapshotComplete": { "const": false }, "retired": { "const": 0 } } }
+    },
+    {
+      "if": { "properties": { "snapshotComplete": { "const": true } }, "required": ["snapshotComplete"] },
+      "then": { "required": ["syncRunId"], "properties": { "syncRunId": { "type": "string" }, "scanConsistency": { "enum": ["hostid-watermark-snapshot", "itemid-watermark-snapshot"] } } }
+    }
+  ]
+}

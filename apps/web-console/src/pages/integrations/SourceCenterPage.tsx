@@ -1,18 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
-import { oidcMode, usePlatformSession } from '../../state/platform-session.ts'
+import { usePageActive, usePageCloseGuard, type PageCloseReason } from '../../state/page-workspace.ts'
+import { useInitialPageRead } from '../../state/initial-page-read.ts'
+import { localPreviewMode, oidcMode, usePlatformSession } from '../../state/platform-session.ts'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { confirmSource, readSetup, readSources, workflowLink, type Command, type Setup, type SourcePage, type SourceType } from '../../api/source-setups.ts'
+import { confirmSource, readSetup, readSetupContinuation, readSources, setupWorkflowLink, type Command, type Setup, type SourcePage, type SourceType } from '../../api/source-setups.ts'
 import { runConnectionCheck, type SourceConnectionCheck } from '../../api/source-connection-checks.ts'
-import type { Model } from '../../api/workflows.ts'
 
-const titles: Record<SourceType, string> = { ZABBIX_HOST: 'Zabbix', MANUAL_SAMPLE: 'JSON 手工样本', CMDB_SNAPSHOT: 'CMDB 快照' }
+import { IntegrationSearchField } from '../../components/integrations/IntegrationSearchField.tsx'
+import { SourceCatalog } from '../../components/integrations/SourceCatalog.tsx'
+import { IntegrationViewTabs } from '../../components/integrations/IntegrationViewTabs.tsx'
+import { sourceCatalog, sourceTitles as titles } from '../../components/integrations/source-catalog.ts'
+import { SourceTaskList } from '../../components/integrations/SourceTaskList.tsx'
+import { SourceSetupDrawer } from '../../components/integrations/SourceSetupDrawer.tsx'
+import { SourceMetricCatalog } from './SourceMetricCatalog.tsx'
+import { SourceInstancePanel } from './SourceInstancePanel.tsx'
+import { SourceCredentialPanel } from './SourceCredentialPanel.tsx'
+import type { InstancePage } from '../../api/source-instances.ts'
 export function SourceCenterPage() {
+  const pageActive = usePageActive()
+  const pageActiveRef = useRef(pageActive)
+  pageActiveRef.current = pageActive
+  const [instanceRequest, setInstanceRequest] = useState<{ nonce: number; id: string } | null>(null)
+  const [tab, setTab] = useState<'catalog' | 'tasks' | 'instances' | 'credentials'>('instances')
+  const [instancePage, setInstancePage] = useState<InstancePage | null>(null)
+  const [instanceRefresh, setInstanceRefresh] = useState(0)
+  const [instanceGuard, setInstanceGuard] = useState<PageCloseReason>(null)
+  const [credentialGuard, setCredentialGuard] = useState<PageCloseReason>(null)
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<SourceType | 'ALL'>('ALL')
   const [page, setPage] = useState<SourcePage | null>(null)
   const [kind, setKind] = useState<SourceType>('ZABBIX_HOST')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [target, setTarget] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -22,25 +41,31 @@ export function SourceCenterPage() {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const focusRef = useRef<HTMLElement | null>(null)
   const activeRef = useRef<AbortController | undefined>(undefined)
+  const readingCatalog = useRef(false)
   const disposedRef = useRef(false)
   const requestIdRef = useRef('')
   const ready = usePlatformSession(change => {
-    activeRef.current?.abort(); activeRef.current = undefined; setBusy(false); setPage(null); setPending(null); setView(null); setName(''); setDescription(''); setTarget(''); setProbe(null); setError(change.error?.message ?? ''); setNotice(''); dialogRef.current?.close()
+    activeRef.current?.abort(); activeRef.current = undefined; setBusy(false); setPage(null); setInstancePage(null); setInstanceRequest(null); setTab('instances'); setQuery(''); setTypeFilter('ALL'); setPending(null); setView(null); setName(''); setDescription(''); setProbe(null); setError(change.error?.message ?? ''); setNotice(''); dialogRef.current?.close()
   })
-  useEffect(() => () => { disposedRef.current = true; activeRef.current?.abort() }, [])
+  useEffect(() => { disposedRef.current = false; return () => { disposedRef.current = true; activeRef.current?.abort() } }, [])
+  useEffect(() => {
+    if (readingCatalog.current && (!pageActive || tab !== 'catalog' && tab !== 'tasks')) {
+      activeRef.current?.abort(); activeRef.current = undefined; readingCatalog.current = false; setBusy(false)
+    }
+  }, [pageActive, tab])
   const disabled = busy || !ready
+  usePageCloseGuard(busy || pending ? { message: pending ? '接入确认结果仍待核对，请先查询原请求回执。' : '接入请求正在处理，请等待结果后关闭。', blocked: true } : instanceGuard?.blocked ? instanceGuard : credentialGuard?.blocked ? credentialGuard : !view && name.trim() ? { message: '接入配置有尚未保存的内容。' } : instanceGuard ?? credentialGuard)
   const option = page?.types.find(t => t.id === kind)
-  const selectedModel = page?.models.find(m => m.definition.id + '@' + m.definition.revision === target)
-  async function run(work: (signal: AbortSignal, current: () => boolean) => Promise<void>) {
-    if (disabled) return; const c = new AbortController(); activeRef.current?.abort(); activeRef.current = c; setBusy(true); setError(''); setNotice(''); const current = () => !disposedRef.current && activeRef.current === c && !c.signal.aborted
-    try { await work(c.signal, current) } catch (e) { if (current()) setError(e instanceof Error ? e.message : '数据源请求失败') } finally { if (current()) setBusy(false) }
+  async function run(work: (signal: AbortSignal, current: () => boolean) => Promise<void>, catalogRead = false) {
+    if (disabled) return; const c = new AbortController(); activeRef.current?.abort(); activeRef.current = c; readingCatalog.current = catalogRead; setBusy(true); setError(''); setNotice(''); const current = () => !disposedRef.current && activeRef.current === c && !c.signal.aborted
+    try { await work(c.signal, current) } catch (e) { if (current()) setError(e instanceof Error ? e.message : '数据源请求失败') } finally { if (current()) { readingCatalog.current = false; setBusy(false) } }
   }
   function requireSession() {
     if (ready) return true
-    setError(oidcMode ? '请先在页面顶部登录平台，再选择数据源类型。' : '请先在页面顶部填写平台开发 Token，再选择数据源类型。')
-    const panel = document.querySelector<HTMLElement>('[data-platform-session]')
+    setError(localPreviewMode ? '本地会话尚未就绪，请使用页面上方的重新连接按钮。' : oidcMode ? '请先在页面顶部登录平台，再选择数据源类型。' : '请先在页面顶部填写平台开发 Token，再选择数据源类型。')
+    const panel = document.querySelector<HTMLElement>(localPreviewMode ? '[data-local-session]' : '[data-platform-session]')
     panel?.scrollIntoView({ block: 'center' })
-    const input = panel?.querySelector<HTMLInputElement>('input')
+    const input = panel?.querySelector<HTMLElement>(localPreviewMode ? 'button' : 'input')
     input?.focus()
     return false
   }
@@ -48,8 +73,7 @@ export function SourceCenterPage() {
     if (!ready || sourcePage?.types.find(t => t.id === type)?.status !== 'AVAILABLE') return
     focusRef.current = trigger; setKind(type); setView(null); setPending(null); setProbe(null); setError(''); setNotice('')
     setName(type === 'ZABBIX_HOST' ? 'Zabbix 主机接入' : '手工样本接入'); setDescription('')
-    const m = sourcePage?.models.find(m => m.definition.id === (type === 'ZABBIX_HOST' ? 'builtin.host' : 'builtin.service')) ?? sourcePage?.models[0]
-    setTarget(m ? m.definition.id + '@' + m.definition.revision : ''); requestIdRef.current = crypto.randomUUID(); dialogRef.current?.showModal()
+    requestIdRef.current = crypto.randomUUID(); dialogRef.current?.showModal()
   }
   function choose(type: SourceType) {
     if (busy || !requireSession()) return
@@ -61,20 +85,35 @@ export function SourceCenterPage() {
       open(type, trigger, p)
     })
   }
-  function load() { if (!requireSession()) return; void run(async (s, current) => { const p = await readSources(s); if (current()) { setPage(p); setNotice('已读取可用类型和本人接入配置。') } }) }
+  function load() { if (!requireSession()) return; void run(async (s, current) => { const p = await readSources(s); if (current()) setPage(p) }, true) }
   function inspect(s: Setup) {
+    if (s.source.instanceId === 'connection-' + s.id) { setTab('instances'); setInstanceRequest({ nonce: Date.now(), id: s.id }); return }
     focusRef.current = document.activeElement as HTMLElement; setView(s); setKind(s.source.kind); setName(s.name); setDescription(s.description)
-    setTarget(s.initialTarget.id + '@' + s.initialTarget.revision); setPending(null); setProbe(null); setError(''); setNotice(''); dialogRef.current?.showModal()
+    setPending(null); setProbe(null); setError(''); setNotice(''); dialogRef.current?.showModal()
   }
   function close() { if (!busy) dialogRef.current?.close() }
-  function go(id: string) { void run(async (s, current) => { const r = await readSetup(id, s); if (current()) { dialogRef.current?.close(); location.hash = workflowLink(r.workflow) } }) }
+  function remember(setup: Setup) {
+    setPage(previous => {
+      if (!previous) return previous
+      const items = [setup, ...previous.setups.items.filter(item => item.id !== setup.id)].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      return { ...previous, setups: { items: items.slice(0, 20), truncated: previous.setups.truncated || items.length > 20 } }
+    })
+  }
+  function go(id: string) { void run(async (s, current) => {
+    const r = await readSetup(id, s, pending ?? undefined)
+    if (!current()) return
+    if (pending) setInstanceRefresh(value => value + 1)
+    setPending(null); setView(r.setup); setName(r.setup.name); setDescription(r.setup.description); remember(r.setup)
+    const latest = await readSetupContinuation(id, s)
+    if (current()) { dialogRef.current?.close(); if (pageActiveRef.current) location.hash = setupWorkflowLink(r.setup,latest) }
+  }) }
   function confirm() {
     if (kind === 'CMDB_SNAPSHOT' || view) return
-    const model = selectedModel, connection = option?.connection
-    if (!pending && (!model || !connection || !name.trim())) return
-    const command = pending ?? { requestId: requestIdRef.current, name: name.trim(), description: description.trim(), source: { kind: kind as 'ZABBIX_HOST' | 'MANUAL_SAMPLE', instanceId: connection!.instanceId }, connectionDigest: connection!.digest, target: { id: model!.definition.id, revision: model!.definition.revision, digest: model!.digest } }
+    const connection = option?.connection
+    if (!pending && (!connection || !name.trim())) return
+    const command = pending ?? { requestId: requestIdRef.current, name: name.trim(), description: description.trim(), source: { kind: kind as 'ZABBIX_HOST' | 'MANUAL_SAMPLE', instanceId: connection!.instanceId }, connectionDigest: connection!.digest }
     setPending(command)
-    void run(async (s, current) => { const r = await confirmSource(command, s); if (current()) { setPending(null); dialogRef.current?.close(); location.hash = workflowLink(r.workflow) } })
+    void run(async (s, current) => { const r = await confirmSource(command, s); if (current()) { setPending(null); setView(r.setup); remember(r.setup); setInstanceRefresh(value => value + 1); dialogRef.current?.close(); if (pageActiveRef.current) location.hash = setupWorkflowLink(r.setup,r.workflow) } })
   }
   function test() {
     setProbe(null)
@@ -84,40 +123,38 @@ export function SourceCenterPage() {
       if (current()) setProbe(r.check)
     })
   }
-  return <section className="source-center" data-page="source-center">
-    <header className="source-heading"><div><div className="model-eyebrow">DATA SOURCES · 数据接入</div><h2>数据源中心</h2><p>选择数据从哪里来，再把它整理成你的模型。</p></div><button type="button" disabled={busy} onClick={load}>读取数据源</button></header>
-    {!ready ? <p className="source-access-hint" role="status">{oidcMode ? '尚未登录平台。请先在页面顶部登录，再创建接入配置。' : '尚未建立开发会话。请在页面顶部填写平台开发 Token；刷新或会话过期后需要重新填写。'}</p> : null}
-    <ol className="source-steps" aria-label="接入步骤"><li><span>1</span><div><strong>选择类型</strong><small>确定来源与数据范围</small></div></li><li><span>2</span><div><strong>配置接入</strong><small>命名并选择初始目标模型</small></div></li><li><span>3</span><div><strong>画布编排</strong><small>映射、清洗与样本预览</small></div></li></ol>
-    <div className="source-section-title"><h3>选择数据源类型</h3><span>{page ? (page.storage === 'postgres' ? 'PostgreSQL 持久化' : '开发内存 · 重启后丢失') : ready ? '直接选择类型即可读取并配置' : '先填写平台会话凭据'}</span></div>
-    <div className="source-type-grid">
-      <article className="source-type-card"><div className="source-card-top"><span className="source-mark source-mark-zabbix">Z</span><span className="model-pill">监控平台</span></div><h3>Zabbix</h3><p>读取已有主机采集批次，配置字段映射与默认清洗规则。</p><div className="source-card-meta"><span>Host 主机</span><span>版本化连接器</span></div><small>{page?.types.find(t => t.id === 'ZABBIX_HOST')?.connection?.dataMode === 'fixture' ? 'Fixture · 合成来源' : page?.types.find(t => t.id === 'ZABBIX_HOST')?.status === 'AVAILABLE' ? '平台已配置连接 · 连通性待测试' : page ? '当前身份无可用平台连接' : '读取后查看可用连接'}</small><button type="button" disabled={busy || !!page && page.types.find(t => t.id === 'ZABBIX_HOST')?.status !== 'AVAILABLE'} onClick={() => choose('ZABBIX_HOST')}>配置 Zabbix →</button></article>
-      <article className="source-type-card"><div className="source-card-top"><span className="source-mark source-mark-json">{'{ }'}</span><span className="model-pill">样本输入</span></div><h3>JSON 手工样本</h3><p>从少量样本开始，验证自定义实体字段和清洗转换逻辑。</p><div className="source-card-meta"><span>内置 / 自定义实体</span><span>1–5 条样本</span></div><small>MANUAL_SAMPLE · 样本在画布中输入</small><button type="button" disabled={busy} onClick={() => choose('MANUAL_SAMPLE')}>配置手工样本 →</button></article>
-      <article className="source-type-card source-type-legacy"><div className="source-card-top"><span className="source-mark">▦</span><span className="model-pill">已有导入入口</span></div><h3>CMDB 快照</h3><p>导入已有资源快照，核对来源对象与资源绑定。</p><div className="source-card-meta"><span>快照导入</span><span>来源核对</span></div><small>画布配置尚未开放</small><a href="#/integrations/cmdb">前往快照导入 ↗</a></article>
+
+  function tasks(type: SourceType | 'ALL' = 'ALL') {
+    setTab('instances'); setTypeFilter(type); setQuery('')
+  }
+  useInitialPageRead({ ready, loaded: !!page, pending: busy, blocked: tab !== 'catalog' && tab !== 'tasks', read: load })
+  function catalog() { setTab('catalog'); setTypeFilter('ALL'); setQuery('') }
+  const matchedTypes = sourceCatalog.filter(t => (typeFilter === 'ALL' || typeFilter === t.id) && (titles[t.id] + ' ' + t.category + ' ' + t.description).toLowerCase().includes(query.trim().toLowerCase()))
+  const matchedTasks = (page?.setups.items ?? []).filter(s => (typeFilter === 'ALL' || s.source.kind === typeFilter) && (s.name + ' ' + titles[s.source.kind] + ' ' + s.source.instanceId).toLowerCase().includes(query.trim().toLowerCase()))
+  return <section className="source-center integration-center" data-page="source-center">
+    <header className="source-heading"><div><h2>数据源中心</h2><p>管理接入配置与处理流程</p></div><div className="source-heading-actions">{tab === 'catalog' || tab === 'tasks' ? <Button variant="outline" aria-label="读取数据源" disabled={busy || !ready} onClick={load}>{busy ? '正在读取…' : error && !page ? '重试读取' : '刷新列表'}</Button> : null}<Button onClick={catalog}>创建接入</Button></div></header>
+    {!ready ? <p className="source-access-hint" role="status">{localPreviewMode ? '本地会话尚未就绪，请使用页面上方的重新连接按钮。' : oidcMode ? '尚未登录平台。请先在页面顶部登录，再创建接入配置。' : '尚未建立开发会话。请在页面顶部填写平台开发 Token。'}</p> : null}
+    <IntegrationViewTabs label="数据源视图" value={tab} items={[{ id: 'instances', label: '已配置接入' + (instancePage ? '（' + instancePage.items.length + (instancePage.truncated ? '+' : '') + '）' : '') }, { id: 'catalog', label: '接入类型' }, { id: 'credentials', label: '凭据管理' }, { id: 'tasks', label: '接入回执' }]} change={value => { setTypeFilter('ALL'); setQuery(''); setTab(value as typeof tab) }}/>
+    <div className="integration-surface">
+      <div hidden={tab === 'instances' || tab === 'credentials'} inert={tab === 'instances' || tab === 'credentials'}>
+      <IntegrationSearchField label={tab === 'catalog' ? '搜索接入类型' : '搜索接入任务'} placeholder={tab === 'catalog' ? '搜索接入类型，例如 Zabbix' : '搜索接入名称或来源实例'} value={query} onChange={setQuery} clearLabel="清除接入搜索"/>
+      <div className="integration-category-filters" aria-label="接入分类"><button data-slot="button" aria-pressed={typeFilter === 'ALL'} onClick={() => setTypeFilter('ALL')}>全部</button>{sourceCatalog.map(t => <button data-slot="button" key={t.id} aria-pressed={typeFilter === t.id} onClick={() => setTypeFilter(t.id)}>{t.category}</button>)}</div>
+      {tab === 'catalog' ? <SourceCatalog items={matchedTypes.map(t => {
+        const connection = page?.types.find(option => option.id === t.id)
+        return { ...t,
+          savedCount: instancePage?.items.filter(s => s.source.kind === t.id).length,
+          truncated: instancePage?.truncated ?? false,
+          createDisabled: busy || !!page && connection?.status !== 'AVAILABLE',
+          note: t.id === 'ZABBIX_HOST' ? connection?.connection?.dataMode === 'fixture' ? 'Fixture · 合成来源' : connection?.status === 'AVAILABLE' ? '已有连接 · 可显式测试' : page ? '当前身份无可用连接' : '选择后读取连接' : t.id === 'MANUAL_SAMPLE' ? '手工 JSON · 1–5 条记录' : '已有快照导入入口',
+        }
+      })} tasksDisabled={busy} onCreate={choose} onTasks={tasks}/>
+        : <SourceTaskList items={matchedTasks} loaded={!!page} busy={busy} failed={!!error} filtered={!!query.trim() || typeFilter !== 'ALL'} truncated={page?.setups.truncated ?? false} disabled={disabled} onInspect={inspect} onContinue={go} onCreate={catalog}/>}
+      {tab === 'catalog' && !matchedTypes.length ? <div className="integration-list-empty"><strong>没有匹配的接入类型</strong><p>调整搜索或分类筛选。</p></div> : null}
+      </div>
+      <SourceInstancePanel requested={instanceRequest} active={pageActive && tab === 'instances'} sources={page} guard={setInstanceGuard} report={setInstancePage} refresh={instanceRefresh} kind={typeFilter} kindChange={setTypeFilter}/>
+      <SourceCredentialPanel active={pageActive && tab === 'credentials'} guard={setCredentialGuard}/>
     </div>
-    <div className="source-section-title source-saved-heading"><div><h3>我的接入配置</h3><p>保存的接入方案与初始工作流，不代表已启动采集。</p></div><a href="#/integrations/workflows">查看全部工作流 →</a></div>
-    {!page?.setups.items.length ? <div className="source-empty"><span aria-hidden="true">↳</span><div><strong>{page ? '开始你的第一份接入配置' : '读取后查看已保存配置'}</strong><p>选择上方类型，确认配置后直接进入画布。</p></div></div> : null}
-    <div className="source-saved-list">{(page?.setups.items ?? []).map(setup => <SetupRow key={setup.id} setup={setup} disabled={disabled} inspect={() => inspect(setup)} open={() => go(setup.id)} />)}</div>
-    {page?.setups.truncated ? <p>仅显示最近20份配置；更多工作流可在工作流页查询。</p> : null}
     <p role="alert">{error}</p><p role="status">{busy ? '正在处理…' : notice}</p>
-    <dialog className="model-drawer source-drawer" aria-label="数据源配置" ref={dialogRef} onCancel={e => { if (busy) e.preventDefault() }} onClose={() => focusRef.current?.focus()}>
-      <header className="model-drawer-heading"><div><div className="model-eyebrow">{view ? '已保存 · 创建时配置' : '步骤 2 / 3 · 配置接入'}</div><h3>{titles[kind]}</h3></div><button type="button" className="model-close" aria-label="关闭数据源配置" disabled={busy} onClick={close}>×</button></header>
-      <div className="model-drawer-body">
-        <fieldset className="model-form" disabled={disabled || !!pending || !!view}><label>接入名称<input aria-label="接入名称" maxLength={80} value={name} onInput={e => setName((e.target as HTMLInputElement).value)} /></label><label>说明<Textarea aria-label="接入说明" maxLength={500} rows={2} value={description} onInput={e => setDescription((e.target as HTMLTextAreaElement).value)} /></label>
-          {!view ? <label>初始目标模型<select aria-label="初始目标模型" value={target} onChange={e => setTarget((e.target as HTMLSelectElement).value)}>{(page?.models ?? []).map(model => <TargetOption key={model.definition.id + '@' + model.definition.revision} model={model} selected={target} />)}</select></label> : null}</fieldset>
-        {view ? <><dl className="source-connection"><dt>来源实例</dt><dd>{view.source.instanceId}</dd><dt>创建时来源标记</dt><dd>{view.dataMode}</dd><dt>初始目标模型</dt><dd>{view.initialTarget.id + ' @ ' + view.initialTarget.revision}</dd><dt>创建时间</dt><dd>{view.createdAt}</dd></dl><p className="model-muted">这是创建时的配置快照。继续编排打开第一版工作流；后续修改以画布中保存的定义为准。</p></> : null}
-        {!view && kind === 'ZABBIX_HOST' ? <section className="source-connection-box"><h4>使用平台已配置的连接</h4><dl className="source-connection"><dt>来源实例</dt><dd>{option?.connection?.instanceId}</dd><dt>API 地址</dt><dd>{option?.connection?.endpoint ?? 'Fixture · 无外部连接'}</dd><dt>凭据引用</dt><dd>{option?.connection?.credentialRef ?? '无需凭据'}</dd><dt>数据标记</dt><dd>{option?.connection?.dataMode}</dd></dl><p>本页选择已有连接。新增地址和凭据由平台配置，暂不支持多实例新增。</p><button type="button" disabled={disabled || !!pending} onClick={test}>测试连接</button>{probe ? <div className="source-probe" role="status"><strong>{probe.dataMode === 'labeled-fixture' ? 'Fixture 自检 · 非真实连接' : probe.reachable ? '连接测试成功' : '连接测试失败'}</strong><p>{'来源标记：' + probe.dataMode + ' · 状态：' + probe.statusCode}</p><p>{probe.reportedVersion ? '来源报告版本：' + probe.reportedVersion + '；连通性测试不等于完整采集兼容验收。' : '未取得真实版本信息。'}</p></div> : null}</section> : null}
-        {!view && kind === 'MANUAL_SAMPLE' ? <div className="source-connection-box"><h4>使用手工 JSON 样本</h4><p>确认后在画布输入1–5条标量对象样本，用于只读转换预览。样本正文不保存在接入配置中。</p><span className="model-pill">MANUAL_SAMPLE</span></div> : null}
-        {!view ? <section className="source-next"><h4>确认后，为你准备好</h4><p>数据输入 → 字段映射 → 去除空白 → 模型校验 → 输出预览</p><small>默认规则可在画布调整；确认只保存配置和草稿，不启动采集。</small></section> : null}
-        {page?.modelsTruncated ? <p>模型列表仅包含前50个自定义版本。</p> : null}
-        {pending ? <p className="source-pending">确认请求已固定。若结果待确认，可按原请求查询或重试；重新配置前请先查询，避免重复创建。</p> : null}<p role="alert">{error}</p><p role="status">{busy ? '正在处理…' : notice}</p>
-      </div><footer className="model-drawer-footer"><button type="button" disabled={busy} onClick={close}>关闭</button>{pending ? <button type="button" disabled={disabled} onClick={() => go(pending.requestId)}>查询确认结果</button> : null}{!view ? <Button type="button" className="source-primary" disabled={disabled || !name.trim() || !selectedModel} onClick={confirm}>{pending ? '按原配置重试' : '确认并进入画布'}</Button> : null}{view ? <Button type="button" className="source-primary" disabled={disabled} onClick={() => go(view.id)}>继续编排</Button> : null}</footer>
-    </dialog>
+    <SourceSetupDrawer ref={dialogRef} active={pageActive} kind={kind} connection={option?.connection} models={page?.models ?? []} view={view} probe={probe} pending={pending} busy={busy} disabled={disabled} name={name} description={description} changeName={setName} changeDescription={setDescription} error={error} notice={notice} close={close} closed={() => focusRef.current?.focus()} test={test} confirm={confirm} go={go} metricsContent={enabled => <SourceMetricCatalog enabled={enabled} />} />
   </section>
-}
-function TargetOption(p: { model: Model; selected: string }) {
-  const value = p.model.definition.id + '@' + p.model.definition.revision
-  return <option value={value}>{p.model.definition.label + ' · ' + value}</option>
-}
-function SetupRow(p: { setup: Setup; disabled: boolean; inspect: () => void; open: () => void }) {
-  return <article className="source-saved-row"><span className="source-mark">{p.setup.source.kind === 'ZABBIX_HOST' ? 'Z' : '{ }'}</span><div className="source-saved-info"><h4>{p.setup.name}</h4><p>{titles[p.setup.source.kind] + ' · ' + p.setup.dataMode + ' · ' + p.setup.source.instanceId + ' → ' + p.setup.initialTarget.id + ' @ ' + p.setup.initialTarget.revision}</p><small>{'接入方案已保存 · ' + new Date(p.setup.createdAt).toLocaleString()}</small></div><div className="source-saved-actions"><button type="button" disabled={p.disabled} onClick={p.inspect}>查看配置</button><button type="button" disabled={p.disabled} onClick={p.open}>继续编排 →</button></div></article>
 }

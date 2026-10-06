@@ -1,0 +1,22 @@
+{
+  "requestId": "00000000-0000-4000-8000-000000000120",
+  "workflowId": "fixture-log-output",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "previewId": "00000000-0000-4000-8000-000000000121",
+  "commandDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "createdAt": "2026-10-04T00:00:02Z",
+  "updatedAt": "2026-10-04T00:00:03Z",
+  "state": "UNKNOWN",
+  "accepted": 2,
+  "filtered": 0,
+  "confirmed": 0,
+  "failed": 0,
+  "unknown": 2,
+  "error": "OUTPUT_UNCONFIRMED",
+  "batchDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "indices": [
+    0,
+    1
+  ]
+}

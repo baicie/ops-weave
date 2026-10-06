@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-connection-configuration.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceId",
+    "revision",
+    "connectorVersion",
+    "endpoint",
+    "credentialPin",
+    "connectionDigest",
+    "createdAt"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "connectorVersion": {
+      "enum": [
+        "host-jsonrpc-v1",
+        "host-jsonrpc-v2"
+      ]
+    },
+    "endpoint": {
+      "$ref": "source-endpoint.schema.json"
+    },
+    "credentialPin": {
+      "$ref": "source-credential-pin.schema.json"
+    },
+    "hostGroupIds": {
+      "$ref": "source-host-group-ids.schema.json"
+    },
+    "connectionDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "connectorVersion": {
+            "const": "host-jsonrpc-v1"
+          }
+        },
+        "required": [
+          "connectorVersion"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "hostGroupIds"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "connectorVersion": {
+            "const": "host-jsonrpc-v2"
+          }
+        },
+        "required": [
+          "connectorVersion"
+        ]
+      },
+      "then": {
+        "required": [
+          "hostGroupIds"
+        ]
+      }
+    }
+  ]
+}

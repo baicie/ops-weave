@@ -64,6 +64,9 @@ public final class ReadZabbixHistoryUseCase {
         if (!concurrency.tryAcquire()) return Result.failure(Kind.UNAVAILABLE, "HISTORY_BUSY");
         try {
             HistoryPage page = history.read(new SourceContext(principal.tenantId(), sourceInstanceId, secretRef), binding, window);
+            if(!metrics.findBinding(principal.tenantId(),sourceInstanceId,itemId).filter(binding::equals).isPresent()
+                ||!metrics.find(principal.tenantId(),binding.metricKey()).filter(definition::equals).isPresent())
+                return Result.failure(Kind.UNAVAILABLE,"METADATA_CHANGED");
             return new Result(Kind.SUCCESS, null, binding, definition, page, dataMode);
         } catch (HistoryReadException failed) {
             return Result.failure(Kind.UNAVAILABLE, failed.code().name());

@@ -1,0 +1,38 @@
+{
+  "items": [
+    {
+      "itemId": "20001",
+      "hostId": "10084",
+      "sourceKey": "system.cpu.util[,user]",
+      "name": "Fixture CPU user time",
+      "sourceUnit": "%",
+      "sourceValueType": "FLOAT",
+      "mappingStatus": "MAPPED",
+      "mapping": {
+        "id": "fixture-cpu-user",
+        "revision": 1,
+        "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "metricKey": "fixture.cpu.usage.user",
+        "unit": "1",
+        "valueType": "DOUBLE",
+        "valueTransform": "multiply:0.01"
+      }
+    },
+    {
+      "itemId": "20002",
+      "hostId": "10084",
+      "sourceKey": "fixture.unmapped.metric",
+      "name": "Fixture unmapped item",
+      "sourceUnit": "",
+      "sourceValueType": "TEXT",
+      "mappingStatus": "NO_MAPPING",
+      "mapping": null
+    }
+  ],
+  "complete": true,
+  "scanConsistency": "LABELED_FIXTURE",
+  "statusCode": "READ_VERIFIED",
+  "fingerprint": "sha256:cf86856e5daed0c8b3a56e1ddb1c13e4c18993eddfc2f12203b5c26196c727a4",
+  "scope": "FIRST_ITEM_PAGE",
+  "limit": 20
+}

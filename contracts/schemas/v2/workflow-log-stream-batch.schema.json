@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-stream-batch",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "till": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "enum": [
+        "IN_FLIGHT",
+        "CONFIRMED",
+        "UNKNOWN",
+        "FAILED"
+      ]
+    },
+    "inputCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "filtered": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "batchDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "OUTPUT_REJECTED",
+            "OUTPUT_UNCONFIRMED"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reconcilesBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "deduplicated": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "indices": {
+      "type": "array",
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 999
+      }
+    },
+    "positions": {
+      "type": "array",
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "date-time",
+        "maxLength": 30
+      }
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "id",
+    "workflowId",
+    "revision",
+    "digest",
+    "from",
+    "till",
+    "createdAt",
+    "updatedAt",
+    "state",
+    "inputCount",
+    "filtered",
+    "batchDigest",
+    "error",
+    "reconcilesBatchId",
+    "deduplicated",
+    "indices",
+    "positions",
+    "inputDigest"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "UNKNOWN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "OUTPUT_UNCONFIRMED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "OUTPUT_REJECTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "IN_FLIGHT",
+              "CONFIRMED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "IN_FLIGHT",
+              "UNKNOWN",
+              "FAILED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "indices": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "reconcilesBatchId": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "deduplicated": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

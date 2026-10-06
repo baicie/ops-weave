@@ -17,6 +17,9 @@ public final class MappingRegistry {
                 throw new IllegalArgumentException("Duplicate mapping for one source key");
             }
         }
+        if (loaded.size()>100 || definitions.stream().map(MappingDefinition::id).distinct().count()!=definitions.size())
+            throw new IllegalArgumentException("Mapping catalog identity/capacity invalid");
+        definitions.forEach(MappingDefinition::pin);
         this.bySourceKey = Map.copyOf(loaded);
     }
 
@@ -25,6 +28,13 @@ public final class MappingRegistry {
             return Optional.empty();
         }
         return Optional.ofNullable(bySourceKey.get(connector + "\0" + itemKey));
+    }
+
+    public List<MappingDefinition> definitions() {
+        return bySourceKey.values().stream().sorted(java.util.Comparator.comparing(MappingDefinition::id)).toList();
+    }
+    public Optional<MappingDefinition> find(com.acme.opsweave.telemetry.domain.MetricMappingPin pin) {
+        return definitions().stream().filter(m -> m.pin().equals(pin)).findFirst();
     }
 
     public boolean isEmpty() {

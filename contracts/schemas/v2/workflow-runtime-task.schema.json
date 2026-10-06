@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identityField": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,47}$"
+            },
+            {
+              "not": {
+                "enum": [
+                  "tenantId",
+                  "tenant_id",
+                  "authorization",
+                  "Authorization",
+                  "constructor",
+                  "prototype",
+                  "secret",
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          ]
+        },
+        "nameField": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,47}$"
+            },
+            {
+              "not": {
+                "enum": [
+                  "tenantId",
+                  "tenant_id",
+                  "authorization",
+                  "Authorization",
+                  "constructor",
+                  "prototype",
+                  "secret",
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "identityField",
+        "nameField"
+      ]
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "INVALID_SAMPLE",
+        "SOURCE_UNAVAILABLE",
+        "FORBIDDEN",
+        "MODEL_CHANGED",
+        "OUTPUT_UNAVAILABLE",
+        "BACKLOG_LIMIT",
+        "RUNTIME_UNAVAILABLE",
+        "OPERATOR_CHANGED",
+        "AUTHORIZATION_EXPIRED",
+        "AUTHORIZATION_REVOKED",
+        "EXECUTION_LIMIT"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000001
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "RUNNING",
+        "STOPPED",
+        "FAILED",
+        "ABANDONED"
+      ]
+    },
+    "cursor": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cursorId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "authorization": {
+      "$ref": "workflow-runtime-authorization.schema.json"
+    }
+  },
+  "required": [
+    "workflowId",
+    "revision",
+    "digest",
+    "settings",
+    "error",
+    "generation",
+    "state",
+    "cursor",
+    "cursorId",
+    "updatedAt"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "generation": {
+            "const": 1000001
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "enum": [
+              "STOPPED",
+              "ABANDONED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "FAILED",
+              "ABANDONED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "ABANDONED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "OUTPUT_UNAVAILABLE"
+            ]
+          },
+          "authorization": false
+        }
+      }
+    }
+  ]
+}

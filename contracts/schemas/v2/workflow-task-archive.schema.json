@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-task-archive",
+  "title": "Private terminal task version metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "reference",
+    "kind",
+    "task",
+    "replacedBy",
+    "nextGeneration",
+    "replacedAt",
+    "schedule"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "kind": {
+      "enum": [
+        "HOST_SCAN",
+        "METRIC_STREAM",
+        "LOG_STREAM"
+      ]
+    },
+    "task": {
+      "allOf": [
+        {
+          "$ref": "workflow-quality-task.schema.json"
+        },
+        {
+          "properties": {
+            "state": {
+              "enum": [
+                "STOPPED",
+                "FAILED",
+                "ABANDONED"
+              ]
+            },
+            "generation": {
+              "maximum": 999998
+            }
+          }
+        }
+      ]
+    },
+    "replacedBy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "nextGeneration": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 999999
+    },
+    "replacedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30
+    },
+    "schedule": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "workflow-quality-task.schema.json"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "STOPPED",
+                    "FAILED"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "HOST_SCAN"
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "properties": {
+          "schedule": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

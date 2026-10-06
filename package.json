@@ -8,9 +8,21 @@
     "pnpm": ">=10.34.0"
   },
   "scripts": {
+    "ops": "node scripts/devctl/run.mjs",
+    "dev": "node scripts/devctl/run.mjs",
+    "dev:start": "node scripts/devctl/run.mjs start all",
+    "dev:restart": "node scripts/devctl/run.mjs restart all",
+    "dev:status": "node scripts/devctl/run.mjs status",
+    "dev:stop": "node scripts/devctl/run.mjs stop all",
+    "dev:logs": "node scripts/devctl/run.mjs logs",
+    "dev:build": "node scripts/devctl/build.mjs",
+    "dev:package": "node scripts/devctl/build.mjs --all",
+    "test:dev": "go -C scripts/devctl test ./...",
     "dev:web": "pnpm --filter @opsweave/web-console dev",
     "build:web": "pnpm --filter @opsweave/web-console build",
     "typecheck:web": "pnpm --filter @opsweave/web-console typecheck",
-    "test:web": "pnpm --filter @opsweave/web-console test:e2e"
+    "test:web": "pnpm --filter @opsweave/web-console test:e2e",
+    "test:dev-session": "node --experimental-strip-types --test tests/acceptance/local-preview.test.mjs",
+    "test:web-local": "pnpm --filter @opsweave/web-console exec playwright test --config playwright.local.config.ts"
   }
 }

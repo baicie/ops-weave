@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-operator-catalog.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "catalogVersion",
+    "digest",
+    "operators"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "catalogVersion": {
+      "const": "1.0.0"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "operators": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "version",
+          "digest",
+          "implementation",
+          "label",
+          "hint",
+          "category",
+          "configKind",
+          "parameters",
+          "input",
+          "output"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "SOURCE",
+              "MAP",
+              "TRIM",
+              "EMPTY_TO_NULL",
+              "DEFAULT",
+              "ENUM_MAP",
+              "SCALE",
+              "FILTER",
+              "MERGE",
+              "VALIDATE",
+              "OUTPUT"
+            ]
+          },
+          "version": {
+            "const": "1"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "implementation": {
+            "type": "string",
+            "pattern": "^builtin-[a-z-]+-v1$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "hint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "category": {
+            "enum": [
+              "STRUCTURE",
+              "TRANSFORM",
+              "ROUTING"
+            ]
+          },
+          "configKind": {
+            "enum": [
+              "EMPTY",
+              "FIELD_MAPPING",
+              "PARAMETERS"
+            ]
+          },
+          "parameters": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "kind"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "kind": {
+                  "enum": [
+                    "FIELD",
+                    "TEXT",
+                    "FACTOR"
+                  ]
+                }
+              }
+            }
+          },
+          "input": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "minimum",
+                  "maximum"
+                ],
+                "properties": {
+                  "id": {
+                    "enum": [
+                      "in",
+                      "out"
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "RECORD_V1",
+                      "VALIDATED_RECORD_V1"
+                    ]
+                  },
+                  "minimum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "maximum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  }
+                }
+              }
+            ]
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "minimum",
+                  "maximum"
+                ],
+                "properties": {
+                  "id": {
+                    "enum": [
+                      "in",
+                      "out"
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "RECORD_V1",
+                      "VALIDATED_RECORD_V1"
+                    ]
+                  },
+                  "minimum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "maximum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

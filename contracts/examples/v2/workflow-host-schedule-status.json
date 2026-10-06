@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "2.0",
+  "available": true,
+  "mode": "LOCAL_DEV_ENTITY",
+  "pollSeconds": 5,
+  "maxSessionBatches": 20,
+  "schedule": null,
+  "task": null
+}

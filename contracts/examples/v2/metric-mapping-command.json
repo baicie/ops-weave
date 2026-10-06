@@ -1,0 +1,9 @@
+{
+  "requestId": "20000000-0000-4000-8000-000000000001",
+  "expectedBindingVersion": 1,
+  "mappingPin": {
+    "id": "zabbix-cpu-user",
+    "revision": 1,
+    "digest": "sha256:99a6d3d6b549bd47da048352fd902f2eb4a3ca54a4c6c8824be20bef33877247"
+  }
+}

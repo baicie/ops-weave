@@ -1,0 +1,13 @@
+{
+  "requestId": "00000000-0000-4000-8000-000000000120",
+  "id": "fixture-log-output",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "previewId": "00000000-0000-4000-8000-000000000121",
+  "samples": [
+    {
+      "eventTime": "2026-10-04T00:00:00Z",
+      "body": "Fixture synthetic log record"
+    }
+  ]
+}

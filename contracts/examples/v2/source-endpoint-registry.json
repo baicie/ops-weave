@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "2.0",
+  "endpoints": [
+    {
+      "id": "fixture-host",
+      "name": "Fixture Host endpoint",
+      "connectorKind": "ZABBIX_HOST",
+      "address": "https://192.0.2.10/api_jsonrpc.php",
+      "tenants": [
+        "endpoint-fixture"
+      ]
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import com.acme.opsweave.identity.domain.Permission;
 import com.acme.opsweave.identity.domain.Principal;
 import com.acme.opsweave.identity.domain.ResourceRef;
 import com.acme.opsweave.integration.api.Connector;
+import com.acme.opsweave.integration.api.RegisteredItemConnector;
 import com.acme.opsweave.integration.api.SourceItemWritePort;
 import com.acme.opsweave.integration.api.SyncRunStore;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.RawRecordCollector;
@@ -87,6 +88,37 @@ public final class IngestZabbixItemsUseCase {
         if (!configuredSourceInstanceId.equals(sourceInstanceId)) {
             return SyncOutcome.denied("SOURCE_MISMATCH");
         }
+        return execute(principal, sourceInstanceId, connector, dataMode, secretRef, false, null);
+    }
+
+    /** Runs an explicitly pinned registered connection; this path can only reconcile its verified host cohort. */
+    public SyncOutcome executeRegistered(
+        Principal principal,
+        String sourceInstanceId,
+        String registeredSecretRef,
+        RegisteredItemConnector registeredConnector,
+        SyncRun.SourceScope sourceScope
+    ) {
+        Objects.requireNonNull(registeredConnector, "registeredConnector");
+        Objects.requireNonNull(registeredSecretRef, "registeredSecretRef");
+        Objects.requireNonNull(sourceScope, "sourceScope");
+        if (sourceInstanceId == null || !sourceInstanceId.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")) {
+            return SyncOutcome.denied("SOURCE_MISMATCH");
+        }
+        if (!sourceInstanceId.equals("connection-"+sourceScope.sourceId())) return SyncOutcome.denied("SOURCE_MISMATCH");
+        return execute(principal, sourceInstanceId, registeredConnector, "zabbix-jsonrpc", registeredSecretRef, true, sourceScope);
+    }
+
+    private SyncOutcome execute(
+        Principal principal,
+        String sourceInstanceId,
+        Connector selectedConnector,
+        String selectedDataMode,
+        String selectedSecretRef,
+        boolean registered,
+        SyncRun.SourceScope sourceScope
+    ) {
+        Objects.requireNonNull(principal, "principal");
         AuthorizationDecision decision = authorization.authorize(
             principal,
             ResourceRef.source(principal.tenantId(), sourceInstanceId),
@@ -95,15 +127,15 @@ public final class IngestZabbixItemsUseCase {
         if (decision.denied()) {
             return SyncOutcome.denied(decision.reasonCode());
         }
-        if ("closed".equals(dataMode) || "unavailable".equals(dataMode)) {
+        if ("closed".equals(selectedDataMode) || "unavailable".equals(selectedDataMode)) {
             return SyncOutcome.unavailable("Zabbix source is not configured");
         }
         Connector.SourceContext context = new Connector.SourceContext(
             principal.tenantId(),
             sourceInstanceId,
-            secretRef
+            selectedSecretRef
         );
-        SyncRun run = syncRuns.start(principal.tenantId(), sourceInstanceId, "item", dataMode);
+        SyncRun run = syncRuns.start(principal.tenantId(), sourceInstanceId, "item", selectedDataMode, sourceScope);
         String cursor = null;
         int pages = 0;
         int fetched = 0;
@@ -114,6 +146,7 @@ public final class IngestZabbixItemsUseCase {
         SyncFailureCode failure = SyncFailureCode.SOURCE_FETCH_FAILED;
         SourceScan.Token scan = null;
         String scanConsistency = SyncScan.OFFSET_ATTEMPT;
+        Set<String> verifiedHostExternalIds = null;
         try {
             failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
             scan = inventory.beginScan(new SourceScan.Scope(principal.tenantId(), sourceInstanceId, "item"), run.id());
@@ -121,7 +154,14 @@ public final class IngestZabbixItemsUseCase {
                 failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
                 inventory.renewScan(scan);
                 failure = SyncFailureCode.SOURCE_FETCH_FAILED;
-                Connector.Page page = connector.fetch(context, cursor, pageSize);
+                Connector.Page page;
+                if (registered) {
+                    var scoped = ((RegisteredItemConnector) selectedConnector).fetchScoped(context, cursor, pageSize);
+                    page = scoped.page();
+                    if (page.snapshotComplete()) verifiedHostExternalIds = scoped.verifiedHostExternalIds();
+                } else {
+                    page = selectedConnector.fetch(context, cursor, pageSize);
+                }
                 scanConsistency = page.scanConsistency();
                 pages++;
                 for (Connector.RawRecord record : page.records()) {
@@ -153,11 +193,20 @@ public final class IngestZabbixItemsUseCase {
                         throw new IllegalStateException(failure.name());
                     }
                     failure = SyncFailureCode.INVENTORY_WRITE_FAILED;
-                    int retired = items.retireMissing(scan, observedExternalIds);
+                    int retired;
+                    if (registered) {
+                        if (verifiedHostExternalIds == null || verifiedHostExternalIds.isEmpty()) {
+                            failure = SyncFailureCode.SOURCE_SCAN_UNVERIFIED;
+                            throw new IllegalStateException(failure.name());
+                        }
+                        retired = items.retireMissing(scan, verifiedHostExternalIds, observedExternalIds);
+                    } else {
+                        retired = items.retireMissing(scan, observedExternalIds);
+                    }
                     failure = SyncFailureCode.CHECKPOINT_FAILED;
-                    syncRuns.succeed(principal.tenantId(), run.id(), scanConsistency);
+                    syncRuns.succeed(principal.tenantId(), run.id(), scanConsistency, retired);
                     return SyncOutcome.completed(
-                        run.id(), pages, fetched, accepted, rejected, retired, dataMode, inventoryStore,
+                        run.id(), pages, fetched, accepted, rejected, retired, selectedDataMode, inventoryStore,
                         List.copyOf(rejectionReasons), scanConsistency
                     );
                 }

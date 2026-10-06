@@ -44,14 +44,20 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
 
     @Override
     public SyncRun start(TenantId tenantId, String sourceInstanceId, String objectType, String dataMode) {
+        return start(tenantId,sourceInstanceId,objectType,dataMode,null);
+    }
+
+    @Override
+    public SyncRun start(TenantId tenantId,String sourceInstanceId,String objectType,String dataMode,SyncRun.SourceScope sourceScope) {
         UUID id = UUID.randomUUID();
         Instant startedAt = Instant.now();
         Transactions.run(dataSource, connection -> {
             try (var statement = connection.prepareStatement("""
                 INSERT INTO integration.source_sync_run (
                     tenant_id, id, source_instance_id, object_type, status, started_at,
-                    pages, fetched, accepted, rejected, snapshot_complete, data_mode
-                ) VALUES (?, ?, ?, ?, 'RUNNING', ?, 0, 0, 0, 0, false, ?)
+                    pages, fetched, accepted, rejected, snapshot_complete, data_mode,
+                    source_id,source_configuration_revision,source_connection_digest,source_scope_digest
+                ) VALUES (?, ?, ?, ?, 'RUNNING', ?, 0, 0, 0, 0, false, ?, ?, ?, ?, ?)
                 """)) {
                 statement.setString(1, tenantId.value());
                 statement.setObject(2, id);
@@ -59,13 +65,15 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
                 statement.setString(4, objectType);
                 statement.setTimestamp(5, Timestamp.from(startedAt));
                 statement.setString(6, dataMode);
+                if(sourceScope==null){statement.setObject(7,null);statement.setObject(8,null);statement.setString(9,null);statement.setString(10,null);}
+                else {statement.setObject(7,sourceScope.sourceId());statement.setInt(8,sourceScope.configurationRevision());statement.setString(9,sourceScope.connectionDigest());statement.setString(10,sourceScope.scopeDigest());}
                 statement.executeUpdate();
             }
             sweep(connection, tenantId, sourceInstanceId, objectType, id);
         });
         return new SyncRun(
             id, tenantId, sourceInstanceId, objectType, SyncStatus.RUNNING, startedAt,
-            null, null, 0, 0, 0, 0, false, dataMode, null, SyncScan.OFFSET_ATTEMPT
+            null, null, 0, 0, 0, 0, false, dataMode, null, SyncScan.OFFSET_ATTEMPT, 0, sourceScope
         );
     }
 
@@ -196,7 +204,13 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
 
     @Override
     public void succeed(TenantId tenantId, UUID id, String scanConsistency) {
-        Transactions.run(dataSource, connection -> updateStatus(connection, tenantId, id, "SUCCEEDED", null, true, scanConsistency));
+        succeed(tenantId,id,scanConsistency,0);
+    }
+
+    @Override
+    public void succeed(TenantId tenantId,UUID id,String scanConsistency,int retired) {
+        if(retired<0||retired>0&&!SyncScan.verified(scanConsistency))throw new IllegalArgumentException("Invalid retired count");
+        Transactions.run(dataSource, connection -> updateStatus(connection, tenantId, id, "SUCCEEDED", null, true, scanConsistency,retired));
     }
 
     @Override
@@ -206,7 +220,7 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
             text = text.substring(0, 200);
         }
         String failure = text;
-        Transactions.run(dataSource, connection -> updateStatus(connection, tenantId, id, "FAILED", failure, false, scanConsistency));
+        Transactions.run(dataSource, connection -> updateStatus(connection, tenantId, id, "FAILED", failure, false, scanConsistency,0));
     }
 
     @Override
@@ -214,7 +228,8 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
         try (var connection = dataSource.getConnection();
              var statement = connection.prepareStatement("""
                 SELECT id, source_instance_id, object_type, status, started_at, completed_at, cursor_text,
-                       pages, fetched, accepted, rejected, snapshot_complete, data_mode, failure_reason, scan_consistency
+                       pages, fetched, accepted, rejected, snapshot_complete, data_mode, failure_reason, scan_consistency,
+                       source_id,source_configuration_revision,source_connection_digest,source_scope_digest,retired
                   FROM integration.source_sync_run
                  WHERE tenant_id = ? AND id = ?
                 """)) {
@@ -243,7 +258,8 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
         String boundary = after == null ? "" : " AND (started_at < ? OR (started_at = ? AND id < ?))";
         String sql = """
             SELECT id, source_instance_id, object_type, status, started_at, completed_at, cursor_text,
-                   pages, fetched, accepted, rejected, snapshot_complete, data_mode, failure_reason, scan_consistency
+                   pages, fetched, accepted, rejected, snapshot_complete, data_mode, failure_reason, scan_consistency,
+                   source_id,source_configuration_revision,source_connection_digest,source_scope_digest,retired
               FROM integration.source_sync_run
              WHERE tenant_id = ? AND source_instance_id = ? AND object_type = ?
             """ + boundary + " ORDER BY started_at DESC, id DESC LIMIT ?";
@@ -273,6 +289,48 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
         }
     }
 
+    @Override
+    public List<SyncRun> registeredRecent(TenantId tenantId,UUID sourceId,int configurationRevision,SyncRunCursor after,int limit) {
+        if(limit<1||limit>MAX_RECENT||configurationRevision<1||configurationRevision>100)throw new IllegalArgumentException("Invalid registered run query");
+        String boundary=after==null?"":" AND (started_at < ? OR (started_at = ? AND id < ?))";
+        String sql="""
+            SELECT id, source_instance_id, object_type, status, started_at, completed_at, cursor_text,
+                   pages, fetched, accepted, rejected, snapshot_complete, data_mode, failure_reason, scan_consistency,
+                   source_id,source_configuration_revision,source_connection_digest,source_scope_digest,retired
+              FROM integration.source_sync_run
+             WHERE tenant_id=? AND source_id=? AND source_configuration_revision=? AND object_type='item'
+            """+boundary+" ORDER BY started_at DESC,id DESC LIMIT ?";
+        try(var connection=dataSource.getConnection();var statement=connection.prepareStatement(sql)) {
+            statement.setQueryTimeout(5);statement.setString(1,tenantId.value());statement.setObject(2,sourceId);statement.setInt(3,configurationRevision);
+            int index=4;if(after!=null){Timestamp at=Timestamp.from(after.startedAt());statement.setTimestamp(index++,at);statement.setTimestamp(index++,at);statement.setObject(index++,after.id());}
+            statement.setInt(index,limit+1);var rows=new java.util.ArrayList<SyncRun>();
+            try(var result=statement.executeQuery()){while(result.next())rows.add(read(tenantId,result));}
+            return List.copyOf(rows);
+        }catch(SQLException failed){throw new IllegalStateException("Registered item scan history unavailable");}
+    }
+
+    @Override
+    public List<SyncRun> completedAfter(TenantId tenantId, String sourceInstanceId, String objectType,
+        Instant after, UUID afterId, int limit) {
+        if (limit < 1 || limit > SyncRunStore.MAX_RECENT) throw new IllegalArgumentException("Invalid run limit");
+        java.util.Objects.requireNonNull(after); java.util.Objects.requireNonNull(afterId);
+        String sql="""
+            SELECT id, source_instance_id, object_type, status, started_at, completed_at, cursor_text,
+                   pages, fetched, accepted, rejected, snapshot_complete, data_mode, failure_reason, scan_consistency,
+                   source_id,source_configuration_revision,source_connection_digest,source_scope_digest,retired
+              FROM integration.source_sync_run
+             WHERE tenant_id=? AND source_instance_id=? AND object_type=?
+               AND (completed_at>? OR (completed_at=? AND id>?))
+             ORDER BY completed_at,id LIMIT ?
+            """;
+        try(var connection=dataSource.getConnection();var s=connection.prepareStatement(sql)) {
+            s.setQueryTimeout(5);s.setString(1,tenantId.value());s.setString(2,sourceInstanceId);s.setString(3,objectType);
+            s.setTimestamp(4,Timestamp.from(after));s.setTimestamp(5,Timestamp.from(after));s.setObject(6,afterId);s.setInt(7,limit+1);
+            var rows=new java.util.ArrayList<SyncRun>();try(var result=s.executeQuery()){while(result.next())rows.add(read(tenantId,result));}
+            return List.copyOf(rows);
+        }catch(SQLException failure){throw new IllegalStateException("Workflow source batches unavailable");}
+    }
+
     private static SyncRun read(TenantId tenantId, ResultSet rows) throws SQLException {
         return new SyncRun(
             rows.getObject("id", UUID.class),
@@ -290,8 +348,17 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
             rows.getBoolean("snapshot_complete"),
             rows.getString("data_mode"),
             rows.getString("failure_reason"),
-            rows.getString("scan_consistency")
+            rows.getString("scan_consistency"),
+            rows.getInt("retired"),
+            sourceScope(rows)
         );
+    }
+
+    private static SyncRun.SourceScope sourceScope(ResultSet rows) throws SQLException {
+        UUID sourceId=rows.getObject("source_id",UUID.class);
+        if(sourceId==null)return null;
+        Integer revision=rows.getObject("source_configuration_revision",Integer.class);
+        return new SyncRun.SourceScope(sourceId,revision,rows.getString("source_connection_digest"),rows.getString("source_scope_digest"));
     }
 
     @Override
@@ -352,20 +419,22 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
         String status,
         String failure,
         boolean complete,
-        String scanConsistency
+        String scanConsistency,
+        int retired
     ) throws SQLException {
         try (var statement = connection.prepareStatement("""
             UPDATE integration.source_sync_run
-               SET status = ?, completed_at = ?, snapshot_complete = ?, failure_reason = ?, scan_consistency = ?
-             WHERE tenant_id = ? AND id = ?
+               SET status = ?, completed_at = ?, snapshot_complete = ?, failure_reason = ?, scan_consistency = ?, retired = ?
+             WHERE tenant_id = ? AND id = ? AND status = 'RUNNING'
             """)) {
             statement.setString(1, status);
             statement.setTimestamp(2, Timestamp.from(Instant.now()));
             statement.setBoolean(3, complete);
             statement.setString(4, failure);
             statement.setString(5, scanConsistency);
-            statement.setString(6, tenantId.value());
-            statement.setObject(7, id);
+            statement.setInt(6, retired);
+            statement.setString(7, tenantId.value());
+            statement.setObject(8, id);
             if (statement.executeUpdate() != 1) {
                 throw new IllegalStateException("Sync run was not updated");
             }

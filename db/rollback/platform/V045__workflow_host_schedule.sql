@@ -1,0 +1,2 @@
+DROP TABLE integration.workflow_host_schedule_control;
+DROP TABLE integration.workflow_host_schedule;

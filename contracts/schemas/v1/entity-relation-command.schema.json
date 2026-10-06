@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Create entity relation command",
+  "type": "object", "additionalProperties": false,
+  "required": ["requestId", "relationType", "relationRevision", "fromEntityId", "toEntityId", "validFrom", "expectedFromVersion", "expectedToVersion"],
+  "properties": {
+    "requestId": {"type": "string", "format": "uuid"}, "relationType": {"type": "string", "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"}, "relationRevision": {"type": "integer", "minimum": 1, "maximum": 10000},
+    "fromEntityId": {"type": "string", "format": "uuid"}, "toEntityId": {"type": "string", "format": "uuid"}, "validFrom": {"type": "string", "format": "date-time"}, "validTo": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "sourceRef": {"type": "string", "minLength": 1, "maxLength": 128}, "dataMode": {"enum": ["fixture", "zabbix-jsonrpc", "import", "unknown"]}, "expectedFromVersion": {"type": "integer", "minimum": 1}, "expectedToVersion": {"type": "integer", "minimum": 1}
+  }
+}

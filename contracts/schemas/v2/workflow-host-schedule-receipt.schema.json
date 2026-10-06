@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-host-schedule-receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation": {
+      "enum": [
+        "START",
+        "STOP",
+        "RESUME"
+      ]
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "acceptedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schedule": {
+      "$ref": "workflow-host-schedule.schema.json"
+    }
+  },
+  "required": [
+    "requestId",
+    "operation",
+    "commandDigest",
+    "acceptedAt",
+    "schedule"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "STOP"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "schedule": {
+            "properties": {
+              "state": {
+                "const": "STOPPED"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "schedule": {
+            "properties": {
+              "state": {
+                "const": "RUNNING"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

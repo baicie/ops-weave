@@ -7,7 +7,7 @@ import pytest
 def test_all_platform_paths_declare_optional_correlation_metadata():
     api = yaml.safe_load(Path('contracts/openapi/platform-draft.yaml').read_text(encoding='utf-8'))
     for path, item in api['paths'].items():
-        assert path.startswith('/api/v1/')
+        assert path.startswith(('/api/v1/', '/api/v2/'))
         assert {'$ref': '#/components/parameters/clientRequestId'} in item['parameters']
     parameter = api['components']['parameters']['clientRequestId']
     assert parameter['in'] == 'header' and parameter['required'] is False

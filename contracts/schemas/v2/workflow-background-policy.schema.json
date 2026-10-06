@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f]).*\\S.*$"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "subjects"
+  ]
+}

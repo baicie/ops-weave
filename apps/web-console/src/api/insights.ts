@@ -12,7 +12,7 @@ export type EvidenceDocument = { schemaVersion: '1.0'; knowledgeMode: 'current';
   queryWindow: { from: string; to: string }; dataModes: string[]; warnings: string[]; policyVersion: string; producerTool: string;
   evidence: { id: string; tenantId: string; incidentId: string; kind: 'incident' | 'metric'; summary: string; availableAt: string; observedAt: string; expiresAt: string; sourceRef: string }; data: Record<string, unknown> }
 export class InsightRequestError extends Error {
-  constructor(readonly status: number) { super(({ 401: '身份已失效，请重新输入开发 Token', 403: '当前身份无权执行或读取此诊断',
+  constructor(readonly status: number) { super(({ 401: '身份已失效，请重新建立平台会话', 403: '当前身份无权执行或读取此诊断',
     404: '尚未找到已保存结果', 409: '请求内容或 Incident 已变化，请重新读取后开始新诊断', 410: '结果或证据已过期，请开始新诊断',
     429: '诊断繁忙或预算已用尽', 503: '诊断服务不可用，请检查本地服务配置', 504: '诊断超时，保存状态待确认' } as Record<number, string>)[status] ?? `诊断请求失败（HTTP ${status}）`) }
 }

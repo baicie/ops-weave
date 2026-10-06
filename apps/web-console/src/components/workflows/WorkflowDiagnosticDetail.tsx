@@ -1,0 +1,9 @@
+import {WorkflowDispatchDetail} from './WorkflowDispatchDetail.tsx'
+import {WorkflowSourceReadDetail} from './WorkflowSourceReadDetail.tsx'
+import type {DiagnosticObservation} from '../../api/workflow-diagnostics.ts'
+import './workflow-quality.css'
+const coverage={COMPLETE:'完整',PARTIAL:'部分',UNAVAILABLE:'不可用'}
+export function WorkflowDiagnosticDetail({selected,onClose}:{selected:DiagnosticObservation;onClose:()=>void}){
+ return <article className="workflow-quality-detail" aria-label="检查节点详情"><header><h4>节点明细</h4><button onClick={onClose}>关闭节点明细</button></header><dl><dt>检查</dt><dd><code>{selected.id}</code></dd><dt>{selected.kind==='HOST_SCAN'?'读取范围':'读取窗口'}</dt><dd>{selected.kind==='HOST_SCAN'?'本次来源分页':selected.from?<><time>{selected.from}</time> — <time>{selected.till}</time></>:'—'}</dd><dt>检查完整性</dt><dd>{coverage[selected.result.coverage]}</dd>{selected.error?<><dt>异常代码</dt><dd><code>{selected.error}</code></dd></>:null}{selected.relatedBatchId?<><dt>关联原批次</dt><dd><code>{selected.relatedBatchId}</code></dd></>:null}<dt>采样率 / 排队时间</dt><dd>— / {selected.queueWaitMillis===null?'—':selected.queueWaitMillis+' ms'}</dd></dl>
+ <WorkflowDispatchDetail dispatch={selected.dispatch??null}/><WorkflowSourceReadDetail source={selected.sourceRead??null}/><div className="workflow-quality-table" role="region" aria-label="节点统计表" tabIndex={0}><table><thead><tr><th>节点</th><th>输入</th><th>通过</th><th>拒绝</th><th>过滤</th><th>跳过</th><th>异常类别 / 数量</th></tr></thead><tbody>{selected.result.nodes.map(n=><tr key={n.nodeId}><td><code>{n.nodeId}</code><small>{n.type}</small></td><td>{n.received}</td><td>{n.accepted}</td><td>{n.rejected}</td><td>{n.filtered}</td><td>{n.skipped}</td><td>{Object.entries(n.issues).map(([code,total])=><small key={code}><code>{code}</code> · {total}</small>)}</td></tr>)}</tbody></table></div>{!selected.result.nodes.length?<p>来源读取或执行检查未完成，节点数量不可用。</p>:null}</article>
+}

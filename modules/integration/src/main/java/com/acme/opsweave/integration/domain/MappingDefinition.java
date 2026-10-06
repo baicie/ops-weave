@@ -51,6 +51,10 @@ public record MappingDefinition(
         if (minimum != null && maximum != null && minimum.compareTo(maximum) > 0) {
             throw new IllegalArgumentException("Mapping numeric range is inverted");
         }
+        if(connector.length()>64||itemKeyExact.length()>1024||metricKey.length()>255||displayName.length()>255||unit.length()>64||valueTransform.length()>64
+            ||dimensionSchema.size()>32||dimensionSchema.stream().distinct().count()!=dimensionSchema.size()||dimensionSchema.stream().anyMatch(n->n==null||n.isBlank()||n.length()>64)
+            ||fixedDimensions.size()>32||fixedDimensions.values().stream().anyMatch(v->v==null||v.length()>256))throw new IllegalArgumentException("Mapping definition exceeds bounds");
+        new com.acme.opsweave.telemetry.domain.MetricMappingPin(id,mappingRevision,"sha256:"+"0".repeat(64));
         dimensionSchema = List.copyOf(dimensionSchema);
         for (String name : fixedDimensions.keySet()) {
             if (!dimensionSchema.contains(name)) {
@@ -67,5 +71,15 @@ public record MappingDefinition(
             throw new IllegalArgumentException("Metric value outside configured range");
         }
         return point;
+    }
+
+    public com.acme.opsweave.telemetry.domain.MetricMappingPin pin() {
+        var parts = new java.util.ArrayList<>(List.of("metric-mapping-v1",id,connector,itemKeyExact,metricKey,
+            displayName,metricType.name(),unit,valueType.name(),valueTransform,Integer.toString(mappingRevision),
+            Objects.toString(minimum,""),Objects.toString(maximum,"")));
+        parts.add(Integer.toString(dimensionSchema.size()));parts.addAll(dimensionSchema);
+        parts.add(Integer.toString(fixedDimensions.size()));
+        new java.util.TreeMap<>(fixedDimensions).forEach((k,v)->{parts.add(k);parts.add(v);});
+        return new com.acme.opsweave.telemetry.domain.MetricMappingPin(id,mappingRevision,WorkflowDefinition.hash(parts));
     }
 }

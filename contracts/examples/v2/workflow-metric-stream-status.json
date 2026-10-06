@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "2.0",
+  "available": true,
+  "mode": "LOCAL_DEV_METRIC",
+  "windowSeconds": 60,
+  "settleSeconds": 10,
+  "maxBatchPoints": 600,
+  "maxSessionBatches": 20,
+  "task": null,
+  "batches": [],
+  "maxHistoryRequests": 20,
+  "lookbackSeconds": 60
+}

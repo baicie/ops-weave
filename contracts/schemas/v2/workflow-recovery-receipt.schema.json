@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-recovery-receipt",
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "HOST_SCAN",
+        "METRIC_STREAM",
+        "LOG_STREAM"
+      ]
+    },
+    "batchId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "previousGeneration": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 1000001
+    },
+    "acceptedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "const": "ABANDONED"
+    },
+    "preservedCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confirmedBatches": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "confirmedRecords": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200000
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "HOST_SCAN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "preservedCursor": {
+            "type": "null"
+          },
+          "confirmedRecords": {
+            "maximum": 1000
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "preservedCursor": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  ],
+  "required": [
+    "requestId",
+    "commandDigest",
+    "reference",
+    "kind",
+    "batchId",
+    "previousGeneration",
+    "generation",
+    "acceptedAt",
+    "state",
+    "preservedCursor",
+    "confirmedBatches",
+    "confirmedRecords"
+  ]
+}

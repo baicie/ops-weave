@@ -1,0 +1,17 @@
+{
+  "requestId": "22222222-2222-4222-8222-222222222222",
+  "name": "Fixture managed connection",
+  "description": "Explicit synthetic fixture configuration; no upstream connection",
+  "endpointPin": {
+    "id": "fixture-host",
+    "digest": "sha256:d2187c8b693831fd92ae3357626a693c2e5be9b80e457b216200cad8522557ae"
+  },
+  "credentialPin": {
+    "credentialId": "10000000-0000-4000-8000-000000000081",
+    "revision": 1,
+    "versionId": "10000000-0000-4000-8000-000000000081"
+  },
+  "hostGroupIds": [
+    "1001"
+  ]
+}

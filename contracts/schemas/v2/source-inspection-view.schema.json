@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-inspection-view.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inspection",
+    "validity"
+  ],
+  "properties": {
+    "inspection": {
+      "$ref": "source-inspection.schema.json"
+    },
+    "validity": {
+      "enum": [
+        "CURRENT",
+        "STALE",
+        "EXPIRED",
+        "UNVERIFIED"
+      ]
+    }
+  }
+}

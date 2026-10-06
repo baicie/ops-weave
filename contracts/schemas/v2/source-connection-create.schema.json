@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-connection-create.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "name",
+    "description",
+    "endpointPin",
+    "credentialPin",
+    "hostGroupIds"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "name": {
+      "$ref": "source-credential.schema.json#/properties/name"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "endpointPin": {
+      "$ref": "source-endpoint-pin.schema.json"
+    },
+    "credentialPin": {
+      "$ref": "source-credential-pin.schema.json"
+    },
+    "hostGroupIds": {
+      "$ref": "source-host-group-ids.schema.json"
+    }
+  }
+}

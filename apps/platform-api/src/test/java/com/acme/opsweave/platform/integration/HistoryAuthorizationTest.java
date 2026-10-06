@@ -98,6 +98,16 @@ class HistoryAuthorizationTest {
         assertEquals(ReadZabbixHistoryUseCase.Kind.SUCCESS, useCase.execute(principal, "20001", WINDOW).kind());
     }
 
+    @Test
+    void changedBindingDuringSourceIoDiscardsTheWholeResult() {
+        var useCase=useCase((source,binding,window)->{
+            store.retireMissing(TENANT,"zabbix-1",Set.of());
+            return HistoryPage.select(window,List.of(new com.acme.opsweave.telemetry.domain.MetricPoint(Instant.ofEpochSecond(11),new java.math.BigDecimal("0.5"))));
+        });
+        var result=useCase.execute(principal(TENANT,ALL,ResourceScope.tenantWide()),"20001",WINDOW);
+        assertEquals("METADATA_CHANGED",result.error());assertNull(result.page());assertNull(result.binding());assertNull(result.definition());
+    }
+
     private ReadZabbixHistoryUseCase useCase(ZabbixHistoryPort port) {
         return new ReadZabbixHistoryUseCase(new AuthorizeUseCase(), store, port, "zabbix-1", "stub-ref", "labeled-fixture",
             Clock.fixed(Instant.ofEpochSecond(1000), ZoneOffset.UTC));

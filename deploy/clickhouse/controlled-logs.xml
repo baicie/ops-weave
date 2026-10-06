@@ -1,0 +1,11 @@
+<clickhouse>
+  <query_log remove="1"/>
+  <query_thread_log remove="1"/>
+  <text_log remove="1"/>
+  <trace_log remove="1"/>
+  <opentelemetry_span_log remove="1"/>
+  <max_server_memory_usage>805306368</max_server_memory_usage>
+  <mark_cache_size>16777216</mark_cache_size>
+  <uncompressed_cache_size>16777216</uncompressed_cache_size>
+  <logger><level>error</level><console>0</console></logger>
+</clickhouse>

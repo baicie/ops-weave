@@ -35,6 +35,14 @@ class OidcBoundaryTest {
         if (body != null) request.setContent(JSON.writeValueAsBytes(body)); return request;
     }
     MockHttpServletRequest read(RuntimeDelegations.Lease lease) { return delegated(lease, "GET", "/api/v1/ai/insights/11111111-1111-4111-8111-111111111111", null); }
+    @Test void operatorLogGrantHasAnExplicitObjectScopeAndNoOtherLogAuthority()throws Exception{
+        Files.writeString(Path.of(settings.grantsFile()),JSON.writeValueAsString(Map.of("schemaVersion","1.0","grants",List.of(Map.of("issuer",settings.issuer(),"externalSubject","sub","subjectId","operator","tenantId","fixture","revision",2,"enabled",true,"permissions",List.of("source.sync","log.read","log.write"),"scope",Map.of("tenantWide",false,"resources",List.of(Map.of("type","workflow","id","*"),Map.of("type","log","id","workflow.fixture-log"))))))));
+        var p=grants.find("sub").grant().principal();var authorizer=new com.acme.opsweave.identity.domain.Authorizer();
+        assertFalse(authorizer.decide(p,new com.acme.opsweave.identity.domain.ResourceRef(p.tenantId(),"log","workflow.fixture-log"),com.acme.opsweave.identity.domain.Permission.LOG_READ).denied());
+        assertFalse(authorizer.decide(p,new com.acme.opsweave.identity.domain.ResourceRef(p.tenantId(),"log","workflow.fixture-log"),com.acme.opsweave.identity.domain.Permission.LOG_WRITE).denied());
+        assertTrue(authorizer.decide(p,new com.acme.opsweave.identity.domain.ResourceRef(p.tenantId(),"log","workflow.other-log"),com.acme.opsweave.identity.domain.Permission.LOG_READ).denied());
+        assertTrue(authorizer.decide(p,new com.acme.opsweave.identity.domain.ResourceRef(p.tenantId(),"metric","*"),com.acme.opsweave.identity.domain.Permission.METRIC_READ).denied());
+    }
     @Test void boundedLeasePinsRunReadSessionAndRequestAndReplaysBody() throws Exception {
         try (var lease = delegations.issue(browser, diagnosis)) {
             var request = delegated(lease, "POST", "/api/v1/ai/read-sessions", diagnosis); var wrapped = delegations.authorize(request);

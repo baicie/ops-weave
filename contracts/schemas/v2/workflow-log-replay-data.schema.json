@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-replay-data",
+  "$ref": "workflow-log-stream-data.schema.json"
+}

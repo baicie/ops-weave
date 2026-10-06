@@ -19,12 +19,15 @@ final class PostgresSourceReviews implements SourceReviewStore {
         }
     }
     static Entity entity(Connection c, TenantId tenant, EntityId entity) throws SQLException {
-        try (var s = c.prepareStatement("SELECT entity_type, name, lifecycle, version, last_seen_epoch_nanos, CASE WHEN octet_length(attributes::text) <= 16384 THEN attributes END AS attributes FROM inventory.entity WHERE tenant_id = ? AND id = ?")) {
+        try (var s = c.prepareStatement("SELECT entity_type, name, lifecycle, version, last_seen_epoch_nanos, model_id, model_revision, model_digest, CASE WHEN octet_length(attributes::text) <= 16384 THEN attributes END AS attributes FROM inventory.entity WHERE tenant_id = ? AND id = ?")) {
             bind(s, tenant, entity); try (var rows = s.executeQuery()) {
                 if (!rows.next()) throw new SourceReview.Conflict("Entity missing");
                 String attrs = rows.getString("attributes"); if (attrs == null) throw new IllegalStateException("Entity exceeds read budget");
                 Map<String,Object> values = SourceReviewJson.JSON.readValue(attrs, new tools.jackson.core.type.TypeReference<LinkedHashMap<String,Object>>() {});
-                return new Entity(entity, tenant, rows.getString("entity_type"), rows.getString("name"), Lifecycle.valueOf(rows.getString("lifecycle")), rows.getLong("version"), PostgresInventoryStore.instant(rows.getBigDecimal("last_seen_epoch_nanos")), values);
+                String modelId = rows.getString("model_id"); Object modelRevision = rows.getObject("model_revision"); String modelDigest = rows.getString("model_digest");
+                var model = modelId == null && modelRevision == null && modelDigest == null ? null
+                    : new EntityModelPin(modelId, ((Number) modelRevision).intValue(), modelDigest);
+                return new Entity(entity, tenant, rows.getString("entity_type"), rows.getString("name"), Lifecycle.valueOf(rows.getString("lifecycle")), rows.getLong("version"), PostgresInventoryStore.instant(rows.getBigDecimal("last_seen_epoch_nanos")), values, model);
             }
         }
     }
@@ -55,9 +58,10 @@ final class PostgresSourceReviews implements SourceReviewStore {
         primary(c, e); return projected;
     }
     static void updateEntity(Connection c, Entity e) throws SQLException {
-        try (var s = c.prepareStatement("UPDATE inventory.entity SET name = ?, lifecycle = ?, version = ?, attributes = ?::jsonb WHERE tenant_id = ? AND id = ?")) {
+        try (var s = c.prepareStatement("UPDATE inventory.entity SET name = ?, lifecycle = ?, version = ?, attributes = ?::jsonb, model_id = ?, model_revision = ?, model_digest = ? WHERE tenant_id = ? AND id = ?")) {
             s.setString(1, e.name()); s.setString(2, e.lifecycle().name()); s.setLong(3, e.version()); s.setString(4, SourceReviewJson.JSON.writeValueAsString(e.attributes()));
-            s.setString(5, e.tenantId().value()); s.setObject(6, e.id().value()); s.setQueryTimeout(5);
+            PostgresEntityInstanceStore.bindModel(s, 5, e.model());
+            s.setString(8, e.tenantId().value()); s.setObject(9, e.id().value()); s.setQueryTimeout(5);
             if (s.executeUpdate() != 1) throw new SourceReview.Conflict("Entity changed");
         }
     }

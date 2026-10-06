@@ -1,0 +1,23 @@
+{
+  "requestId": "95e094c9-4a21-49df-ae7a-e05c7e1e0e71",
+  "workflowId": "log-window-fixture",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "from": "2026-10-04T00:00:00Z",
+  "till": "2026-10-04T00:01:00Z",
+  "inputCount": 2,
+  "filtered": 1,
+  "batchDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "records": [
+    {
+      "index": 0,
+      "position": "2026-10-04T00:00:00.000000001Z",
+      "eventTime": "2026-10-04T00:00:00.000000001Z",
+      "body": "  Synthetic Fixture\n<script>  ",
+      "severityText": null,
+      "serviceName": null,
+      "traceId": null,
+      "spanId": null
+    }
+  ]
+}

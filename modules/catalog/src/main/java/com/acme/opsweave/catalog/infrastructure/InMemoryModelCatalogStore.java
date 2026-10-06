@@ -27,6 +27,9 @@ public final class InMemoryModelCatalogStore implements ModelCatalogStore {
         Entry published = new Entry(draft.definition(), digest, "PUBLISHED", 0, now); versions.put(new Key(tenant, "", ref), published); return published;
     }
     public synchronized Optional<Entry> find(TenantId tenant, ModelDefinition.Ref ref) { return Optional.ofNullable(versions.get(new Key(tenant, "", ref))); }
+    public synchronized Optional<Entry> draft(TenantId tenant,String owner,ModelDefinition.Ref ref){return Optional.ofNullable(drafts.get(new Key(tenant,owner,ref)));}
+    public synchronized Optional<Entry> latest(TenantId tenant,String id){ModelDefinition.checkId(id);return versions.entrySet().stream().filter(e->e.getKey().tenant.equals(tenant)&&e.getKey().ref.id().equals(id)).map(Map.Entry::getValue).max(Comparator.comparingInt(e->e.definition().revision()));}
+    public synchronized List<Entry> relations(TenantId tenant,ModelDefinition.Ref endpoint,int limit){if(limit<1||limit>51)throw new IllegalArgumentException();return versions.entrySet().stream().filter(e->e.getKey().tenant.equals(tenant)&&e.getValue().definition().endpoints()!=null&&(e.getValue().definition().endpoints().from().equals(endpoint)||e.getValue().definition().endpoints().to().equals(endpoint))).map(Map.Entry::getValue).sorted(Comparator.comparing((Entry e)->e.definition().id()).thenComparingInt(e->e.definition().revision())).limit(limit).toList();}
     public synchronized List<Entry> published(TenantId tenant, int limit) { return list(versions, tenant, "", limit); }
     public synchronized List<Entry> drafts(TenantId tenant, String owner, int limit) { return list(drafts, tenant, owner, limit); }
     private List<Entry> list(Map<Key, Entry> map, TenantId tenant, String owner, int limit) {

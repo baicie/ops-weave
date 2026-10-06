@@ -1,0 +1,23 @@
+.metric-mapping-drawer { width:min(900px,calc(100vw - 32px)); }
+.metric-mapping-body { min-width:0; }
+.metric-mapping-body .integration-table { table-layout:fixed; min-width:0; width:100%; }
+.metric-mapping-body .integration-table th:nth-child(1) { width:33%; }
+.metric-mapping-body .integration-table th:nth-child(2) { width:24%; }
+.metric-mapping-body .integration-table th:nth-child(3) { width:27%; }
+.metric-mapping-body .integration-table th:nth-child(4) { width:16%; }
+.metric-mapping-body code { overflow-wrap:anywhere; white-space:normal; }
+.metric-mapping-body small,.metric-mapping-digest { display:block; margin-top:4px; }
+.metric-mapping-selector { display:flex; flex-direction:column; gap:8px; margin:16px 0; }
+.metric-mapping-selector select { min-width:0; max-width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--background); color:var(--foreground); }
+.metric-mapping-definition dl { display:grid; grid-template-columns:140px minmax(0,1fr); column-gap:20px; row-gap:14px; margin:16px 0 24px; }
+.metric-mapping-definition dt { color:var(--muted-foreground); }
+.metric-mapping-definition dd { margin:0; min-width:0; }
+@media(max-width:600px) {
+ .metric-mapping-drawer { width:100vw; }
+ .metric-mapping-definition dl { grid-template-columns:100px minmax(0,1fr); column-gap:12px; }
+ .metric-mapping-body .integration-table th:nth-child(1) { width:34%; }
+ .metric-mapping-body .integration-table th:nth-child(2) { width:25%; }
+ .metric-mapping-body .integration-table th:nth-child(3) { width:23%; }
+ .metric-mapping-body .integration-table th:nth-child(4) { width:18%; }
+ .metric-mapping-body .integration-table button { white-space:normal; height:auto; padding:6px 3px; }
+}

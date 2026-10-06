@@ -33,6 +33,8 @@ public final class InventoryWiring implements AutoCloseable {
     private com.acme.opsweave.inventory.api.SourceSnapshotStore rawSnapshots;
     private final InventoryQuery query;
     private final InventoryWritePort writer;
+    private final com.acme.opsweave.inventory.api.EntityInstanceStore entityInstances;
+    private final com.acme.opsweave.inventory.api.RelationStore relations;
     private final IngestZabbixHostsUseCase.RawRecordCollector rawRecords;
     private final SyncRunStore syncRuns;
     private final MetricDefinitionStore metrics;
@@ -53,6 +55,8 @@ public final class InventoryWiring implements AutoCloseable {
     private InventoryWiring(
         InventoryQuery query,
         InventoryWritePort writer,
+        com.acme.opsweave.inventory.api.EntityInstanceStore entityInstances,
+        com.acme.opsweave.inventory.api.RelationStore relations,
         IngestZabbixHostsUseCase.RawRecordCollector rawRecords,
         SyncRunStore syncRuns,
         MetricDefinitionStore metrics,
@@ -74,6 +78,8 @@ public final class InventoryWiring implements AutoCloseable {
     ) {
         this.query = query;
         this.writer = writer;
+        this.entityInstances = entityInstances;
+        this.relations = relations;
         this.rawRecords = rawRecords;
         this.syncRuns = syncRuns;
         this.metrics = metrics;
@@ -110,7 +116,7 @@ public final class InventoryWiring implements AutoCloseable {
                 properties.rejectedWriteRetention(null));
             var sourceReviews = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
                 inventory, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
-            return new InventoryWiring(inventory, inventory, raw,
+            return new InventoryWiring(inventory, inventory, inventory, new com.acme.opsweave.inventory.infrastructure.InMemoryRelationStore(), raw,
                 new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, null, null, sourceReviews, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
         }
@@ -157,6 +163,35 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V029__transform_workflow.sql", "V029__transform_workflow");
         new SchemaMigrator(dataSource).apply("db/migration/V030__source_setup.sql", "V030__source_setup");
         new SchemaMigrator(dataSource).apply("db/migration/V031__entity_relation_read.sql", "V031__entity_relation_read");
+        new SchemaMigrator(dataSource).apply("db/migration/V032__workflow_runtime.sql", "V032__workflow_runtime");
+        new SchemaMigrator(dataSource).apply("db/migration/V033__workflow_graph_trace_budget.sql", "V033__workflow_graph_trace_budget");
+        new SchemaMigrator(dataSource).apply("db/migration/V034__workflow_batch_cursor.sql", "V034__workflow_batch_cursor");
+        new SchemaMigrator(dataSource).apply("db/migration/V035__source_instance_versions.sql", "V035__source_instance_versions");
+        new SchemaMigrator(dataSource).apply("db/migration/V036__source_inspection.sql", "V036__source_inspection");
+        new SchemaMigrator(dataSource).apply("db/migration/V037__source_credentials.sql", "V037__source_credentials");
+        new SchemaMigrator(dataSource).apply("db/migration/V038__source_connection_configuration.sql", "V038__source_connection_configuration");
+        new SchemaMigrator(dataSource).apply("db/migration/V039__source_metric_metadata_budget.sql", "V039__source_metric_metadata_budget");
+        new SchemaMigrator(dataSource).apply("db/migration/V040__metric_mapping_pin.sql", "V040__metric_mapping_pin");
+        new SchemaMigrator(dataSource).apply("db/migration/V041__workflow_control_receipts.sql", "V041__workflow_control_receipts");
+        new SchemaMigrator(dataSource).apply("db/migration/V042__workflow_metric_output.sql", "V042__workflow_metric_output");
+        new SchemaMigrator(dataSource).apply("db/migration/V043__workflow_host_batches.sql", "V043__workflow_host_batches");
+        new SchemaMigrator(dataSource).apply("db/migration/V044__workflow_metric_stream.sql", "V044__workflow_metric_stream");
+        new SchemaMigrator(dataSource).apply("db/migration/V045__workflow_host_schedule.sql", "V045__workflow_host_schedule");
+        new SchemaMigrator(dataSource).apply("db/migration/V046__workflow_log_output.sql", "V046__workflow_log_output");
+        new SchemaMigrator(dataSource).apply("db/migration/V047__metric_window_reconciliation.sql", "V047__metric_window_reconciliation");
+        new SchemaMigrator(dataSource).apply("db/migration/V048__workflow_log_stream.sql", "V048__workflow_log_stream");
+        new SchemaMigrator(dataSource).apply("db/migration/V049__workflow_diagnostics.sql", "V049__workflow_diagnostics");
+        new SchemaMigrator(dataSource).apply("db/migration/V050__workflow_recovery_closure.sql", "V050__workflow_recovery_closure");
+        new SchemaMigrator(dataSource).apply("db/migration/V051__workflow_task_archive.sql", "V051__workflow_task_archive");
+        new SchemaMigrator(dataSource).apply("db/migration/V052__log_rejection_certainty.sql", "V052__log_rejection_certainty");
+        new SchemaMigrator(dataSource).apply("db/migration/V053__workflow_sample_recovery.sql", "V053__workflow_sample_recovery");
+        new SchemaMigrator(dataSource).apply("db/migration/V054__workflow_quality_alerts.sql", "V054__workflow_quality_alerts");
+        new SchemaMigrator(dataSource).apply("db/migration/V055__workflow_history_selection.sql", "V055__workflow_history_selection");
+        new SchemaMigrator(dataSource).apply("db/migration/V056__workflow_metric_replay.sql", "V056__workflow_metric_replay");
+        new SchemaMigrator(dataSource).apply("db/migration/V057__workflow_log_replay.sql", "V057__workflow_log_replay");
+        new SchemaMigrator(dataSource).apply("db/migration/V058__entity_relation_write.sql", "V058__entity_relation_write");
+        new SchemaMigrator(dataSource).apply("db/migration/V059__entity_instance_write.sql", "V059__entity_instance_write");
+        new SchemaMigrator(dataSource).apply("db/migration/V060__entity_model_pin.sql", "V060__entity_model_pin");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
@@ -166,7 +201,7 @@ public final class InventoryWiring implements AutoCloseable {
         var rawSnapshots = new PostgresSourceSnapshots(dataSource);
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
             rawSnapshots, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
-        var wiring = new InventoryWiring(postgres, postgres, sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
+        var wiring = new InventoryWiring(postgres, postgres, new PostgresEntityInstanceStore(dataSource), new PostgresRelationStore(dataSource), sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
         wiring.ownedDataSource = dataSource; return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
@@ -183,6 +218,8 @@ public final class InventoryWiring implements AutoCloseable {
     public InventoryWritePort writer() {
         return writer;
     }
+    public com.acme.opsweave.inventory.api.EntityInstanceStore entityInstances() { return entityInstances; }
+    public com.acme.opsweave.inventory.api.RelationStore relations() { return relations; }
     public com.acme.opsweave.inventory.api.ObservationReader observations() { return (com.acme.opsweave.inventory.api.ObservationReader) writer; }
 
     public IngestZabbixHostsUseCase.RawRecordCollector rawRecords() {
@@ -193,6 +230,9 @@ public final class InventoryWiring implements AutoCloseable {
         return syncRuns;
     }
 
+    public com.acme.opsweave.telemetry.api.MetricMappingStore metricMappings() {
+        return (com.acme.opsweave.telemetry.api.MetricMappingStore) metrics;
+    }
     public MetricDefinitionStore metrics() {
         return metrics;
     }

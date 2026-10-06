@@ -25,7 +25,7 @@ public final class FieldAuthority {
                 "mappingDigest", active.mappingDigest(), "fields", List.copyOf(selected), "dataMode", "import"));
         }
         EntityReadLimits.check(attrs);
-        return new Entity(primary.id(), primary.tenantId(), primary.entityType(), name, primary.lifecycle(), version, primary.lastSeen(), attrs);
+        return new Entity(primary.id(), primary.tenantId(), primary.entityType(), name, primary.lifecycle(), version, primary.lastSeen(), attrs, null);
     }
     public static Entity inactive(Entity primary) { return new Entity(primary.id(), primary.tenantId(), primary.entityType(), primary.name(), Lifecycle.INACTIVE, primary.version(), primary.lastSeen(), primary.attributes()); }
     public static Observation observation(SourceReview review) {

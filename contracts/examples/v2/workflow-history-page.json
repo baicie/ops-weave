@@ -1,0 +1,1157 @@
+{
+  "schemaVersion": "2.0",
+  "asOf": "2026-10-05T00:01:11Z",
+  "snapshotAt": "2026-10-05T00:01:11Z",
+  "reference": {
+    "id": "diagnostic-fixture",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "coverage": "RECORDED_CHECKS",
+  "offset": 0,
+  "recordedCount": 21,
+  "items": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000004",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000006",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000007",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000008",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000009",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000010",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000011",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000012",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000013",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000014",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000015",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000016",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000017",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000018",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000019",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000020",
+      "reference": {
+        "id": "diagnostic-fixture",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "kind": "HOST_SCAN",
+      "generation": 1,
+      "state": "CHECKED",
+      "from": null,
+      "till": null,
+      "startedAt": "2026-10-05T00:01:10Z",
+      "completedAt": "2026-10-05T00:01:11Z",
+      "queueWaitMillis": 0,
+      "relatedBatchId": "20000000-0000-4000-8000-000000000127",
+      "error": null,
+      "result": {
+        "coverage": "COMPLETE",
+        "sampleRate": null,
+        "received": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "unknown": 0,
+        "schemaMismatch": 0,
+        "missingIdentity": 0,
+        "invalidTimestamp": 0,
+        "unitMismatch": null,
+        "nodes": [
+          {
+            "nodeId": "source",
+            "type": "SOURCE",
+            "received": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "filtered": 0,
+            "skipped": 0,
+            "issues": {}
+          }
+        ]
+      },
+      "sourceRead": {
+        "attempts": 1,
+        "completed": 1,
+        "failed": 0,
+        "received": 1,
+        "failureCode": null,
+        "startedAt": "2026-10-05T00:01:10Z",
+        "completedAt": "2026-10-05T00:01:11Z"
+      },
+      "dispatch": {
+        "id": "10000000-0000-4000-8000-000000000133",
+        "enqueuedAt": "2026-10-05T00:01:10Z",
+        "startedAt": "2026-10-05T00:01:10Z"
+      }
+    }
+  ],
+  "nextCursor": "h1.U3ludGhldGljRml4dHVyZQ",
+  "hasMore": true
+}

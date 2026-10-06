@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { Button } from '@/components/ui/button'
+import { QueryToolbar } from '../../components/PageLayout.tsx'
 import { recentConnectionChecks, runConnectionCheck, ConnectionCheckError, type ConnectionCheckPage, type SourceConnectionCheck } from '../../api/source-connection-checks.ts'
 
 /**
@@ -33,9 +34,11 @@ export function SourceConnectionCheckPanel() {
   return <section data-connection-check-panel><h3>来源连接自检（只读）</h3>
     <p>自检对已配置来源做一次有界只读探针：fixture 模式是显式标注的合成探针，JSON-RPC 模式只读 <code>apiinfo.version</code>。它不启动扫描、不取租约、不写库存、不调用模型；探针失败会记成失败回执，绝不回退成 fixture 成功。</p>
     <p>回执里的 dataMode 是该来源配置的模式，不是本次探针的结论；fixture 回执不代表真实厂商可用。statusCode 是稳定码而不是厂商原文，reportedVersion 是来源自报的版本（未验证），不构成平台已验证的支持声明。</p>
+    <QueryToolbar label="来源自检与回执查询">
     <div role="group" aria-label="自检回执数量"><Button variant={limit === 10 ? 'default' : 'outline'} disabled={disabled} onClick={() => size(10)}>最近 10 条</Button><Button variant={limit === 20 ? 'default' : 'outline'} disabled={disabled} onClick={() => size(20)}>最近 20 条</Button><Button variant={limit === 50 ? 'default' : 'outline'} disabled={disabled} onClick={() => size(50)}>最近 50 条</Button></div>
     <Button variant="outline" disabled={disabled} onClick={probe}>来源连接自检</Button>
     <Button variant="outline" disabled={disabled} onClick={load}>读取自检回执</Button>
+    </QueryToolbar>
     <p>自检需要来源级 source.sync 权限，按新到旧读取回执；每个 tenant/来源只保留最近 100 份，读取单页上限 50。</p>
     <p data-connection-check-error aria-live="assertive">{error}</p>
     {receipt ? <section data-connection-check><h3>本次自检回执</h3><CheckRow check={receipt} /></section> : null}

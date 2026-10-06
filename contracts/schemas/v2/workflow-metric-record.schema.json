@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bounded normalized GAUGE preview record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timestamp",
+    "metricKey",
+    "value",
+    "metricType"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 80
+    },
+    "metricKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:/-]{0,127}$"
+    },
+    "value": {
+      "type": "number",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991,
+      "multipleOf": 1e-12
+    },
+    "metricType": {
+      "const": "GAUGE"
+    },
+    "unit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    }
+  }
+}

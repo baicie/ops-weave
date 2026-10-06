@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "2.0",
+  "asOf": "2026-10-05T12:00:00Z",
+  "reference": {
+    "id": "quality-alert-fixture",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "configuration": {
+    "reference": {
+      "id": "quality-alert-fixture",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "editVersion": 1,
+    "windowSeconds": 600,
+    "rules": [
+      {
+        "kind": "SOURCE_FAILURES",
+        "threshold": 3
+      },
+      {
+        "kind": "OUTPUT_REJECTIONS",
+        "threshold": 1
+      },
+      {
+        "kind": "QUEUE_WAIT",
+        "threshold": 250
+      },
+      {
+        "kind": "TASK_FAILURE",
+        "threshold": 1
+      }
+    ],
+    "updatedAt": "2026-10-05T12:00:00Z"
+  },
+  "from": "2026-10-05T11:50:00Z",
+  "till": "2026-10-05T12:00:00Z",
+  "evaluations": [
+    {
+      "kind": "SOURCE_FAILURES",
+      "state": "UNAVAILABLE",
+      "value": null,
+      "unit": "COUNT",
+      "sampleCount": 0,
+      "missingCount": 0,
+      "evidenceIds": [],
+      "truncated": false,
+      "reason": "NO_DATA"
+    },
+    {
+      "kind": "OUTPUT_REJECTIONS",
+      "state": "UNAVAILABLE",
+      "value": null,
+      "unit": "COUNT",
+      "sampleCount": 0,
+      "missingCount": 0,
+      "evidenceIds": [],
+      "truncated": false,
+      "reason": "NO_DATA"
+    },
+    {
+      "kind": "QUEUE_WAIT",
+      "state": "UNAVAILABLE",
+      "value": null,
+      "unit": "MILLISECONDS",
+      "sampleCount": 0,
+      "missingCount": 0,
+      "evidenceIds": [],
+      "truncated": false,
+      "reason": "NO_DATA"
+    },
+    {
+      "kind": "TASK_FAILURE",
+      "state": "UNAVAILABLE",
+      "value": null,
+      "unit": "COUNT",
+      "sampleCount": 0,
+      "missingCount": 0,
+      "evidenceIds": [],
+      "truncated": false,
+      "reason": "NO_CURRENT_TASK"
+    }
+  ]
+}

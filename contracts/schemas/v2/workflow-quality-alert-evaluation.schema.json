@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-quality-alert-evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "SOURCE_FAILURES",
+        "OUTPUT_REJECTIONS",
+        "QUEUE_WAIT",
+        "TASK_FAILURE"
+      ]
+    },
+    "state": {
+      "enum": [
+        "TRIGGERED",
+        "NORMAL",
+        "UNAVAILABLE"
+      ]
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unit": {
+      "enum": [
+        "COUNT",
+        "MILLISECONDS"
+      ]
+    },
+    "sampleCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "missingCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "evidenceIds": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "reason": {
+      "enum": [
+        null,
+        "NO_DATA",
+        "MISSING_MEASUREMENT",
+        "HISTORY_TRUNCATED",
+        "NO_CURRENT_TASK",
+        "AMBIGUOUS_ORDER"
+      ]
+    }
+  },
+  "required": [
+    "kind",
+    "state",
+    "value",
+    "unit",
+    "sampleCount",
+    "missingCount",
+    "evidenceIds",
+    "truncated",
+    "reason"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "UNAVAILABLE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "type": "null"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "reason": {
+            "type": "null"
+          },
+          "sampleCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "QUEUE_WAIT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unit": {
+            "const": "MILLISECONDS"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "unit": {
+            "const": "COUNT"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "TASK_FAILURE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

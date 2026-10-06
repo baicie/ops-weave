@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-host-checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workflowId",
+    "revision",
+    "digest",
+    "generation",
+    "scanId",
+    "pendingBatchId",
+    "confirmedBatches",
+    "confirmedRecords",
+    "complete",
+    "updatedAt"
+  ],
+  "properties": {
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000001
+    },
+    "scanId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "pendingBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confirmedBatches": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "confirmedRecords": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pendingBatchId": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "10000000-0000-4000-8000-000000000134",
+  "commandDigest": "sha256:d3bbab6efe6f7c2578c2a8921b3657962674bef9b436622beb55e3807c927a78",
+  "acceptedAt": "2026-10-05T12:00:00Z",
+  "configuration": {
+    "reference": {
+      "id": "quality-alert-fixture",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "editVersion": 1,
+    "windowSeconds": 600,
+    "rules": [
+      {
+        "kind": "SOURCE_FAILURES",
+        "threshold": 3
+      },
+      {
+        "kind": "OUTPUT_REJECTIONS",
+        "threshold": 1
+      },
+      {
+        "kind": "QUEUE_WAIT",
+        "threshold": 250
+      },
+      {
+        "kind": "TASK_FAILURE",
+        "threshold": 1
+      }
+    ],
+    "updatedAt": "2026-10-05T12:00:00Z"
+  }
+}

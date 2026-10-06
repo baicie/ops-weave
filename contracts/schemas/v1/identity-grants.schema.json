@@ -73,7 +73,11 @@
                 "ai.retention.manage",
                 "skill.read",
                 "skill.manage",
-                "source.sync"
+                "source.sync",
+                "source.configure",
+                "log.read",
+                "log.write",
+                "workflow.replay"
               ]
             }
           },
@@ -105,7 +109,11 @@
                         "entity",
                         "incident",
                         "metric",
+                        "log",
                         "source",
+                        "source-endpoint",
+                        "credential",
+                        "workflow",
                         "evidence",
                         "ai-insight",
                         "skill"

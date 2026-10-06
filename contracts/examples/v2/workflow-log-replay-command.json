@@ -1,0 +1,8 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000136",
+  "id": "fixture-log",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "from": "2026-10-05T00:00:00Z",
+  "till": "2026-10-05T00:01:00Z"
+}

@@ -1,0 +1,4 @@
+{
+  "base":{"id":"fixture-comparison","revision":1,"state":"PUBLISHED","editVersion":0,"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "candidate":{"id":"fixture-comparison","revision":2,"state":"DRAFT","editVersion":1,"digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+}

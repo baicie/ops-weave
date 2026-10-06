@@ -8,8 +8,7 @@
     "name",
     "description",
     "source",
-    "connectionDigest",
-    "target"
+    "connectionDigest"
   ],
   "properties": {
     "requestId": {

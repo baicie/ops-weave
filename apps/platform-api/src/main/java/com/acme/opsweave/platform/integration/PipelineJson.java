@@ -12,7 +12,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Explicit wire adapter for the schemas in contracts; no polymorphic deserialization. */
 public final class PipelineJson {
-    private static final JsonMapper JSON = JsonMapper.builder().build();
+    /** Pipeline requests are a signed/allow-listed wire boundary: reject ambiguous JSON. */
+    private static final JsonMapper JSON = JsonMapper.builder()
+        .enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+        .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+        .build();
     private PipelineJson() {}
     public static JsonNode read(HttpServletRequest request, boolean optional) throws IOException {
         byte[] bytes = request.getInputStream().readNBytes(16_385);

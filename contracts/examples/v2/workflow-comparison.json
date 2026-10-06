@@ -1,0 +1,13 @@
+{
+  "schemaVersion":"2.0",
+  "base":{"id":"fixture-comparison","revision":1,"state":"PUBLISHED","editVersion":0,"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "candidate":{"id":"fixture-comparison","revision":2,"state":"DRAFT","editVersion":1,"digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+  "comparedAt":"2026-10-03T00:00:00Z",
+  "changes":[
+    {"section":"NAME","nodeId":null,"key":"name","before":"Fixture original workflow","after":"Fixture revised workflow"},
+    {"section":"SOURCE","nodeId":null,"key":"configurationRevision","before":"1","after":"2"},
+    {"section":"MAPPING","nodeId":"mapping","key":"raw_name","before":"name","after":null},
+    {"section":"MAPPING","nodeId":"mapping","key":"hostname","before":null,"after":"name"},
+    {"section":"OPERATOR","nodeId":"trim","key":"operatorDigest","before":null,"after":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+  ]
+}

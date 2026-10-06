@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-stored",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "observation": {
+      "$ref": "workflow-diagnostic-observation.schema.json"
+    },
+    "entityIds": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      }
+    }
+  },
+  "required": [
+    "observation",
+    "entityIds"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "observation": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "METRIC_STREAM",
+                  "LOG_STREAM"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "entityIds": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
+}

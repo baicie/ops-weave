@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-metric-stream-receipt-storage",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation": {
+      "enum": [
+        "START",
+        "STOP",
+        "RESUME"
+      ]
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "acceptedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "task": {
+      "$ref": "https://contracts.opsweave.invalid/v2/workflow-metric-stream-task-storage"
+    }
+  },
+  "required": [
+    "requestId",
+    "operation",
+    "commandDigest",
+    "acceptedAt",
+    "task"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "STOP"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task": {
+            "properties": {
+              "state": {
+                "const": "STOPPED"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "task": {
+            "properties": {
+              "state": {
+                "const": "RUNNING"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

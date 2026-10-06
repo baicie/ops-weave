@@ -2,6 +2,7 @@
 .gradle/
 **/build/
 **/target/
+**/bin/
 **/node_modules/
 .pnpm-debug.log*
 package-lock.json
@@ -18,6 +19,7 @@ blob-report/
 .env
 .env.*
 !.env.example
+!.env.dev.example
 *.log
 data/
 .tmp/

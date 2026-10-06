@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-metric-discovery.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,19}$"
+          },
+          "hostId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,19}$"
+          },
+          "sourceKey": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+          },
+          "sourceUnit": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 0,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+          },
+          "sourceValueType": {
+            "enum": [
+              "FLOAT",
+              "UNSIGNED",
+              "CHARACTER",
+              "LOG",
+              "TEXT",
+              "BINARY",
+              "UNKNOWN"
+            ]
+          },
+          "mappingStatus": {
+            "enum": [
+              "MAPPED",
+              "NO_MAPPING",
+              "TYPE_MISMATCH"
+            ]
+          },
+          "mapping": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "metricKey": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                  },
+                  "valueType": {
+                    "enum": [
+                      "DOUBLE",
+                      "INTEGER",
+                      "STRING"
+                    ]
+                  },
+                  "valueTransform": {
+                    "type": "string",
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision",
+                  "digest",
+                  "metricKey",
+                  "unit",
+                  "valueType",
+                  "valueTransform"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "itemId",
+          "hostId",
+          "sourceKey",
+          "name",
+          "sourceUnit",
+          "sourceValueType",
+          "mappingStatus",
+          "mapping"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "mappingStatus": {
+                  "const": "NO_MAPPING"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "mapping": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "mapping": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 96,
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    },
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^sha256:[a-f0-9]{64}$"
+                    },
+                    "metricKey": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                    },
+                    "unit": {
+                      "type": "string",
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                    },
+                    "valueType": {
+                      "enum": [
+                        "DOUBLE",
+                        "INTEGER",
+                        "STRING"
+                      ]
+                    },
+                    "valueTransform": {
+                      "type": "string",
+                      "maxLength": 96,
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "digest",
+                    "metricKey",
+                    "unit",
+                    "valueType",
+                    "valueTransform"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "scanConsistency": {
+      "enum": [
+        "FIRST_PAGE_MATCH",
+        "LABELED_FIXTURE",
+        "UNVERIFIED"
+      ]
+    },
+    "statusCode": {
+      "enum": [
+        "READ_VERIFIED",
+        "INCOMPLETE",
+        "UNREACHABLE"
+      ]
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "scope": {
+      "const": "FIRST_ITEM_PAGE"
+    },
+    "limit": {
+      "const": 20
+    }
+  },
+  "required": [
+    "items",
+    "complete",
+    "scanConsistency",
+    "statusCode",
+    "fingerprint",
+    "scope",
+    "limit"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "statusCode": {
+            "const": "READ_VERIFIED"
+          },
+          "scanConsistency": {
+            "enum": [
+              "FIRST_PAGE_MATCH",
+              "LABELED_FIXTURE"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "statusCode": {
+            "enum": [
+              "INCOMPLETE",
+              "UNREACHABLE"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "statusCode": {
+            "const": "UNREACHABLE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "items": {
+            "maxItems": 0
+          },
+          "complete": {
+            "const": false
+          },
+          "scanConsistency": {
+            "const": "UNVERIFIED"
+          }
+        }
+      }
+    }
+  ]
+}

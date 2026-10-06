@@ -1,0 +1,20 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://opsweave.dev/schemas/v2/workflow-comparison.schema.json",
+  "type":"object","additionalProperties":false,"required":["schemaVersion","base","candidate","comparedAt","changes"],
+  "properties":{
+    "schemaVersion":{"const":"2.0"},
+    "base":{"$ref":"workflow-comparison-request.schema.json#/$defs/reference"},"candidate":{"$ref":"workflow-comparison-request.schema.json#/$defs/reference"},
+    "comparedAt":{"type":"string","format":"date-time","maxLength":40},
+    "changes":{"type":"array","maxItems":1200,"uniqueItems":true,"items":{
+      "type":"object","additionalProperties":false,"required":["section","nodeId","key","before","after"],
+      "properties":{
+        "section":{"enum":["NAME","SOURCE","TARGET","NODE","OPERATOR","MAPPING","PARAMETER","EDGE","ORDER"]},
+        "nodeId":{"anyOf":[{"type":"null"},{"type":"string","pattern":"^[a-z][a-z0-9_-]{0,31}$"}]},
+        "key":{"type":"string","minLength":1,"maxLength":96},
+        "before":{"type":["string","null"],"maxLength":4096},"after":{"type":["string","null"],"maxLength":4096}
+      },
+      "allOf":[{"if":{"properties":{"section":{"enum":["NODE","OPERATOR","MAPPING","PARAMETER"]}}},"then":{"properties":{"nodeId":{"type":"string"}}},"else":{"properties":{"nodeId":{"type":"null"}}}}]
+    }}
+  }
+}

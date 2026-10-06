@@ -1,6 +1,6 @@
 // Browser request lifetime only. Authentication and authorization belong to Java.
 export type SessionChange = { reason: 'credentials' | 'logout' | 'unauthenticated' | 'forbidden' | 'expired' | 'pagehide'; error?: Error }
-export type CredentialTicket = { readonly token: string; readonly revision: number; readonly cookie?: boolean; readonly csrf?: string }
+export type CredentialTicket = { readonly token: string; readonly revision: number; readonly cookie?: boolean; readonly csrf?: string; readonly local?: boolean }
 export type BrowserSession = { schemaVersion: '1.0'; mode: 'oidc'; dataMode: 'oidc' | 'oidc-protocol-test'; authenticated: boolean; csrfToken: string; sessionId: string | null; expiresAt: string | null;
   principal: { tenantId: string; subjectId: string; permissions: string[] } | null; loginPath: '/api/v1/auth/login/opsweave' }
 export class CredentialSession {
@@ -8,14 +8,22 @@ export class CredentialSession {
   private revision = 0
   private deadline = 0
   private cookieMode = false
+  private localMode = false
   private browserSession: BrowserSession | null = null
   private readonly listeners = new Set<(change: SessionChange) => void>()
   private readonly requests = new Set<AbortController>()
   token() { return this.credential }
   isCookie() { return this.cookieMode }
+  isLocalPreview() { return this.localMode }
   browser() { return this.browserSession }
   ready() { return this.cookieMode ? this.browserSession?.authenticated === true : this.credential.length >= 32 && !/\s/.test(this.credential) }
-  enableCookieMode() { this.cookieMode = true; this.clear() }
+  enableCookieMode() { this.cookieMode = true; this.localMode = false; this.clear() }
+  enableLocalPreviewMode() { this.localMode = true; this.cookieMode = false; this.clear() }
+  acceptLocalSession(nonce: string, expiresAt: string, now = Date.now()) {
+    const deadline = Date.parse(expiresAt)
+    if (!this.localMode || !/^[A-Za-z0-9_-]{43}$/.test(nonce) || !Number.isFinite(deadline) || deadline <= now || deadline > now + 30 * 60 * 1000) throw new Error('本地会话响应不正确')
+    this.credential = nonce; this.deadline = deadline; this.invalidate({ reason: 'credentials' })
+  }
   acceptBrowserSession(value: BrowserSession) {
     if (!this.cookieMode) throw new Error('当前未启用浏览器会话')
     this.browserSession = value; this.deadline = value.authenticated ? Date.parse(value.expiresAt!) : 0
@@ -24,7 +32,7 @@ export class CredentialSession {
   expiresAt() { return this.deadline }
   subscribe(listener: (change: SessionChange) => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   replace(value: string, now = Date.now()) {
-    if (this.cookieMode) throw new Error('浏览器会话不接受开发凭据')
+    if (this.cookieMode || this.localMode) throw new Error('浏览器会话不接受开发凭据')
     if (value.length > 4096 || /[\r\n\0]/.test(value)) { this.clear(); throw new Error('开发凭据格式不正确') }
     if (value === this.credential) return
     this.credential = value; this.deadline = value ? now + 30 * 60 * 1000 : 0
@@ -39,6 +47,10 @@ export class CredentialSession {
     if (this.cookieMode) {
       if (!bootstrap && !this.ready()) throw new Error('请先登录或读取当前会话')
       return { token: '', revision: this.revision, cookie: true, csrf: this.browserSession?.csrfToken }
+    }
+    if (this.localMode) {
+      if (!bootstrap && !this.ready()) throw new Error('本地会话尚未就绪，请重新连接')
+      return { token: this.credential, revision: this.revision, local: true }
     }
     if (this.credential.length < 32 || /\s/.test(this.credential)) throw new Error('请先输入有效长度的开发凭据')
     return { token: this.credential, revision: this.revision }

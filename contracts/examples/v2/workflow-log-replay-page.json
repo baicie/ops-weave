@@ -1,0 +1,48 @@
+{
+  "items": [
+    {
+      "schemaVersion": "2.0",
+      "requestId": "10000000-0000-4000-8000-000000000136",
+      "reference": {
+        "id": "fixture-log",
+        "revision": 1,
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "commandDigest": "sha256:14a7e90ed00d8cdb90c9027d57765bbe99e78ce6c7c4330594c66983a328011a",
+      "from": "2026-10-05T00:00:00Z",
+      "till": "2026-10-05T00:01:00Z",
+      "createdAt": "2026-10-05T00:02:00Z",
+      "updatedAt": "2026-10-05T00:02:01Z",
+      "expiresAt": "2026-10-05T00:12:00Z",
+      "purpose": "REBUILD_LOG_PROJECTION",
+      "outputPolicy": "ISOLATED_LOG_WINDOW",
+      "notifications": false,
+      "actions": false,
+      "state": "READY",
+      "proof": {
+        "inputDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "batchDigest": "sha256:12147c158c7994b8d2866a913d09c8c62524a6210652d0564e93f8070ec546df",
+        "inputCount": 2,
+        "filtered": 0,
+        "scope": {
+          "tenant": "synthetic-fixture",
+          "ownerScope": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "requestId": "10000000-0000-4000-8000-000000000136",
+          "workflowId": "fixture-log",
+          "revision": 1,
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "indices": [
+          0,
+          1
+        ],
+        "positions": [
+          "2026-10-05T00:00:01Z",
+          "2026-10-05T00:00:02Z"
+        ]
+      },
+      "error": null
+    }
+  ],
+  "truncated": false
+}

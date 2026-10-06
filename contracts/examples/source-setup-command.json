@@ -1,0 +1,10 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000071",
+  "name": "Fixture Zabbix onboarding",
+  "description": "Synthetic contract example; no source connection claim",
+  "source": {
+    "kind": "ZABBIX_HOST",
+    "instanceId": "zabbix-fixture"
+  },
+  "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

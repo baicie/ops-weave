@@ -1,5 +1,7 @@
 # 浏览器身份与内部委托 v1
 
+§102补充：操作员scope允许`source-endpoint`和`credential`资源类型，服务器文件适配器与identity-grants Schema同步校验。实际连接读取要求source、source-endpoint、credential三个范围及source.sync同时成立；配置权限不会授予读取秘密的权限。新增类型只允许操作员明确配置，不增加默认权限，不改变原有会话重读、撤销及失效规则。
+
 `schemas/v1/browser-session.schema.json`、`browser-logout.schema.json` 和 `identity-grants.schema.json` 是身份边界的业务 Schema；Spring OAuth、Servlet session 和 Nimbus JWT 对象不进入跨语言契约。样例均为占位数据。
 
 `OPSWEAVE_AUTH_MODE=oidc` 启用 authorization-code BFF。`closed` 默认拒绝，`dev` 保留既有显式 loopback 开发凭据，三者不会相互回退。Web 构建以 `VITE_PLATFORM_AUTH=oidc` 启用 Cookie 模式，只自动读取 `/api/v1/auth/session` 元数据；其他业务仍需用户显式读取。当前会话不向 Web 或 Rust 返回 IdP ID/access/refresh Token。固定 `/api/v1/auth/login/opsweave` 和 `/api/v1/auth/callback`，成功只跳转到配置的 origin 下的 `/#/inventory`。

@@ -2,6 +2,7 @@ package com.acme.opsweave.inventory.infrastructure;
 
 import com.acme.opsweave.inventory.api.InventoryQuery;
 import com.acme.opsweave.inventory.api.InventoryWritePort;
+import com.acme.opsweave.inventory.api.EntityInstanceStore;
 import com.acme.opsweave.inventory.domain.Entity;
 import com.acme.opsweave.inventory.domain.ExternalLink;
 import com.acme.opsweave.inventory.domain.ExternalObjectKey;
@@ -14,6 +15,7 @@ import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,7 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Labeled in-memory inventory. Not a production store and not a silent fixture for live sources. */
-public final class InMemoryInventoryStore implements InventoryQuery, InventoryWritePort, com.acme.opsweave.inventory.api.ObservationReader, com.acme.opsweave.inventory.api.SourceReviewStore, com.acme.opsweave.inventory.api.AssetIdentityStore, com.acme.opsweave.inventory.api.SourceReceiptCapacityReader {
+public final class InMemoryInventoryStore implements InventoryQuery, InventoryWritePort, com.acme.opsweave.inventory.api.EntityInstanceStore, com.acme.opsweave.inventory.api.ObservationReader, com.acme.opsweave.inventory.api.SourceReviewStore, com.acme.opsweave.inventory.api.AssetIdentityStore, com.acme.opsweave.inventory.api.SourceReceiptCapacityReader {
     @Override public int snapshotReceipts(com.acme.opsweave.sharedkernel.TenantId tenantId, String sourceInstanceId) { return 0; }
     @Override public int correctionReceipts(com.acme.opsweave.sharedkernel.TenantId tenantId, String sourceInstanceId) { return 0; }
     private final ConcurrentHashMap<StoreKey, Entity> entities = new ConcurrentHashMap<>();
@@ -80,6 +82,27 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
     public synchronized Optional<EntityView> find(TenantId tenantId, EntityId entityId) {
         return Optional.ofNullable(entities.get(new StoreKey(tenantId, entityId))).map(this::view);
     }
+    @Override public synchronized EntityInstanceStore.WriteResult write(TenantId tenant, java.util.UUID requestId, Entity entity, Long expectedVersion) {
+        if (!tenant.equals(entity.tenantId())) throw new EntityInstanceStore.Conflict("Entity tenant mismatch");
+        com.acme.opsweave.inventory.domain.EntityReadLimits.checkForWrite(entity.attributes());
+        var current = entities.get(new StoreKey(tenant, entity.id()));
+        var prior = instanceRequests.get(tenant.value() + '\0' + requestId);
+        if (prior != null) { if (!sameCommand(prior, entity, expectedVersion)) throw new EntityInstanceStore.Conflict("Entity request reused"); return new EntityInstanceStore.WriteResult(prior.entity(), true); }
+        if (current == null ? expectedVersion != null : expectedVersion == null || current.version() != expectedVersion) throw new EntityInstanceStore.Conflict("Entity version changed");
+        entities.put(new StoreKey(tenant, entity.id()), entity); instanceRequests.put(tenant.value() + '\0' + requestId, new InstanceRequest(entity, expectedVersion));
+        return new EntityInstanceStore.WriteResult(entity, false);
+    }
+    private record InstanceRequest(Entity entity, Long expectedVersion) {}
+    private final Map<String, InstanceRequest> instanceRequests = new HashMap<>();
+    /** lastSeen is server-assigned and is excluded from the idempotency key. */
+    private static boolean sameCommand(InstanceRequest prior, Entity b, Long expectedVersion) {
+        Entity a = prior.entity();
+        return Objects.equals(prior.expectedVersion(), expectedVersion) && Objects.equals(a.model(), b.model())
+            && a.id().equals(b.id()) && a.tenantId().equals(b.tenantId())
+            && a.entityType().equals(b.entityType()) && a.name().equals(b.name())
+            && a.lifecycle().equals(b.lifecycle()) && a.version() == b.version()
+            && a.attributes().equals(b.attributes());
+    }
 
     @Override
     public synchronized List<EntityView> list(TenantId tenantId) {
@@ -98,8 +121,9 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
         upsertInside(entity,observation,link);
     }
     private void upsertInside(Entity entity, Observation observation, ExternalLink link) {
-        Observation.checkWrite(entity, observation, link);
-        String observationKey = entity.tenantId().value() + '\0' + observation.id();
+        Entity sourceEntity = entity.withModelPin(null);
+        Observation.checkWrite(sourceEntity, observation, link);
+        String observationKey = sourceEntity.tenantId().value() + '\0' + observation.id();
         var oldObservation = observations.get(observationKey);
         if (oldObservation != null) {
             if (!oldObservation.equals(observation)) throw new IllegalStateException("Immutable observation conflict");
@@ -107,25 +131,25 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
         }
         var existingLink = links.get(link.key());
         if (existingLink != null && !existingLink.entityId().equals(entity.id())) throw new IllegalStateException("External link reassignment requires resolution");
-        if (links.values().stream().anyMatch(old -> old.key().tenantId().equals(entity.tenantId()) && old.entityId().equals(entity.id())
+        if (links.values().stream().anyMatch(old -> old.key().tenantId().equals(sourceEntity.tenantId()) && old.entityId().equals(sourceEntity.id())
             && !old.key().equals(link.key()))) throw new IllegalStateException("Multiple sources require explicit field authority");
-        StoreKey key = new StoreKey(entity.tenantId(), entity.id());
+        StoreKey key = new StoreKey(sourceEntity.tenantId(), sourceEntity.id());
         entities.compute(key, (ignored, existing) -> {
             if (existing == null) {
-                return entity;
+                return sourceEntity;
             }
-            if (entity.lastSeen().isBefore(existing.lastSeen())) return existing;
+            if (sourceEntity.lastSeen().isBefore(existing.lastSeen())) return existing;
             var projected = com.acme.opsweave.inventory.domain.FieldAuthority.project(new Entity(
                 existing.id(),
                 existing.tenantId(),
-                entity.entityType(),
-                entity.name(),
-                entity.lifecycle(),
+                sourceEntity.entityType(),
+                sourceEntity.name(),
+                sourceEntity.lifecycle(),
                 existing.version() + 1,
-                entity.lastSeen(),
-                entity.attributes()
+                sourceEntity.lastSeen(),
+                sourceEntity.attributes()
             ), active(key), existing.version() + 1);
-            if (primarySnapshots.containsKey(key)) primarySnapshots.put(key, entity);
+            if (primarySnapshots.containsKey(key)) primarySnapshots.put(key, sourceEntity);
             return projected;
         });
         observations.put(observationKey, observation);
@@ -288,7 +312,7 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
             changed = previous.revoke(command,now); identityBindings.remove(tenant.value() + '\0' + namespace + '\0' + previous.value());
         }
         var receipt = new com.acme.opsweave.inventory.api.AssetIdentityStore.Receipt(command,changed,current.version()+1);
-        entities.put(key,new Entity(entity,tenant,current.entityType(),current.name(),current.lifecycle(),current.version()+1,current.lastSeen(),current.attributes()));
+        entities.put(key,new Entity(entity,tenant,current.entityType(),current.name(),current.lifecycle(),current.version()+1,current.lastSeen(),current.attributes(),current.model()));
         identityRecords.put(recordKey,changed); identityReceipts.put(receiptKey,receipt); return receipt;
     }
     @Override public synchronized List<com.acme.opsweave.inventory.domain.AssetIdentity> identities(TenantId tenant, EntityId entity, String namespace, java.util.UUID after, int limit) {
@@ -313,7 +337,8 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
             entity.name(),
             entity.lifecycle().name(),
             entity.version(),
-            entity.attributes()
+            entity.attributes(),
+            entity.model()
         );
     }
 

@@ -1,0 +1,19 @@
+package com.acme.opsweave.integration.application;
+
+import com.acme.opsweave.identity.domain.Principal;
+import com.acme.opsweave.integration.api.WorkflowStore;
+import com.acme.opsweave.integration.domain.*;
+import com.acme.opsweave.integration.domain.WorkflowQualityAlerts.*;
+import java.time.Clock;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
+/** Persist explicit operator settings, then evaluate authorized metadata in one snapshot. */
+public final class WorkflowQualityAlertService {
+    private final WorkflowStore store;private final Clock clock;private final WorkflowQualityService quality;private final WorkflowDiagnosticService diagnostics;
+    public WorkflowQualityAlertService(WorkflowStore store,WorkflowService workflows,Clock clock){this.store=store;this.clock=clock;quality=new WorkflowQualityService(store,workflows,clock);diagnostics=new WorkflowDiagnosticService(store,workflows,clock);}
+    private void parent(Principal p,WorkflowStore.Session s,WorkflowQuality.Reference ref){if(!diagnostics.reference(p,s,ref.id(),ref.revision()).equals(ref))throw new WorkflowFailure(WorkflowFailure.Code.CONFLICT);}
+    public Receipt configure(Principal p,Command command){return store.transaction(p.tenantId(),s->{parent(p,s,command.reference());var owner=p.subjectId().value();var prior=s.alertCommand(owner,command.requestId());if(prior.isPresent()){prior.get().require(command);return prior.get();}var current=s.alertConfiguration(owner,command.id(),command.revision()).orElse(null);if(current!=null&&!current.reference().equals(command.reference()))throw new IllegalStateException("Invalid threshold parent");if((current==null?0:current.editVersion())!=command.expectedVersion())throw new WorkflowFailure(WorkflowFailure.Code.CONFLICT);if(s.alertCommandCount(owner)>=(command.rules().isEmpty()?200:199))throw new WorkflowFailure(WorkflowFailure.Code.CAPACITY);var time=clock.instant().truncatedTo(ChronoUnit.MICROS);if(current!=null&&time.isBefore(current.updatedAt()))throw new WorkflowFailure(WorkflowFailure.Code.CONFLICT);var configuration=new Configuration(command.reference(),command.expectedVersion()+1,command.windowSeconds(),command.rules(),time);var receipt=new Receipt("2.0",command.requestId(),command.commandDigest(),time,configuration);receipt.require(command);s.saveAlertConfiguration(owner,configuration,command.expectedVersion());s.addAlertCommand(owner,receipt);return receipt;});}
+    public Receipt receipt(Principal p,String id,int revision,UUID requestId){return store.transaction(p.tenantId(),s->{var ref=diagnostics.reference(p,s,id,revision);var r=s.alertCommand(p.subjectId().value(),requestId).orElseThrow(()->new WorkflowFailure(WorkflowFailure.Code.NOT_FOUND));if(!r.configuration().reference().equals(ref))throw new WorkflowFailure(WorkflowFailure.Code.NOT_FOUND);return r;});}
+    public Status status(Principal p,String id,int revision){return store.transaction(p.tenantId(),s->{var now=clock.instant().truncatedTo(ChronoUnit.MICROS);var q=quality.report(p,s,id,revision,now);var d=diagnostics.report(p,s,id,revision,now);var owner=p.subjectId().value();var c=s.alertConfiguration(owner,id,revision).orElse(null);var ref=q.reference();boolean current=switch(q.kind()){case LOG_STREAM->s.logStreamTask(owner,id).filter(t->ref.matches(t.workflowId(),t.revision(),t.digest())).isPresent();case METRIC_STREAM->s.metricStreamTask(owner,id).filter(t->ref.matches(t.workflowId(),t.revision(),t.digest())).isPresent();case HOST_SCAN->s.task(owner,id).filter(t->ref.matches(t.workflowId(),t.revision(),t.digest())).isPresent()||s.hostSchedule(owner,id).filter(t->ref.matches(t.workflowId(),t.revision(),t.digest())).isPresent();};if(c!=null&&!c.reference().equals(ref))throw new IllegalStateException("Invalid threshold reference");try{return WorkflowQualityAlerts.evaluate(c,q,d,current);}catch(IllegalArgumentException invalid){throw new IllegalStateException("Invalid threshold evidence");}});}
+}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePageCloseGuard } from '../../state/page-workspace.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { getIncident, IncidentRequestError, type IncidentDetail } from '../../api/incidents.ts'
 import { reorganize, getReorganization, listReorganizations, keyOf, uuid, ReorganizationError,
@@ -26,6 +28,7 @@ export function ReorganizationPage() {
   const activeRef = useRef<AbortController | undefined>(undefined)
   const sequenceRef = useRef(0)
   const disposedRef = useRef(false)
+  usePageCloseGuard(busy || pending ? { message: pending ? '操作结果待确认，请先查询原请求回执。' : '请求正在处理，请等待结果后关闭。', blocked: true } : !receipt && (reason || title || selected.length) ? { message: '告警归属有尚未提交的修改。' } : null)
 
   function clear() {
     setSource(null)
@@ -178,8 +181,8 @@ export function ReorganizationPage() {
 
   return (
     <section className="panel" data-page="reorganization">
-      <h2>人工调整 Incident 归属</h2>
-      <p>合并将问题的后续观测交给目标，来源保留历史快照；拆分将选中问题移入新的 OPEN Incident。关联版本变化会使旧诊断证据失效。</p>
+      <PageHeader title="人工调整 Incident 归属" description="合并将问题的后续观测交给目标，来源保留历史快照；拆分将选中问题移入新的 OPEN Incident。关联版本变化会使旧诊断证据失效。" />
+      <PageBody className="console-maintenance">
       <label>来源 Incident ID<Input value={sourceId} disabled={editingDisabled} onChange={e => edit(setSourceId, e.currentTarget.value)} /></label>
       <div className="actions">
         <Button variant="outline" disabled={disabled || pending || !uuid(sourceId)} onClick={() => load('source')}>读取来源 Incident</Button>
@@ -282,6 +285,7 @@ export function ReorganizationPage() {
           <Button variant="outline" disabled={disabled || !historyPage.nextCursor} onClick={() => history(true)}>下一页关联历史</Button>
         </section>
       ) : null}
+      </PageBody>
     </section>
   )
 }

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-metric-replay-page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "workflow-metric-replay-plan.schema.json"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}

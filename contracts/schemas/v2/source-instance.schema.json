@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-instance.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "description",
+    "source",
+    "configurationRevision",
+    "connectionDigest",
+    "dataMode",
+    "editVersion",
+    "state",
+    "createdAt",
+    "updatedAt",
+    "workflowId"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "instanceId"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "ZABBIX_HOST",
+            "MANUAL_SAMPLE"
+          ]
+        },
+        "instanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "MANUAL_SAMPLE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "instanceId": {
+                "const": "manual"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "configurationRevision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "connectionDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "dataMode": {
+      "enum": [
+        "fixture",
+        "zabbix-jsonrpc",
+        "MANUAL_SAMPLE"
+      ]
+    },
+    "editVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "state": {
+      "enum": [
+        "ACTIVE",
+        "ARCHIVED"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "workflowId": {
+      "type": "string",
+      "pattern": "^source-[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": {
+              "kind": {
+                "const": "MANUAL_SAMPLE"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "dataMode": {
+            "const": "MANUAL_SAMPLE"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "dataMode": {
+            "enum": [
+              "fixture",
+              "zabbix-jsonrpc"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

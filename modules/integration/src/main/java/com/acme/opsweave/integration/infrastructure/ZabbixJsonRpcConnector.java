@@ -2,6 +2,7 @@ package com.acme.opsweave.integration.infrastructure;
 
 import com.acme.opsweave.integration.api.Connector;
 import com.acme.opsweave.integration.domain.SyncScan;
+import com.acme.opsweave.integration.domain.SourceConnectionConfiguration;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -18,11 +19,22 @@ public final class ZabbixJsonRpcConnector implements Connector {
     private final URI endpoint;
     private final Transport transport;
     private final SecretSource secrets;
+    private final List<String> hostGroupIds;
 
     public ZabbixJsonRpcConnector(URI endpoint, Transport transport, SecretSource secrets) {
+        this(endpoint,transport,secrets,List.of());
+    }
+
+    public ZabbixJsonRpcConnector(URI endpoint, Transport transport, SecretSource secrets,List<String> hostGroupIds) {
         this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
         this.transport = Objects.requireNonNull(transport, "transport");
         this.secrets = Objects.requireNonNull(secrets, "secrets");
+        this.hostGroupIds=SourceConnectionConfiguration.normalizeHostGroupIds(hostGroupIds);
+    }
+
+    public static String groupIdsParameter(List<String> hostGroupIds) {
+        var ids=SourceConnectionConfiguration.normalizeHostGroupIds(hostGroupIds);
+        return ids.isEmpty()?"":",\"groupids\":[\""+String.join("\",\"",ids)+"\"]";
     }
 
     @Override
@@ -45,7 +57,7 @@ public final class ZabbixJsonRpcConnector implements Connector {
     public Page fetch(SourceContext source, String cursor, int limit) {
         var position = JsonRpcWatermarkBounds.decode(cursor);
         String token = secrets.resolve(source.secretRef());
-        var manifest = JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid");
+        var manifest = JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid",hostGroupIds);
         if (position != null && !position.matches(manifest))
             return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK);
         int start = position == null ? 0 : position.position();
@@ -54,26 +66,39 @@ public final class ZabbixJsonRpcConnector implements Connector {
         List<Map<String, Object>> rows = List.of();
         if (!selected.isEmpty()) {
             String body = "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{"
-                + "\"output\":[\"hostid\",\"host\",\"name\",\"status\"],\"selectInterfaces\":[\"ip\",\"main\",\"type\"],"
+                + "\"output\":[\"hostid\",\"host\",\"name\",\"status\"],\"selectInterfaces\":[\"ip\",\"main\",\"type\"]"
+                + (hostGroupIds.isEmpty() ? "" : ",\"selectGroups\":[\"groupid\"]") + ","
                 + "\"hostids\":" + selected + ",\"sortfield\":\"hostid\",\"sortorder\":\"ASC\","
-                + "\"limit\":" + selected.size() + "},\"id\":1}";
+                + "\"limit\":" + selected.size() + groupIdsParameter(hostGroupIds)+"},\"id\":1}";
             rows = transport.readHostArray(transport.exchange(endpoint, body, token));
             var returned = rows.stream().map(row -> JsonRpcWatermarkBounds.id(row, "hostid")).toList();
             if (!selected.equals(returned)) return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK);
+            if (!hostGroupIds.isEmpty()) {
+                try { rows.forEach(row -> ZabbixHostGroupVerifier.requireHostMembership(row, hostGroupIds)); }
+                catch (IllegalStateException outOfScope) { return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK); }
+            }
         }
         boolean complete = end == manifest.ids().size();
-        if (complete && !manifest.equals(JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid")))
+        if (complete && !manifest.equals(JsonRpcWatermarkBounds.capture(transport, endpoint, token, "host.get", "hostid",hostGroupIds)))
             return new Page(List.of(), null, false, SyncScan.HOSTID_WATERMARK);
         Instant observedAt = Instant.now();
         List<RawRecord> records = new ArrayList<>();
-        for (Map<String, Object> row : rows)
-            records.add(new RawRecord(String.valueOf(row.get("hostid")), observedAt, row));
+        for (Map<String, Object> row : rows) {
+            var payload = new java.util.LinkedHashMap<>(row);
+            payload.remove("groups");
+            records.add(new RawRecord(String.valueOf(row.get("hostid")), observedAt, payload));
+        }
         return new Page(List.copyOf(records), complete ? null : manifest.cursor(end), complete, SyncScan.HOSTID_WATERMARK);
     }
 
     public interface Transport {
         /** A null bearer token is reserved for unauthenticated apiinfo.version discovery. */
         String exchange(URI endpoint, String jsonBody, String bearerToken);
+        /** Explicit remaining read budget; network adapters must bound the individual request. */
+        default String exchangeWithin(URI endpoint,String jsonBody,String bearerToken,java.time.Duration remaining) {
+            if(remaining.isZero()||remaining.isNegative())throw new IllegalArgumentException();
+            return exchange(endpoint,jsonBody,bearerToken);
+        }
 
         List<Map<String, Object>> readHostArray(String responseJson);
 

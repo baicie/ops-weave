@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { diagnose, getInsight, getEvidence, isUuid, InsightRequestError, type DiagnosisRequest, type InsightResult, type EvidenceDocument } from '../../api/insights.ts'
@@ -132,8 +133,8 @@ export function CurrentDiagnosisPage() {
 
   return (
     <section className="panel current-diagnosis" data-page="current-diagnosis">
-      <h2>平台只读诊断</h2>
-      <p>读取当前可见的 Incident 与所选窗口的 CPU 指标。采样窗口不代表当时已知的信息；引用关联通过校验也不代表根因成立。</p>
+      <PageHeader title="平台只读诊断" description="读取当前可见的 Incident 与所选窗口的 CPU 指标。采样窗口不代表当时已知的信息；引用关联通过校验也不代表根因成立。" />
+      <PageBody>
       <div className="metric-controls">
         <label>Incident ID<Input value={incident} disabled={busy} onChange={e => edit(setIncident, e.currentTarget.value)} /></label>
         <label>采样开始（UTC）<Input value={from} disabled={busy} onChange={e => edit(setFrom, e.currentTarget.value)} /></label>
@@ -218,6 +219,7 @@ export function CurrentDiagnosisPage() {
           <pre>{JSON.stringify(evidence.data, null, 2)}</pre>
         </section>
       ) : null}
+      </PageBody>
     </section>
   )
 }

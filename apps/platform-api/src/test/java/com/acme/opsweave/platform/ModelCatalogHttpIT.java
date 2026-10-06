@@ -63,4 +63,20 @@ class ModelCatalogHttpIT {
         }
         assertEquals(400, call("/preview", "{\"definition\":" + definition() + ",\"sample\":{\"name\":{\"nested\":true}}}", true).statusCode());
     }
+
+    @Test void candidateReviewChecksExactSavedContentAndPublicationRechecks() throws Exception {
+        String initial=definition().replace("custom.http_test","custom.review_http");
+        var saved=CatalogJson.JSON.readTree(call("/drafts","{\"definition\":"+initial+",\"expectedEditVersion\":0}",true).body());
+        String command="{\"ref\":{\"id\":\"custom.review_http\",\"revision\":1},\"expectedEditVersion\":1,\"digest\":\""+saved.get("digest").asString()+"\"}";
+        var before=call("",null,true).body();var checked=call("/revisions/review",command,true);assertEquals(200,checked.statusCode(),checked.body());assertTrue(CatalogJson.JSON.readTree(checked.body()).get("review").get("compatible").asBoolean());assertEquals(before,call("",null,true).body());
+        assertEquals(401,call("/revisions/review",command,false).statusCode());assertEquals(400,call("/revisions/review?tenantId=forged",command,true).statusCode());assertEquals(409,call("/revisions/review",command.replace("expectedEditVersion\":1","expectedEditVersion\":2"),true).statusCode());
+        assertEquals(200,call("/publish",command,true).statusCode());assertEquals(409,call("/revisions/review",command,true).statusCode());
+        String incompatible=initial.replace("\"revision\":1","\"revision\":2").replace("\"maxLength\":255","\"maxLength\":254");
+        var second=CatalogJson.JSON.readTree(call("/drafts","{\"definition\":"+incompatible+",\"expectedEditVersion\":0}",true).body());
+        String next=command.replace("\"revision\":1","\"revision\":2").replace(saved.get("digest").asString(),second.get("digest").asString());
+        var report=call("/revisions/review",next,true);assertEquals(200,report.statusCode(),report.body());assertFalse(CatalogJson.JSON.readTree(report.body()).get("review").get("compatible").asBoolean());assertTrue(report.body().contains("MAX_LENGTH"));assertEquals(409,call("/publish",next,true).statusCode());assertEquals(404,call("/versions/custom.review_http/2",null,true).statusCode());
+    }
+    @Test void referencesWithoutWorkflowPermissionAreExplicitAndClosed() throws Exception {
+        var value=call("/versions/builtin.host/1/references",null,true);assertEquals(200,value.statusCode(),value.body());var report=CatalogJson.JSON.readTree(value.body()).get("report");assertFalse(report.get("workflowsAvailable").asBoolean());assertEquals("builtin.host",report.get("target").get("id").asString());assertTrue(report.get("references").get("items").size()>0);assertFalse(value.body().contains("authority"));assertFalse(value.body().contains("rawRecords"));assertEquals(400,call("/versions/builtin.host/1/references?tenantId=forged",null,true).statusCode());assertEquals(404,call("/versions/builtin.host/2/references",null,true).statusCode());assertEquals(401,call("/versions/builtin.host/1/references",null,false).statusCode());
+    }
 }

@@ -1,0 +1,3 @@
+DROP TABLE integration.workflow_metric_stream_control;
+DROP TABLE integration.workflow_metric_stream_batch;
+DROP TABLE integration.workflow_metric_stream_task;

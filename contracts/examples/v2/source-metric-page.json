@@ -1,0 +1,46 @@
+{
+  "manifest": {
+    "snapshotId": "10000000-0000-4000-8000-000000000072",
+    "asOf": "2026-10-03T12:00:00Z",
+    "expiresAt": "2026-10-03T12:15:00Z",
+    "total": 2,
+    "fingerprint": "sha256:dd8c5f370c3330b51ac46745c05d0b648f06c9b54431648b815251ae4d83490f"
+  },
+  "offset": 0,
+  "items": [
+    {
+      "itemId": "20001",
+      "hostId": "10084",
+      "sourceKey": "system.cpu.util[,user]",
+      "name": "Fixture CPU user time",
+      "sourceUnit": "%",
+      "sourceValueType": "FLOAT",
+      "mappingStatus": "MAPPED",
+      "mapping": {
+        "id": "fixture-cpu-user",
+        "revision": 1,
+        "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "metricKey": "fixture.cpu.usage.user",
+        "unit": "1",
+        "valueType": "DOUBLE",
+        "valueTransform": "multiply:0.01"
+      }
+    },
+    {
+      "itemId": "20002",
+      "hostId": "10084",
+      "sourceKey": "fixture.unmapped.metric",
+      "name": "Fixture unmapped item",
+      "sourceUnit": "",
+      "sourceValueType": "TEXT",
+      "mappingStatus": "NO_MAPPING",
+      "mapping": null
+    }
+  ],
+  "statusCode": "READ_VERIFIED",
+  "scanConsistency": "LABELED_FIXTURE",
+  "fingerprint": "sha256:9dc2f015183859d7446f2ee77c86cdfc8103de8cf2aa54be510c1957684bc262",
+  "complete": true,
+  "nextOffset": null,
+  "limit": 20
+}

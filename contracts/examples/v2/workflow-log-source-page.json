@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "2.0",
+  "source": {
+    "kind": "ZABBIX_HOST",
+    "instanceId": "connection-22222222-2222-4222-8222-222222222222",
+    "configuration": {
+      "sourceId": "22222222-2222-4222-8222-222222222222",
+      "revision": 1,
+      "digest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e"
+    }
+  },
+  "items": [
+    {
+      "source": {
+        "kind": "ZABBIX_LOG",
+        "instanceId": "connection-22222222-2222-4222-8222-222222222222",
+        "configuration": {
+          "sourceId": "22222222-2222-4222-8222-222222222222",
+          "revision": 1,
+          "digest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e"
+        },
+        "log": {
+          "inspectionId": "10000000-0000-4000-8000-000000000072",
+          "itemId": "50742",
+          "hostId": "10084",
+          "sourceKey": "log[/var/log/fixture.log]",
+          "sourceUnit": "",
+          "sourceValueType": "LOG",
+          "digest": "sha256:f561646d83de91fe7b81234961ed3ee5c4901dead9f87cae375d7c40ff69dd61"
+        }
+      },
+      "item": {
+        "itemId": "50742",
+        "hostId": "10084",
+        "sourceKey": "log[/var/log/fixture.log]",
+        "name": "Fixture log item",
+        "sourceUnit": "",
+        "sourceValueType": "LOG",
+        "mappingStatus": "NO_MAPPING",
+        "mapping": null
+      },
+      "asOf": "2026-10-03T00:00:00Z",
+      "expiresAt": "2026-10-03T00:15:01Z"
+    }
+  ],
+  "truncated": false
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "2.0",
+  "storage": "memory",
+  "view": {
+    "inspection": {
+      "requestId": "10000000-0000-4000-8000-000000000072",
+      "sourceId": "10000000-0000-4000-8000-000000000071",
+      "kind": "DISCOVER",
+      "configurationRevision": 1,
+      "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dataMode": "fixture",
+      "commandDigest": "sha256:8195fce5c3f3a933735f06d8b484982ca9069159fabd33407d84f1f12fe171d6",
+      "state": "COMPLETED",
+      "asOf": "2026-10-03T00:00:00Z",
+      "deadline": "2026-10-03T00:01:05Z",
+      "availableAt": "2026-10-03T00:00:01Z",
+      "expiresAt": "2026-10-03T00:15:01Z",
+      "check": null,
+      "discovery": {
+        "fields": [
+          {
+            "name": "hostid",
+            "type": "TEXT",
+            "nullable": false
+          }
+        ],
+        "observedRecords": 2,
+        "complete": true,
+        "scanConsistency": "LABELED_FIXTURE",
+        "statusCode": "READ_VERIFIED",
+        "fingerprint": "sha256:5bc8e9e74c2b27449ea117fb612290be3c756c3c3638e617e2e578976620eb99",
+        "scope": "FIRST_HOST_PAGE"
+      }
+    },
+    "validity": "CURRENT"
+  }
+}

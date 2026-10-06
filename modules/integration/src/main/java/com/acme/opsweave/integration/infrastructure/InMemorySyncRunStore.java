@@ -47,6 +47,11 @@ public final class InMemorySyncRunStore implements SyncRunStore {
 
     @Override
     public SyncRun start(TenantId tenantId, String sourceInstanceId, String objectType, String dataMode) {
+        return start(tenantId,sourceInstanceId,objectType,dataMode,null);
+    }
+
+    @Override
+    public SyncRun start(TenantId tenantId,String sourceInstanceId,String objectType,String dataMode,SyncRun.SourceScope sourceScope) {
         UUID opening = UUID.randomUUID();
         SyncRun run = new SyncRun(
             opening,
@@ -64,7 +69,9 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             false,
             dataMode,
             null,
-            SyncScan.OFFSET_ATTEMPT
+            SyncScan.OFFSET_ATTEMPT,
+            0,
+            sourceScope
         );
         runs.put(run.id(), run);
         sweep(tenantId, sourceInstanceId, objectType, opening);
@@ -98,12 +105,22 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             false,
             current.dataMode(),
             null,
-            current.scanConsistency()
+            current.scanConsistency(),
+            current.retired(),
+            current.sourceScope()
         ));
     }
 
     @Override
     public void succeed(TenantId tenantId, UUID id, String scanConsistency) {
+        succeed(tenantId, id, scanConsistency, 0);
+    }
+
+    @Override
+    public void succeed(TenantId tenantId, UUID id, String scanConsistency, int retired) {
+        if (retired < 0 || retired > 0 && !SyncScan.verified(scanConsistency)) {
+            throw new IllegalArgumentException("Invalid retired count");
+        }
         SyncRun current = required(tenantId, id);
         runs.put(id, new SyncRun(
             current.id(),
@@ -121,7 +138,9 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             true,
             current.dataMode(),
             null,
-            scanConsistency
+            scanConsistency,
+            retired,
+            current.sourceScope()
         ));
     }
 
@@ -148,7 +167,9 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             false,
             current.dataMode(),
             text,
-            scanConsistency
+            scanConsistency,
+            current.retired(),
+            current.sourceScope()
         ));
     }
 
@@ -179,6 +200,30 @@ public final class InMemorySyncRunStore implements SyncRunStore {
             .filter(run -> after == null || precedes(run, after)))
             .limit(limit + 1L)
             .toList();
+    }
+
+    @Override
+    public List<SyncRun> registeredRecent(TenantId tenantId,UUID sourceId,int configurationRevision,SyncRunCursor after,int limit) {
+        if(limit<1||limit>MAX_RECENT||configurationRevision<1||configurationRevision>100)throw new IllegalArgumentException("Invalid registered run query");
+        return newestFirst(runs.values().stream().filter(run->{
+            var scope=run.sourceScope();
+            return run.tenantId().equals(tenantId)&&run.objectType().equals("item")&&scope!=null
+                &&scope.sourceId().equals(sourceId)&&scope.configurationRevision()==configurationRevision
+                &&(after==null||precedes(run,after));
+        })).limit(limit+1L).toList();
+    }
+
+    @Override
+    public List<SyncRun> completedAfter(TenantId tenantId, String sourceInstanceId, String objectType,
+        Instant after, UUID afterId, int limit) {
+        if (limit < 1 || limit > MAX_RECENT) throw new IllegalArgumentException("Invalid run limit");
+        java.util.Objects.requireNonNull(after); java.util.Objects.requireNonNull(afterId);
+        return runs.values().stream().filter(r -> r.tenantId().equals(tenantId)
+            && r.sourceInstanceId().equals(sourceInstanceId) && r.objectType().equals(objectType)
+            && r.completedAt()!=null && (r.completedAt().isAfter(after)
+                || r.completedAt().equals(after) && r.id().toString().compareTo(afterId.toString())>0))
+            .sorted(Comparator.comparing(SyncRun::completedAt).thenComparing(r -> r.id().toString()))
+            .limit(limit+1L).toList();
     }
 
     /** True when the run sorts after the cursor in the newest-first order. */

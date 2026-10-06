@@ -81,16 +81,17 @@ public class EntityController {
         return ResponseEntity.ok(body);
     }
 
-    private static Map<String, Object> body(EntityView view) {
-        return Map.of(
-            "schemaVersion", "1.0",
-            "id", view.id().value().toString(),
-            "tenantId", view.tenantId().value(),
-            "entityType", view.type(),
-            "name", view.name(),
-            "lifecycle", view.lifecycle(),
-            "version", view.version(),
-            "attributes", view.attributes()
-        );
+    static Map<String, Object> body(EntityView view) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("schemaVersion", "1.0");
+        body.put("id", view.id().value().toString());
+        body.put("tenantId", view.tenantId().value());
+        body.put("entityType", view.type());
+        body.put("name", view.name());
+        body.put("lifecycle", view.lifecycle());
+        body.put("version", view.version());
+        body.put("attributes", view.attributes());
+        if (view.model() != null) body.put("model", Map.of("id", view.model().id(), "revision", view.model().revision(), "digest", view.model().digest()));
+        return body;
     }
 }

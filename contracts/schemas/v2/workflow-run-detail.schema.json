@@ -66,66 +66,10 @@
           ],
           "properties": {
             "source": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "kind",
-                "instanceId"
-              ],
-              "properties": {
-                "kind": {
-                  "enum": [
-                    "MANUAL_SAMPLE",
-                    "ZABBIX_HOST"
-                  ]
-                },
-                "instanceId": {
-                  "type": "string",
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
-                }
-              },
-              "allOf": [
-                {
-                  "if": {
-                    "properties": {
-                      "kind": {
-                        "const": "MANUAL_SAMPLE"
-                      }
-                    }
-                  },
-                  "then": {
-                    "properties": {
-                      "instanceId": {
-                        "const": "manual"
-                      }
-                    }
-                  }
-                }
-              ]
+              "$ref": "workflow-source.schema.json"
             },
             "target": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id",
-                "revision",
-                "digest"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
-                },
-                "revision": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 10000
-                },
-                "digest": {
-                  "type": "string",
-                  "pattern": "^sha256:[a-f0-9]{64}$"
-                }
-              }
+              "$ref": "workflow-output.schema.json"
             },
             "syncRunId": {
               "type": [
@@ -223,7 +167,8 @@
                             "SCALE",
                             "FILTER",
                             "VALIDATE",
-                            "OUTPUT"
+                            "OUTPUT",
+                            "MERGE"
                           ]
                         },
                         "status": {
@@ -260,7 +205,8 @@
                                   "OUT_OF_RANGE",
                                   "TYPE_MISMATCH",
                                   "NUMERIC_LIMIT",
-                                  "TRANSFORM_FAILED"
+                                  "TRANSFORM_FAILED",
+                                  "MERGE_CONFLICT"
                                 ]
                               }
                             }
@@ -272,7 +218,73 @@
                 }
               }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "source": {
+                    "properties": {
+                      "kind": {
+                        "const": "ZABBIX_HOST"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "target": {
+                    "$ref": "workflow-output.schema.json#/oneOf/0"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "source": {
+                    "required": [
+                      "configuration"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "syncRunId": {
+                    "type": "null"
+                  },
+                  "sourceStatus": {
+                    "enum": [
+                      "SUCCEEDED",
+                      "FAILED"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "source": {
+                    "properties": {
+                      "kind": {
+                        "const": "ZABBIX_METRIC"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "target": {
+                    "$ref": "workflow-output.schema.json#/oneOf/2"
+                  }
+                }
+              }
+            }
+          ]
         }
       ]
     }

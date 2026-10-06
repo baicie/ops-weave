@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "registered-item-scan-run-read",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "2.0" },
+    "storage": { "enum": ["postgres", "memory"] },
+    "dataMode": { "const": "scan-log" },
+    "tenantId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "sourceId": { "type": "string", "format": "uuid" },
+    "sourceInstanceId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}(?![\\s\\S])" },
+    "configurationRevision": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "connectionDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}(?![\\s\\S])" },
+    "hostGroupIds": { "type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": { "type": "string", "pattern": "^[1-9][0-9]{0,19}(?![\\s\\S])" } },
+    "run": { "$ref": "registered-item-scan-run.schema.json" }
+  },
+  "required": ["schemaVersion", "storage", "dataMode", "tenantId", "sourceId", "sourceInstanceId", "configurationRevision", "connectionDigest", "hostGroupIds", "run"]
+}

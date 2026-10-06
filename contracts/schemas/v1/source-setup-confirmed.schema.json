@@ -12,7 +12,36 @@
       "$ref": "source-setup.schema.json"
     },
     "workflow": {
-      "$ref": "../v2/workflow-entry.schema.json"
+      "oneOf": [
+        {
+          "$ref": "../v2/workflow-entry.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "setup": {
+            "properties": {
+              "initialTarget": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "workflow": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  ]
 }

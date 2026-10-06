@@ -29,3 +29,19 @@ def test_identity_contracts_reject_extra_fields():
     for name in ['identity-grants', 'browser-session', 'browser-logout']:
         value = sample(name); value['untrusted'] = True
         with pytest.raises(ValidationError): validate(name, value)
+
+def test_source_address_and_credential_scopes_are_explicit_operator_grants():
+    value = sample('identity-grants'); row = value['grants'][0]
+    row['permissions'] = ['source.sync', 'source.configure']
+    row['scope'] = {'tenantWide': False, 'resources': [{'type': 'source-endpoint', 'id': 'fixture-host'}, {'type': 'credential', 'id': '11111111-1111-4111-8111-111111111111'}, {'type': 'source', 'id': 'fixture-source'}]}
+    validate('identity-grants', value)
+    row['scope']['resources'][0]['type'] = 'arbitrary-http'
+    with pytest.raises(ValidationError): validate('identity-grants', value)
+
+def test_log_permissions_allow_only_explicit_log_resources():
+    value=sample('identity-grants');row=value['grants'][0]
+    row['permissions']=['source.sync','log.read','log.write']
+    row['scope']={'tenantWide':False,'resources':[{'type':'workflow','id':'*'},{'type':'log','id':'workflow.fixture-log'}]}
+    validate('identity-grants',value)
+    row['scope']['resources'][1]['type']='arbitrary-log-store'
+    with pytest.raises(ValidationError):validate('identity-grants',value)

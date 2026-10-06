@@ -1,0 +1,517 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-inspection.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "sourceId",
+    "kind",
+    "configurationRevision",
+    "connectionDigest",
+    "dataMode",
+    "commandDigest",
+    "state",
+    "asOf",
+    "deadline",
+    "availableAt",
+    "expiresAt",
+    "check",
+    "discovery"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "sourceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "kind": {
+      "enum": [
+        "TEST",
+        "DISCOVER",
+        "DISCOVER_METRICS",
+        "DISCOVER_METRIC_PAGE"
+      ]
+    },
+    "configurationRevision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "connectionDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "dataMode": {
+      "enum": [
+        "fixture",
+        "zabbix-jsonrpc"
+      ]
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "state": {
+      "enum": [
+        "PENDING",
+        "COMPLETED",
+        "UNKNOWN"
+      ]
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "availableAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expiresAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "check": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reachable",
+            "statusCode",
+            "reportedVersion"
+          ],
+          "properties": {
+            "reachable": {
+              "type": "boolean"
+            },
+            "statusCode": {
+              "enum": [
+                "READ_VERIFIED",
+                "UNREACHABLE",
+                "UNVERIFIED",
+                "LABELED_FIXTURE"
+              ]
+            },
+            "reportedVersion": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[ -~]{1,32}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "statusCode": {
+                    "const": "UNREACHABLE"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "reachable": {
+                    "const": false
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "reachable": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discovery": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fields",
+            "observedRecords",
+            "complete",
+            "scanConsistency",
+            "statusCode",
+            "fingerprint",
+            "scope"
+          ],
+          "properties": {
+            "fields": {
+              "type": "array",
+              "maxItems": 5,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "type",
+                  "nullable"
+                ],
+                "properties": {
+                  "name": {
+                    "enum": [
+                      "hostid",
+                      "host",
+                      "name",
+                      "status",
+                      "interfaces.ip"
+                    ]
+                  },
+                  "type": {
+                    "enum": [
+                      "TEXT",
+                      "NUMBER",
+                      "BOOLEAN",
+                      "TEXT_ARRAY",
+                      "NULL",
+                      "MIXED"
+                    ]
+                  },
+                  "nullable": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "observedRecords": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "complete": {
+              "type": "boolean"
+            },
+            "scanConsistency": {
+              "enum": [
+                "HOSTID_WATERMARK",
+                "LABELED_FIXTURE",
+                "UNVERIFIED"
+              ]
+            },
+            "statusCode": {
+              "enum": [
+                "READ_VERIFIED",
+                "INCOMPLETE",
+                "UNREACHABLE"
+              ]
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "scope": {
+              "const": "FIRST_HOST_PAGE"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "complete": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "scanConsistency": {
+                    "enum": [
+                      "HOSTID_WATERMARK",
+                      "LABELED_FIXTURE"
+                    ]
+                  },
+                  "statusCode": {
+                    "const": "READ_VERIFIED"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "observedRecords": {
+                    "const": 0
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "fields": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "statusCode": {
+                    "const": "UNREACHABLE"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "complete": {
+                    "const": false
+                  },
+                  "observedRecords": {
+                    "const": 0
+                  },
+                  "fields": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metricDiscovery": {
+      "anyOf": [
+        {
+          "$ref": "source-metric-discovery.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "previousRequestId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metricPage": {
+      "anyOf": [
+        {
+          "$ref": "source-metric-page.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "COMPLETED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "availableAt": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 40
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 40
+          }
+        },
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "TEST"
+                  },
+                  "check": {
+                    "type": "object"
+                  },
+                  "discovery": {
+                    "type": "null"
+                  },
+                  "metricDiscovery": {
+                    "type": "null"
+                  },
+                  "metricPage": {
+                    "type": "null"
+                  },
+                  "previousRequestId": {
+                    "type": "null"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "DISCOVER"
+                  },
+                  "check": {
+                    "type": "null"
+                  },
+                  "discovery": {
+                    "type": "object"
+                  },
+                  "metricDiscovery": {
+                    "type": "null"
+                  },
+                  "metricPage": {
+                    "type": "null"
+                  },
+                  "previousRequestId": {
+                    "type": "null"
+                  }
+                }
+              },
+              {
+                "required": [
+                  "metricDiscovery"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "DISCOVER_METRICS"
+                  },
+                  "check": {
+                    "type": "null"
+                  },
+                  "discovery": {
+                    "type": "null"
+                  },
+                  "metricDiscovery": {
+                    "$ref": "source-metric-discovery.schema.json"
+                  },
+                  "metricPage": {
+                    "type": "null"
+                  },
+                  "previousRequestId": {
+                    "type": "null"
+                  }
+                }
+              },
+              {
+                "required": [
+                  "previousRequestId",
+                  "metricPage"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "DISCOVER_METRIC_PAGE"
+                  },
+                  "check": {
+                    "type": "null"
+                  },
+                  "discovery": {
+                    "type": "null"
+                  },
+                  "metricDiscovery": {
+                    "type": "null"
+                  },
+                  "metricPage": {
+                    "$ref": "source-metric-page.schema.json"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "else": {
+        "properties": {
+          "availableAt": {
+            "type": "null"
+          },
+          "expiresAt": {
+            "type": "null"
+          },
+          "check": {
+            "type": "null"
+          },
+          "discovery": {
+            "type": "null"
+          },
+          "metricDiscovery": {
+            "type": "null"
+          },
+          "metricPage": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "DISCOVER_METRIC_PAGE"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "previousRequestId",
+          "metricPage"
+        ]
+      },
+      "else": {
+        "properties": {
+          "previousRequestId": {
+            "type": "null"
+          },
+          "metricPage": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

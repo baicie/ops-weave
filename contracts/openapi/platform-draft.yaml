@@ -355,6 +355,26 @@ paths:
           description: Forbidden
         '422':
           description: PAGED_READ_REQUIRED; use /api/v1/entities/page
+    post:
+      operationId: writeEntityInstance
+      description: Create or update one model-backed entity instance. The trusted principal supplies tenant and permission; the request selects a published entity model, and the server validates all attributes before the entity write. requestId is idempotent. expectedVersion is omitted only for create and required for update, in the safe integer range 1–9007199254740990. UUID fields use canonical 8-4-4-4-12 notation. This endpoint is separate from fenced source ingestion and never accepts source links or observations.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-instance-command.schema.json}
+      responses:
+        '200':
+          description: Durable entity instance receipt
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-instance-receipt.schema.json}
+        '400': {description: Invalid closed JSON, model attributes or lifecycle}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage or entity scope}
+        '409': {description: Idempotency reuse, stale entity version or unpublished model}
+        '503': {description: Inventory storage unavailable; resolve by requestId before retry}
   /api/v1/entities/page:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -409,6 +429,50 @@ paths:
           description: Forbidden
         '404':
           description: Not found in the principal tenant
+  /api/v1/entities/{entityId}/relations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageEntityRelations
+      description: Read active relation instances touching the path entity at the requested asOf, or at the server clock when omitted. Tenant, entity scope and model definitions are resolved from the trusted principal. The page is live and bounded; it does not create or infer relations.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: after, in: query, schema: {type: string, format: uuid}}
+        - {name: asOf, in: query, schema: {type: string, format: date-time}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 25}}
+      responses:
+        '200':
+          description: Authorized active relation instances
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-page.schema.json}
+        '400': {description: Invalid entity, cursor, asOf or limit}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read or object scope}
+        '404': {description: Entity unavailable in the trusted tenant}
+        '503': {description: Relation storage unavailable; no empty fallback}
+    post:
+      operationId: createEntityRelation
+      description: Create one relation instance using a published immutable relation model. entity.manage is required on both endpoints; endpoint types and versions are checked before the insert. requestId is the idempotency key, retries return the original receipt, and the request never accepts a tenant override. validFrom cannot be materially in the future and validTo must be after it.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-relation-command.schema.json}
+      responses:
+        '200':
+          description: Durable relation write receipt; sourceRef is retained server-side and is not returned
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-receipt.schema.json}
+        '400': {description: Invalid closed JSON, endpoint path mismatch, time or version}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage or endpoint scope}
+        '404': {description: Endpoint unavailable in the trusted tenant}
+        '409': {description: Request reuse, stale endpoint version, unpublished model or endpoint type mismatch}
+        '503': {description: Relation storage unavailable; resolve by requestId before retry}
   /api/v1/integrations/zabbix/hosts/sync:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -1356,6 +1420,1810 @@ paths:
             application/json:
               schema: {$ref: ../schemas/v1/source-review.schema.json}
         default: {description: 400 invalid request; 401/403 denied; 404 missing; 409 changed version, expired import, active binding or reused key; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/alerts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,63}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowQualityAlertStatus
+      description: >
+        Read-only evaluation of explicitly configured metadata thresholds against one authorized,
+        immutable published workflow revision. The trusted tenant, subject and permissions come from
+        the server principal. Missing or incomplete evidence remains unavailable; this endpoint never
+        sends notifications, executes actions, reads a source, or changes workflow state.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Current configuration and one bounded evidence snapshot
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-quality-alert-status.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 missing or hidden workflow; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/alerts/configure:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,63}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    post:
+      operationId: configureWorkflowQualityAlerts
+      description: >
+        Persist an actor-bound compare-and-set threshold configuration for one published workflow
+        revision. The server rechecks the parent digest, tenant, owner, permissions, rule bounds,
+        request digest and bounded receipt capacity. Empty rules explicitly disable evaluation. This
+        stores metadata only and never sends notifications or executes business actions.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-quality-alert-command.schema.json'}
+      responses:
+        '200':
+          description: Immutable actor-bound configuration receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-quality-alert-receipt.schema.json'}
+        '400': {description: Invalid closed JSON, path/body mismatch, duplicate keys or trailing content}
+        '403': {description: Missing workflow authority}
+        '409': {description: Stale configuration version, digest or reused request conflict}
+        '503': {description: Storage or evidence unavailable; query the original request before retrying}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/alerts/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,63}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowQualityAlertReceipt
+      description: Original actor-only immutable configuration receipt. A missing receipt is not proof that an uncertain write failed; the caller must query the same request UUID.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Original threshold configuration receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-quality-alert-receipt.schema.json'}
+        '404': {description: Missing or hidden receipt}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v1/integrations/workflows:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageWorkflows
+      description: Read the owner-scoped workflow directory, operator catalog and bounded run summaries. The server derives tenant and permissions; no source is contacted.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Workflow directory
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-page.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v1/integrations/workflows/runs/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowRun
+      description: Read one owner-scoped immutable workflow run detail and bounded trace. Sample values and raw customer payloads are never persisted in the response.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Workflow run detail
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-run-detail.schema.json'}
+        default: {description: 400 invalid id; 401 unauthenticated; 403 denied; 404 hidden run; 503 unavailable}
+  /api/v1/integrations/workflows/drafts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: saveWorkflowDraft
+      description: Persist a closed workflow definition and layout with compare-and-set edit version. The service validates source, target, operator pins and permissions before mutation; it never starts a run.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-draft-command.schema.json'}
+      responses:
+        '200':
+          description: Current workflow draft
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-entry.schema.json'}
+        default: {description: 400 invalid definition or layout; 401 unauthenticated; 403 denied; 409 stale edit version or changed operator; 503 unavailable}
+  /api/v1/integrations/workflows/drafts/{id}/{revision}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowDraft
+      description: Read one owner-scoped draft revision and its latest bounded preview receipt.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Workflow draft
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-entry.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden draft; 503 unavailable}
+  /api/v1/integrations/workflows/versions/{id}/{revision}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowVersion
+      description: Read one immutable published workflow version and its preview receipt.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Published workflow version
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-entry.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden version; 503 unavailable}
+  /api/v1/integrations/workflows/comparisons:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: compareWorkflowVersions
+      description: Compare two owner-scoped pinned workflow references without contacting a source or executing operators.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-comparison-request.schema.json'}
+      responses:
+        '200':
+          description: Deterministic workflow comparison
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-comparison.schema.json'}
+        default: {description: 400 invalid references; 401 unauthenticated; 403 denied; 404 hidden version; 409 digest or revision changed}
+  /api/v1/integrations/workflows/publish:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: publishWorkflow
+      description: Publish a previously previewed draft using its immutable preview receipt and digest. Publishing does not execute a workflow.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-publish-command.schema.json'}
+      responses:
+        '200':
+          description: Published workflow version
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-entry.schema.json'}
+        default: {description: 400 invalid closed request; 401 unauthenticated; 403 denied; 409 stale draft, digest or preview; 503 unavailable}
+  /api/v1/integrations/workflows/preview:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: previewWorkflow
+      description: Evaluate a pinned workflow with at most five explicit samples or one completed source run. The dry-run guard is mandatory and writes are always false.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-evaluate-command.schema.json'}
+      responses:
+        '200':
+          description: Bounded workflow evaluation
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-result.schema.json'}
+        default: {description: 400 invalid closed input; 401 unauthenticated; 403 denied; 404 hidden workflow; 409 stale pin; 503 unavailable}
+  /api/v1/integrations/workflows/run:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: runWorkflow
+      description: Evaluate a pinned workflow in run mode with at most five explicit samples or one completed source run. The dry-run guard is mandatory and writes are always false.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-evaluate-command.schema.json'}
+      responses:
+        '200':
+          description: Bounded workflow evaluation
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-result.schema.json'}
+        default: {description: 400 invalid closed input; 401 unauthenticated; 403 denied; 404 hidden workflow; 409 stale pin; 503 unavailable}
+  /api/v1/integrations/workflows/runtime:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getWorkflowRuntime
+      description: Read owner-scoped runtime tasks and executions. Runtime mode and background availability are server-derived and never grant authority.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Runtime status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-runtime.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 503 runtime unavailable}
+  /api/v1/integrations/workflows/runtime/host-scans/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    get:
+      operationId: getWorkflowRuntimeHostScan
+      description: Read the bounded checkpoint and confirmed batches for one owner-scoped runtime host scan.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Runtime host scan state
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-host-scan.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden scan; 503 runtime unavailable}
+  /api/v1/integrations/workflows/runtime/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowRuntimeCommandReceipt
+      description: Read the original owner-bound runtime control receipt after an uncertain response. It never repeats the command.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Runtime control receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-runtime-control-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 runtime unavailable}
+  /api/v1/integrations/workflows/runtime/execute:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: executeWorkflowRuntime
+      description: Execute a pinned workflow against a bounded explicit sample or completed source run under server-side identity, scope, and budget checks.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-runtime-execute-request.schema.json'}
+      responses:
+        '200':
+          description: Runtime execution
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-runtime-execution.schema.json'}
+        default: {description: 400 invalid closed input; 401 unauthenticated; 403 denied; 404 hidden workflow; 409 stale pin; 503 runtime unavailable}
+  /api/v1/integrations/workflows/runtime/{operation}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: operation, in: path, required: true, schema: {type: string, enum: [start, stop, resume]}}
+    post:
+      operationId: controlWorkflowRuntime
+      description: Start, stop or resume one pinned runtime task using compare-and-set generation. The server issues any delegation and returns only public task state.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-runtime-control-request.schema.json'}
+      responses:
+        '200':
+          description: Runtime control receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-runtime-control-receipt.schema.json'}
+        default: {description: 400 invalid closed input; 401 unauthenticated; 403 denied; 409 stale generation or pin; 503 runtime unavailable}
+  /api/v1/integrations/workflows/host-schedules/workflows/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    get:
+      operationId: getWorkflowHostSchedule
+      description: Read the server-owned host schedule and task state for one published workflow. It is available only in the configured local or delegated runtime boundary.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Host schedule status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-host-schedule-status.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden workflow; 503 runtime unavailable}
+  /api/v1/integrations/workflows/host-schedules/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowHostScheduleReceipt
+      description: Read the original host schedule control receipt after an uncertain response; it never repeats the operation.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Host schedule receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-host-schedule-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 runtime unavailable}
+  /api/v1/integrations/workflows/host-schedules/{operation}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: operation, in: path, required: true, schema: {type: string, enum: [start, stop, resume]}}
+    post:
+      operationId: controlWorkflowHostSchedule
+      description: Start, stop or resume a host schedule using an owner-bound request id, pinned workflow digest and compare-and-set generation.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-host-schedule-command.schema.json'}
+      responses:
+        '200':
+          description: Host schedule receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-host-schedule-receipt.schema.json'}
+        default: {description: 400 invalid command; 401 unauthenticated; 403 denied; 409 stale generation or pin; 503 runtime unavailable}
+  /api/v1/integrations/workflows/metric-streams/workflows/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowMetricStream
+      description: Read the bounded metric stream task and confirmed batch metadata. A revision query selects an immutable published version; it never reads upstream data.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric stream status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-stream-status.schema.json'}
+        default: {description: 400 invalid revision; 401 unauthenticated; 403 denied; 404 hidden workflow; 503 stream unavailable}
+  /api/v1/integrations/workflows/metric-streams/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowMetricStreamReceipt
+      description: Read the original metric stream control receipt; it never repeats a command.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric stream receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-stream-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 stream unavailable}
+  /api/v1/integrations/workflows/metric-streams/{operation}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: operation, in: path, required: true, schema: {type: string, enum: [start, stop, resume]}}
+    post:
+      operationId: controlWorkflowMetricStream
+      description: Start, stop or resume one metric stream with a pinned workflow version and compare-and-set generation.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-metric-stream-command.schema.json'}
+      responses:
+        '200':
+          description: Metric stream receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-stream-receipt.schema.json'}
+        default: {description: 400 invalid command; 401 unauthenticated; 403 denied; 409 stale generation or pin; 503 stream unavailable}
+  /api/v1/integrations/workflows/metric-streams/workflows/{id}/verification:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    post:
+      operationId: verifyWorkflowMetricStream
+      description: Confirm one bounded metric batch by id and return the refreshed stream status.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-metric-stream-verification.schema.json'}
+      responses:
+        '200':
+          description: Updated metric stream status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-stream-status.schema.json'}
+        default: {description: 400 invalid batch; 401 unauthenticated; 403 denied; 404 hidden batch; 409 already confirmed; 503 stream unavailable}
+  /api/v1/integrations/workflows/log-streams/workflows/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowLogStream
+      description: Read bounded log stream task and confirmed batch metadata for one owner-scoped workflow version.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log stream status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-stream-status.schema.json'}
+        default: {description: 400 invalid revision; 401 unauthenticated; 403 denied; 404 hidden workflow; 503 stream unavailable}
+  /api/v1/integrations/workflows/log-streams/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogStreamReceipt
+      description: Read the original log stream control receipt; it never repeats a command.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log stream receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-stream-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 stream unavailable}
+  /api/v1/integrations/workflows/log-streams/{operation}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: operation, in: path, required: true, schema: {type: string, enum: [start, stop, resume]}}
+    post:
+      operationId: controlWorkflowLogStream
+      description: Start, stop or resume one log stream with a pinned workflow version and compare-and-set generation.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-log-stream-command.schema.json'}
+      responses:
+        '200':
+          description: Log stream receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-stream-receipt.schema.json'}
+        default: {description: 400 invalid command; 401 unauthenticated; 403 denied; 409 stale generation or pin; 503 stream unavailable}
+  /api/v1/integrations/workflows/log-streams/workflows/{id}/verification:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    post:
+      operationId: verifyWorkflowLogStream
+      description: Confirm one bounded log batch by id and return the refreshed stream status.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-log-stream-verification.schema.json'}
+      responses:
+        '200':
+          description: Updated log stream status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-stream-status.schema.json'}
+        default: {description: 400 invalid batch; 401 unauthenticated; 403 denied; 404 hidden batch; 409 already confirmed; 503 stream unavailable}
+  /api/v1/integrations/workflows/log-streams/workflows/{id}/batches/{batchId}/records:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: batchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogStreamRecords
+      description: Read bounded confirmed log records for one metric stream batch. The server checks owner scope and batch state before reading the configured store.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Stored log stream records
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-stream-data.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden batch; 409 batch not confirmed; 503 store unavailable}
+  /api/v1/integrations/workflows/log-streams/workflows/{id}/batches/{batchId}/records/after/{afterIndex}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: batchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: afterIndex, in: path, required: true, schema: {type: integer, minimum: 0, maximum: 999}}
+    get:
+      operationId: pageWorkflowLogStreamRecords
+      description: Read a bounded continuation page of confirmed log stream records after an explicit nonnegative index.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Stored log stream records page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-stream-data.schema.json'}
+        default: {description: 400 invalid index; 401 unauthenticated; 403 denied; 404 hidden batch; 409 batch not confirmed; 503 store unavailable}
+  /api/v1/integrations/workflows/metric-outputs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: getWorkflowMetricOutputCapability
+      description: Read the fixed metric sample output capability and server budget. It does not read or write a metric batch.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric output capability
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-output-capability.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 503 unavailable}
+    post:
+      operationId: writeWorkflowMetricOutput
+      description: Persist one bounded, owner-authorized metric sample using a pinned preview. Idempotency is based on the request id and no source is contacted.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-metric-output-request.schema.json'}
+      responses:
+        '200':
+          description: Original metric output receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-output-receipt.schema.json'}
+        default: {description: 400 invalid sample; 401 unauthenticated; 403 denied; 409 stale preview or reused request; 503 unavailable}
+  /api/v1/integrations/workflows/metric-outputs/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowMetricOutputReceipt
+      description: Read the original metric output receipt after an uncertain response; it never repeats the write.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric output receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-output-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 unavailable}
+  /api/v1/integrations/workflows/metric-outputs/workflows/{id}/receipts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    get:
+      operationId: pageWorkflowMetricOutputReceipts
+      description: Read a bounded owner-scoped history of metric output receipts.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric output history
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-output-history.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden workflow; 503 unavailable}
+  /api/v1/integrations/workflows/metric-outputs/commands/{id}/verification:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: verifyWorkflowMetricOutput
+      description: Read the server-side verification result for one metric output receipt.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric output receipt verification
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-output-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 unavailable}
+  /api/v1/integrations/workflows/metric-outputs/commands/{id}/points:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readWorkflowMetricOutputPoints
+      description: Read bounded stored metric points after receipt verification. Raw source payloads are not returned.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Stored metric points
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-output-points.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 409 verification incomplete; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/workflows/{id}/capability:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    get:
+      operationId: getWorkflowLogOutputCapability
+      description: Read the bounded manual log output capability and read/write permissions for one workflow.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log output capability
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-capability.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden workflow; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/workflows/{id}/{revision}/capability:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowSourceLogOutputCapability
+      description: Read the source log sample capability for one pinned published workflow version.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Source log output capability
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-capability.schema.json'}
+        default: {description: 400 invalid workflow; 401 unauthenticated; 403 denied; 404 hidden version; 409 incompatible source; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: writeWorkflowLogOutput
+      description: Persist one bounded owner-authorized log sample from a pinned preview. Raw values remain bounded and are never written to ordinary logs.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-log-output-request.schema.json'}
+      responses:
+        '200':
+          description: Original log output receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-receipt.schema.json'}
+        default: {description: 400 invalid sample; 401 unauthenticated; 403 denied; 409 stale preview or reused request; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/source:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: writeWorkflowSourceLogOutput
+      description: Persist one source-backed log sample using a pinned workflow version. The source connection and credential pins are resolved server-side.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-log-source-output-request.schema.json'}
+      responses:
+        '200':
+          description: Original source log output receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-receipt.schema.json'}
+        default: {description: 400 invalid request; 401 unauthenticated; 403 denied; 409 stale source pin; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogOutputReceipt
+      description: Read the original log output receipt after an uncertain response; it never repeats the write.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log output receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/workflows/{id}/receipts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+    get:
+      operationId: pageWorkflowLogOutputReceipts
+      description: Read a bounded owner-scoped history of log output receipts.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log output history
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-history.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden workflow; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/commands/{id}/verification:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: verifyWorkflowLogOutput
+      description: Read the server-side verification result for one log output receipt.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log output receipt verification
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 503 unavailable}
+  /api/v1/integrations/workflows/log-outputs/commands/{id}/records:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readWorkflowLogOutputRecords
+      description: Read bounded stored log records after receipt verification. The response excludes credentials and ordinary logs never contain raw records.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Stored log records
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-output-data.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt; 409 verification incomplete; 503 unavailable}
+  /api/v1/metrics/definitions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageMetricDefinitions
+      description: Read the owner-scoped metric definition directory produced by completed source synchronization. Tenant and permissions are server-derived and no upstream request is made.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric definitions
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/metric-definition-page.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v1/metrics/bindings:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageMetricBindingDirectory
+      description: Read the owner-scoped metric binding directory. Binding state is stored metadata; this endpoint never reads source history or accepts tenant overrides.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric bindings
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v1/metric-binding-page.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowQualityReport
+      description: Read bounded quality metadata and confirmed batch summaries for one immutable workflow version. Missing evidence remains explicit and no source or action is triggered.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Workflow quality report
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-quality-report.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden version; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/batches/{batchId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+      - {name: batchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowQualityBatch
+      description: Read one owner-scoped quality batch summary with bounded coverage and reconciliation metadata.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Workflow quality batch
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-quality-batch.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden batch; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/diagnostics:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+    get:
+      operationId: getWorkflowDiagnosticReport
+      description: Read bounded diagnostic observations derived from the workflow quality record. It does not call an external source or execute an action.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Diagnostic report
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-diagnostic-report.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden version; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/diagnostics/{observationId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+      - {name: observationId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowDiagnosticObservation
+      description: Read one immutable diagnostic observation and its closed result.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Diagnostic observation
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-diagnostic-observation.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 404 hidden observation; 503 unavailable}
+  /api/v1/integrations/workflows/quality/workflows/{id}/versions/{revision}/history:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+      - {name: cursor, in: query, required: false, schema: {type: string, maxLength: 1024}}
+    get:
+      operationId: getWorkflowHistory
+      description: Read the bounded encrypted-cursor history page for one immutable workflow version. Cursor scope and expiry are checked server-side.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Workflow history page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-history-page.schema.json'}
+        default: {description: 400 invalid or expired cursor; 401 unauthenticated; 403 denied; 404 hidden version; 503 unavailable}
+  /api/v1/integrations/workflows/recovery/abandon:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: abandonWorkflowRecovery
+      description: Acknowledge one uncertain workflow output and advance its server-owned recovery generation. No retry or action is implicit.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-recovery-command.schema.json'}
+      responses:
+        '200':
+          description: Recovery receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-recovery-receipt.schema.json'}
+        default: {description: 400 invalid command; 401 unauthenticated; 403 denied; 404 hidden batch; 409 stale generation or repeated request}
+  /api/v1/integrations/workflows/recovery/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowRecoveryReceipt
+      description: Read the original recovery receipt after an uncertain response; it never repeats recovery.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Recovery receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-recovery-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt}
+  /api/v1/integrations/workflows/sample-recovery/abandon:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: abandonWorkflowSampleRecovery
+      description: Acknowledge one uncertain sample output with its immutable batch digest. The operation only records recovery state and never retries a write.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-sample-recovery-command.schema.json'}
+      responses:
+        '200':
+          description: Sample recovery receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-sample-recovery-receipt.schema.json'}
+        default: {description: 400 invalid command; 401 unauthenticated; 403 denied; 404 hidden batch; 409 stale timestamp or repeated request}
+  /api/v1/integrations/workflows/sample-recovery/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowSampleRecoveryReceipt
+      description: Read the original sample recovery receipt after an uncertain response.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Sample recovery receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-sample-recovery-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt}
+  /api/v1/integrations/workflows/sample-recovery/batches/{kind}/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: kind, in: path, required: true, schema: {type: string, enum: [LOG, METRIC]}}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowSampleRecoveryStatus
+      description: Read closed uncertainty status for one sample batch.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Sample recovery status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-sample-recovery-status.schema.json'}
+        default: {description: 400 invalid kind or id; 401 unauthenticated; 403 denied; 404 hidden batch}
+  /api/v1/integrations/workflows/metric-replays/plans:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: createWorkflowMetricReplayPlan
+      description: Create a bounded metric replay plan from a pinned workflow version and time window. Creation records intent only; it does not execute or notify.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-metric-replay-command.schema.json'}
+      responses:
+        '200':
+          description: Metric replay plan
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-plan.schema.json'}
+        default: {description: 400 invalid window; 401 unauthenticated; 403 denied; 409 changed pin; 503 unavailable}
+  /api/v1/integrations/workflows/metric-replays/plans/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowMetricReplayPlan
+      description: Read one owner-scoped metric replay plan.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric replay plan
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-plan.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden plan}
+  /api/v1/integrations/workflows/metric-replays/plans/{id}/execution:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowMetricReplayExecution
+      description: Read the original metric replay execution receipt for one plan.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Replay execution
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-execution.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden plan}
+  /api/v1/integrations/workflows/metric-replays/workflows/{id}/versions/{revision}/{digest}/plans:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+      - {name: digest, in: path, required: true, schema: {type: string, pattern: '^sha256:[a-f0-9]{64}$'}}
+    get:
+      operationId: pageWorkflowMetricReplayPlans
+      description: Read bounded replay plans for one immutable workflow version and digest.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric replay plan page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-page.schema.json'}
+        default: {description: 400 invalid pin; 401 unauthenticated; 403 denied; 404 hidden version}
+  /api/v1/integrations/workflows/metric-replays/execute:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: executeWorkflowMetricReplay
+      description: Execute a previously created metric replay plan with its input and batch digests. Replays never send notifications or perform actions.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-metric-replay-execute.schema.json'}
+      responses:
+        '200':
+          description: Metric replay receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-receipt.schema.json'}
+        default: {description: 400 invalid digest; 401 unauthenticated; 403 denied; 404 hidden plan; 409 changed input or repeated execution; 503 unavailable}
+  /api/v1/integrations/workflows/metric-replays/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowMetricReplayReceipt
+      description: Read the original metric replay receipt after an uncertain response.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric replay receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt}
+  /api/v1/integrations/workflows/metric-replays/commands/{id}/verification:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: verifyWorkflowMetricReplay
+      description: Verify one metric replay receipt without accepting a request body or repeating execution.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Verified metric replay receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-replay-receipt.schema.json'}
+        default: {description: 400 body not allowed; 401 unauthenticated; 403 denied; 404 hidden receipt}
+  /api/v1/integrations/workflows/log-replays/plans:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: createWorkflowLogReplayPlan
+      description: Create a bounded log replay plan from a pinned workflow version and time window. Creation records intent only and does not execute or notify.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-log-replay-command.schema.json'}
+      responses:
+        '200':
+          description: Log replay plan
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-plan.schema.json'}
+        default: {description: 400 invalid window; 401 unauthenticated; 403 denied; 409 changed pin; 503 unavailable}
+  /api/v1/integrations/workflows/log-replays/plans/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogReplayPlan
+      description: Read one owner-scoped log replay plan.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log replay plan
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-plan.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden plan}
+  /api/v1/integrations/workflows/log-replays/plans/{id}/execution:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogReplayExecution
+      description: Read the original log replay execution receipt for one plan.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Replay execution
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-execution.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden plan}
+  /api/v1/integrations/workflows/log-replays/plans/{id}/records:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogReplayRecords
+      description: Read bounded replay records for one plan. Missing or incomplete proof remains explicit.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Replay log data
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-data.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden plan; 409 execution incomplete}
+  /api/v1/integrations/workflows/log-replays/plans/{id}/records/after/{afterIndex}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: afterIndex, in: path, required: true, schema: {type: integer, minimum: 0, maximum: 500}}
+    get:
+      operationId: pageWorkflowLogReplayRecords
+      description: Read a bounded continuation page of replay log records using an explicit nonnegative index.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Replay log data page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-data.schema.json'}
+        default: {description: 400 invalid index; 401 unauthenticated; 403 denied; 404 hidden plan; 409 execution incomplete}
+  /api/v1/integrations/workflows/log-replays/workflows/{id}/versions/{revision}/{digest}/plans:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 10000}}
+      - {name: digest, in: path, required: true, schema: {type: string, pattern: '^sha256:[a-f0-9]{64}$'}}
+    get:
+      operationId: pageWorkflowLogReplayPlans
+      description: Read bounded log replay plans for one immutable workflow version and digest.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log replay plan page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-page.schema.json'}
+        default: {description: 400 invalid pin; 401 unauthenticated; 403 denied; 404 hidden version}
+  /api/v1/integrations/workflows/log-replays/execute:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: executeWorkflowLogReplay
+      description: Execute a previously created log replay plan with its input and batch digests. Replays never send notifications or perform actions.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/workflow-log-replay-execute.schema.json'}
+      responses:
+        '200':
+          description: Log replay receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-receipt.schema.json'}
+        default: {description: 400 invalid digest; 401 unauthenticated; 403 denied; 404 hidden plan; 409 changed input or repeated execution; 503 unavailable}
+  /api/v1/integrations/workflows/log-replays/commands/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowLogReplayReceipt
+      description: Read the original log replay receipt after an uncertain response.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Log replay receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-receipt.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden receipt}
+  /api/v1/integrations/workflows/log-replays/commands/{id}/verification:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: verifyWorkflowLogReplay
+      description: Verify one log replay receipt without accepting a request body or repeating execution.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Verified log replay receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-replay-receipt.schema.json'}
+        default: {description: 400 body not allowed; 401 unauthenticated; 403 denied; 404 hidden receipt}
+  /api/v2/data-sources:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageSourceInstances
+      description: Bounded owner-scoped source instance page. The server derives tenant, subject and permissions; no network probe or collection is started.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: The newest visible source instances
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-instance-page.schema.json'}
+        default: {description: 400 unknown query; 401 unauthenticated; 403 denied; 503 unavailable}
+    post:
+      operationId: createSourceInstance
+      description: Confirm one explicitly selected registered source setup. The request is idempotent by owner and requestId and creates only the initial instance projection; it does not start collection.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-instance-create-command.schema.json'}
+      responses:
+        '200':
+          description: Initial instance snapshot
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-instance-read.schema.json'}
+        default: {description: 400 invalid closed JSON; 403 denied; 409 reused request or capacity; 503 unavailable}
+  /api/v2/data-sources/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readSourceInstance
+      description: Current owner-scoped source instance metadata. It does not execute a source request.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Current instance
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-instance-read.schema.json'}
+        default: {description: 400 invalid id; 401 unauthenticated; 403 denied; 404 missing or hidden; 503 unavailable}
+    patch:
+      operationId: editSourceInstance
+      description: Compare-and-set metadata edit. Configuration changes are explicit and append a new pinned configuration; archive is rejected while the instance task is running.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-instance-edit-command.schema.json'}
+      responses:
+        '200':
+          description: Immutable owner-bound maintenance receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-instance-command-receipt.schema.json'}
+        default: {description: 400 invalid closed JSON; 403 denied; 409 stale version, running task or reused request; 503 unavailable}
+  /api/v2/data-sources/{id}/configurations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageSourceInstanceConfigurations
+      description: Read-only append-only configuration history for one owner-scoped instance. Pins contain no secret plaintext and do not grant source access.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Configuration history, at most 100 revisions
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-instance-configurations.schema.json'}
+        default: {description: 400 invalid id; 403 denied; 404 missing; 503 unavailable}
+  /api/v2/data-sources/{id}/test:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: testSourceInstance
+      description: Explicitly test the saved source instance using its current pinned configuration and credential. The bounded read is owner-scoped, does not start collection, and never accepts an endpoint, secret or identity override.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-inspection-command.schema.json'}
+      responses:
+        '200':
+          description: Original bounded connection inspection view
+          headers:
+            Cache-Control: {schema: {type: string}, description: Must be no-store}
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-inspection-read.schema.json'}
+        default: {description: 400 invalid closed JSON or query; 401 unauthenticated; 403 denied; 409 stale/reused command; 429 busy/capacity; 503 source unavailable}
+  /api/v2/data-sources/{id}/connection-check:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: checkSourceConnection
+      description: Instance-scoped connection check alias. It has the same bounded read and immutable inspection receipt as testSourceInstance, while making the saved connection boundary explicit.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-inspection-command.schema.json'}
+      responses:
+        '200':
+          description: Original bounded connection inspection view
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-inspection-read.schema.json'}
+        default: {description: 400 invalid closed JSON or query; 401 unauthenticated; 403 denied; 409 stale/reused command; 429 busy/capacity; 503 source unavailable}
+  /api/v2/data-sources/{id}/discover:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: discoverSourceFields
+      description: Explicitly read one bounded source page and retain field names, types and missingness only. No source values, mapping mutation, collection or reconciliation is performed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-inspection-command.schema.json'}
+      responses:
+        '200':
+          description: Original bounded field discovery view
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-inspection-read.schema.json'}
+        default: {description: 400 invalid closed JSON or query; 401 unauthenticated; 403 denied; 409 stale/reused command; 429 busy/capacity; 503 source unavailable}
+  /api/v2/data-sources/{id}/discover-metrics:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: discoverSourceMetrics
+      description: Explicitly discover the first bounded metric metadata page. Only complete source keys, types, units and existing mapping pins are returned; values and history are excluded.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-inspection-command.schema.json'}
+      responses:
+        '200':
+          description: Original bounded metric discovery view
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-metric-discovery-read.schema.json'}
+        default: {description: 400 invalid closed JSON or query; 401 unauthenticated; 403 denied; 409 stale/reused command; 429 busy/capacity; 503 source unavailable}
+  /api/v2/data-sources/{id}/metric-discoveries:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: pageSourceMetricDiscovery
+      description: Read the next fixed metadata page from a previously confirmed membership manifest. The server validates the parent receipt, configuration, credential pin and manifest before reading the source.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-metric-page-command.schema.json'}
+      responses:
+        '200':
+          description: Original bounded metric page inspection view
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-metric-page-read.schema.json'}
+        default: {description: 400 invalid closed JSON or query; 401 unauthenticated; 403 denied; 404 parent receipt hidden; 409 stale/invalid lineage/reused command; 429 busy/capacity; 503 source unavailable}
+  /api/v2/data-sources/{id}/inspections:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageSourceInspections
+      description: Read at most 20 recent owner-scoped inspection receipts. This operation never probes the source, retries an operation or promotes an incomplete page to a complete snapshot.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Recent bounded inspection views
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-inspection-page.schema.json'}
+        default: {description: 400 invalid query/id; 401 unauthenticated; 403 denied; 404 missing or hidden instance; 503 unavailable}
+  /api/v2/data-sources/{id}/inspections/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getSourceInspection
+      description: Read one original owner-bound inspection receipt. Current configuration and credential state are rechecked for the validity label; the original observation is never rerun or rewritten.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Original inspection view
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-inspection-read.schema.json'}
+        default: {description: 400 invalid id; 401 unauthenticated; 403 denied; 404 missing or hidden receipt; 503 unavailable}
+  /api/v2/data-sources/{id}/connection-checks:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageSourceConnectionChecks
+      description: Read at most 20 TEST inspection receipts for this instance. The filter is applied in storage before the limit; this endpoint never probes or retries.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Recent connection-check inspection views
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-inspection-page.schema.json'}
+        default: {description: 400 invalid query/id; 401 unauthenticated; 403 denied; 404 missing or hidden instance; 503 unavailable}
+  /api/v2/data-sources/{id}/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getSourceInstanceCommandReceipt
+      description: Read the original owner-bound instance maintenance receipt. A missing receipt does not prove an uncertain write failed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Original maintenance receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-instance-command-receipt.schema.json'}
+        '404': {description: Missing or hidden receipt}
+        default: {description: 400 invalid id; 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v2/data-sources/connections:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: createSourceConnection
+      description: Create a source instance and append its first endpoint/credential pin in one explicit transaction. Pins are checked by the trusted server; no secret is returned.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-connection-create.schema.json'}
+      responses:
+        '200':
+          description: Connection and instance receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-connection-receipt.schema.json'}
+        default: {description: 400 invalid closed JSON; 403 denied; 409 stale or reused request; 503 unavailable}
+  /api/v2/data-sources/{id}/connection:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readSourceConnection
+      description: Read current connection metadata and availability. Endpoint address is metadata only; this GET never probes it.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Connection view without secret material
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-connection-read.schema.json'}
+        default: {description: 400 invalid id; 403 denied; 404 missing; 503 unavailable}
+    patch:
+      operationId: editSourceConnection
+      description: Append a new immutable endpoint/credential pin under an instance edit CAS. The server rechecks both pins and never exposes the secret.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-connection-edit.schema.json'}
+      responses:
+        '200':
+          description: Connection update receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-connection-receipt.schema.json'}
+        default: {description: 400 invalid closed JSON; 403 denied; 409 stale pin/version or reused request; 503 unavailable}
+  /api/v2/data-sources/{id}/connection/history:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageSourceConnectionHistory
+      description: Read-only append-only connection configuration history, bounded to 100 revisions.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Connection history
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-connection-history.schema.json'}
+        default: {description: 400 invalid id; 403 denied; 404 missing; 503 unavailable}
+  /api/v2/data-sources/{id}/connection/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getSourceConnectionCommandReceipt
+      description: Read the original connection command receipt after an uncertain response; it does not repeat the write.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Original connection receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-connection-receipt.schema.json'}
+        '404': {description: Missing or hidden receipt}
+        default: {description: 400 invalid id; 403 denied; 503 unavailable}
+  /api/v2/data-sources/credentials:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageSourceCredentials
+      description: Owner-scoped metadata page. Secret values are never returned.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Bounded credential metadata and capability flags
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-page.schema.json'}
+        default: {description: 400 unknown query; 401 unauthenticated; 403 denied; 503 unavailable}
+    post:
+      operationId: createSourceCredential
+      description: Securely submit an initial opaque credential version. The secret is accepted only over the configured trusted transport and is never persisted in the public response.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-credential-create.schema.json'}
+      responses:
+        '200':
+          description: Public credential receipt without secret material
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-receipt.schema.json'}
+        default: {description: 400 invalid input; 403 denied; 409 reused request/capacity; 503 unavailable or insecure transport}
+  /api/v2/data-sources/credentials/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readSourceCredential
+      description: Read owner-scoped credential metadata without secret material.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Credential metadata
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-read.schema.json'}
+        default: {description: 400 invalid id; 403 denied; 404 missing or hidden; 503 unavailable}
+    patch:
+      operationId: editSourceCredential
+      description: Metadata CAS edit or explicit opaque version rotation. The server rechecks tenant, owner, transport, capacity and version pin.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-credential-edit.schema.json'}
+      responses:
+        '200':
+          description: Public credential receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-receipt.schema.json'}
+        default: {description: 400 invalid input; 403 denied; 409 stale version or reused request; 503 unavailable}
+  /api/v2/data-sources/credentials/{id}/versions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageSourceCredentialVersions
+      description: Read-only version pins and revocation state; no secret or ciphertext is returned.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: At most 100 credential pins
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-version-page.schema.json'}
+        default: {description: 400 invalid id; 403 denied; 404 missing; 503 unavailable}
+  /api/v2/data-sources/credentials/{id}/versions/{revision}/revoke:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+    post:
+      operationId: revokeSourceCredentialVersion
+      description: Explicitly revoke one credential version while retaining its audit pin. This does not silently rotate or delete other versions.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/source-credential-revoke.schema.json'}
+      responses:
+        '200':
+          description: Public revocation receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-receipt.schema.json'}
+        default: {description: 400 invalid input; 403 denied; 404 missing; 409 stale version or active pin conflict; 503 unavailable}
+  /api/v2/data-sources/credentials/{id}/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getSourceCredentialCommandReceipt
+      description: Read the original public credential receipt after an uncertain response. The secret is never returned and no write is retried.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Original public receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/source-credential-command-read.schema.json'}
+        '404': {description: Missing or hidden receipt}
+        default: {description: 400 invalid id; 403 denied; 503 unavailable}
+  /api/v2/data-sources/{id}/connection/{revision}/items/sync:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+    post:
+      operationId: syncRegisteredSourceItems
+      description: Explicitly scan item metadata through one immutable registered connection revision and its fixed host-group scope. Each call starts one bounded scan; clients must not retry an uncertain result automatically. Failed or unverified walks never retire bindings.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Completed item metadata scan and scoped reconciliation receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/registered-item-sync.schema.json'}
+        '403': {description: Caller is not authorized for the registered connection}
+        '404': {description: Connection or immutable revision is missing or hidden}
+        '409': {description: Another item scan owns the source scope}
+        '503':
+          description: Source or scan store unavailable; inspect the receipt and run history before starting another scan
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/registered-item-sync.schema.json'}
+        default: {description: 400 invalid path; 401 unauthenticated}
+  /api/v2/data-sources/{id}/connection/{revision}/items/runs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+    get:
+      operationId: pageRegisteredItemScanRuns
+      description: Read-only, bounded history for item scans started with this source UUID and immutable configuration revision. It never connects to the upstream source or starts another scan.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: after, in: query, required: false, schema: {type: string, maxLength: 192, pattern: '^[A-Za-z0-9_-]{1,192}$'}}
+      responses:
+        '200':
+          description: One page of stored item scan results and the fixed host-group scope
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/registered-item-scan-run-page.schema.json'}
+        default: {description: 400 invalid path or cursor; 401 unauthenticated; 403 denied; 404 hidden source revision; 503 unavailable}
+  /api/v2/data-sources/{id}/connection/{revision}/items/runs/{syncRunId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {name: syncRunId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: readRegisteredItemScanRun
+      description: Read one stored item scan only if its tenant, registered source, configuration revision and item type match the route.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Stored item scan and the immutable host-group scope
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/registered-item-scan-run-read.schema.json'}
+        '404': {description: Missing or out-of-scope run}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v2/data-sources/{id}/connection/{revision}/workflow-metrics:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+    get:
+      operationId: pageWorkflowMetricSources
+      description: Read bounded metric choices from a completed, owner-scoped discovery manifest for one fixed connection revision. This GET never reads the upstream source, creates a binding, writes metric points or accepts tenant, URL or query overrides.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Fixed connection and discoverable metric choices
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-metric-source-page.schema.json'}
+        default: {description: 400 invalid path or query; 401 unauthenticated; 403 denied; 404 hidden discovery; 503 source metadata unavailable}
+  /api/v2/data-sources/{id}/connection/{revision}/workflow-logs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revision, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+    get:
+      operationId: pageWorkflowLogSources
+      description: Read bounded log choices from a completed, owner-scoped discovery manifest for one fixed connection revision. This GET never reads upstream history, creates a binding, writes log content or accepts tenant, URL or query overrides.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Fixed connection and discoverable log choices
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-log-source-page.schema.json'}
+        default: {description: 400 invalid path or query; 401 unauthenticated; 403 denied; 404 hidden discovery; 503 source metadata unavailable}
+  /api/v2/metric-bindings:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageMetricBindings
+      description: Read the bounded owner-scoped metric binding page and compatible mapping candidates. The server derives tenant, subject and permissions; no source request is performed.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric binding views
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/metric-mapping-page.schema.json'}
+        default: {description: 400 invalid query; 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v2/metric-bindings/{source}/{item}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: source, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'}}
+      - {name: item, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}}
+    get:
+      operationId: readMetricBinding
+      description: Read one owner-scoped metric binding and compatible mapping candidates without reading the upstream source.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Metric binding view
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/metric-mapping-read.schema.json'}
+        default: {description: 400 invalid source or item; 401 unauthenticated; 403 denied; 404 hidden binding; 503 unavailable}
+  /api/v2/metric-bindings/{source}/{item}/mapping:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: source, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'}}
+      - {name: item, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}}
+    post:
+      operationId: configureMetricBinding
+      description: Persist one actor-bound compare-and-set mapping pin. The server rechecks source scope, mapping compatibility, binding version and request id; it never accepts tenant, entity ownership, source address or secret overrides.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/metric-mapping-command.schema.json'}
+      responses:
+        '200':
+          description: Original metric mapping maintenance receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/metric-mapping-receipt-read.schema.json'}
+        default: {description: 400 invalid closed JSON; 403 denied; 409 stale binding or reused request; 503 unavailable}
+  /api/v2/metric-bindings/{source}/{item}/mapping/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: source, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'}}
+      - {name: item, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getMetricBindingReceipt
+      description: Read the original owner-bound metric mapping receipt after an uncertain write; it never repeats the update.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Original metric mapping receipt
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/metric-mapping-receipt-read.schema.json'}
+        '404': {description: Missing or hidden receipt}
+        default: {description: 400 invalid path; 401 unauthenticated; 403 denied; 503 unavailable}
 components:
   parameters:
     clientRequestId:

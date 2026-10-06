@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "2.0",
+  "storage": "memory",
+  "receipt": {
+    "requestId": "22222222-2222-4222-8222-222222222222",
+    "sourceId": "22222222-2222-4222-8222-222222222222",
+    "commandDigest": "sha256:40e92edad58cd81fe5d0d1146556fe58bb22d1f1752b0bc655038fe947f7475d",
+    "instance": {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Fixture managed connection",
+      "description": "Explicit synthetic fixture configuration; no upstream connection",
+      "source": {
+        "kind": "ZABBIX_HOST",
+        "instanceId": "connection-22222222-2222-4222-8222-222222222222"
+      },
+      "configurationRevision": 1,
+      "connectionDigest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e",
+      "dataMode": "zabbix-jsonrpc",
+      "editVersion": 1,
+      "state": "ACTIVE",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "updatedAt": "2026-10-03T00:00:00Z",
+      "workflowId": "source-22222222-2222-4222-8222-222222222222"
+    }
+  },
+  "connection": {
+    "sourceId": "22222222-2222-4222-8222-222222222222",
+    "revision": 1,
+    "connectorVersion": "host-jsonrpc-v1",
+    "endpoint": {
+      "id": "fixture-host",
+      "name": "Fixture Host endpoint",
+      "connectorKind": "ZABBIX_HOST",
+      "address": "https://192.0.2.10/api_jsonrpc.php",
+      "digest": "sha256:d2187c8b693831fd92ae3357626a693c2e5be9b80e457b216200cad8522557ae"
+    },
+    "credentialPin": {
+      "credentialId": "10000000-0000-4000-8000-000000000081",
+      "revision": 1,
+      "versionId": "10000000-0000-4000-8000-000000000081"
+    },
+    "connectionDigest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e",
+    "createdAt": "2026-10-03T00:00:00Z"
+  }
+}

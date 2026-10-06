@@ -37,9 +37,10 @@ public final class ZabbixJsonRpcHistoryReader implements ZabbixHistoryPort {
     @Override
     public HistoryPage read(SourceContext source, MetricBinding binding, HistoryWindow window) {
         if (!source.tenantId().equals(binding.tenantId()) || !source.sourceInstanceId().equals(binding.sourceInstanceId())
-            || !"zabbix".equals(binding.sourceType()) || !binding.externalItemId().matches("[1-9][0-9]{0,19}")) {
+            || binding.mappingPin()==null || !"zabbix".equals(binding.sourceType()) || !binding.externalItemId().matches("[1-9][0-9]{0,19}")) {
             throw new HistoryReadException(Code.METADATA_CHANGED);
         }
+        if (mappings.find(binding.mappingPin()).isEmpty()) throw new HistoryReadException(Code.METADATA_CHANGED);
         if (window.fetchFrom() > window.till()) return HistoryPage.select(window, List.of());
         try {
             String token = secrets.resolve(source.secretRef());
@@ -55,7 +56,7 @@ public final class ZabbixJsonRpcHistoryReader implements ZabbixHistoryPort {
             if (mapper.rejectReason(item).isPresent()) throw new HistoryReadException(Code.METADATA_CHANGED);
             MetricBinding current = mapper.map(source.tenantId(), source.sourceInstanceId(), item).binding();
             var mapping = mappings.find("zabbix", text(item, "key_")).orElseThrow();
-            if (!current.entityId().equals(binding.entityId()) || !current.metricKey().equals(binding.metricKey())
+            if (!mapping.pin().equals(binding.mappingPin()) || !current.entityId().equals(binding.entityId()) || !current.metricKey().equals(binding.metricKey())
                 || !current.fixedDimensions().equals(binding.fixedDimensions()) || !current.sourceUnit().equals(binding.sourceUnit())
                 || !current.valueTransform().equals(binding.valueTransform()) || current.mappingRevision() != binding.mappingRevision()) {
                 throw new HistoryReadException(Code.METADATA_CHANGED);

@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-10-01T00:00:00Z",
+  "metricKey": "fixture.cpu.usage",
+  "value": 0.5,
+  "unit": "ratio",
+  "metricType": "GAUGE"
+}

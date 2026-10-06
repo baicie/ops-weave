@@ -1,0 +1,10 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000128",
+  "id": "fixture-closed-recovery",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "kind": "LOG_STREAM",
+  "batchId": "20000000-0000-4000-8000-000000000128",
+  "expectedGeneration": 1,
+  "acknowledgeUncertainOutput": true
+}

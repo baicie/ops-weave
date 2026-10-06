@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-node",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+    },
+    "type": {
+      "enum": [
+        "SOURCE",
+        "MAP",
+        "TRIM",
+        "EMPTY_TO_NULL",
+        "DEFAULT",
+        "ENUM_MAP",
+        "SCALE",
+        "FILTER",
+        "MERGE",
+        "VALIDATE",
+        "OUTPUT"
+      ]
+    },
+    "received": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "accepted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "rejected": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "filtered": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "issues": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "UNKNOWN_FIELD": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "MISSING_REQUIRED": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "NULL_REQUIRED": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "TOO_LONG": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "EMPTY_REQUIRED": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "ENUM_MISMATCH": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "OUT_OF_RANGE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "TYPE_MISMATCH": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "NUMERIC_LIMIT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "TRANSFORM_FAILED": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "MERGE_CONFLICT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      "maxProperties": 11
+    }
+  },
+  "required": [
+    "nodeId",
+    "type",
+    "received",
+    "accepted",
+    "rejected",
+    "filtered",
+    "skipped",
+    "issues"
+  ]
+}

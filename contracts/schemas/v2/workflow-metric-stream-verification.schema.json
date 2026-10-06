@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-metric-stream-verification",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "batchId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "batchId"
+  ]
+}

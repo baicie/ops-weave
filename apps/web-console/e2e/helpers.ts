@@ -1,7 +1,18 @@
+import { readFileSync } from 'node:fs'
+export const WORKFLOW_OPERATORS = JSON.parse(readFileSync(new URL('../../../contracts/catalog/opsweave-transform-operators-1.0.0.json',import.meta.url),'utf8'))
 import { expect, type Page } from '@playwright/test'
 
 export const TOKEN_OK = 'e2e-dev-token-not-secret-32chars-xx'
 export const TOKEN_UNAUTHORIZED = 'e2e-unauthorized-token-32chars-xx'
+
+export async function mockEmptySourceInstances(page: Page) {
+  await page.route('**/api/v2/data-sources', route => route.fulfill({ json: { schemaVersion: '2.0', storage: 'memory', items: [], truncated: false } }))
+}
+
+export async function closeWorkflowInspector(page: Page) {
+  const close = page.getByRole('button', { name: '关闭节点配置', exact: true })
+  if (await close.isVisible()) await close.click()
+}
 
 export function diagnosePayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -38,7 +49,7 @@ export function diagnosePayload(overrides: Record<string, unknown> = {}) {
 export async function openDiagnose(page: Page) {
   await page.goto('/#/incidents/diagnose')
   await expect(page.getByRole('heading', { name: '只读诊断 Demo' })).toBeVisible()
-  await expect(page.locator('zw-input input')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '开发 Token（仅保存在当前页面内存）' })).toBeVisible()
 }
 
 export async function fillToken(page: Page, token: string) {

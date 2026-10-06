@@ -33,3 +33,43 @@ test('uncertain commit is not retried and the original receipt can be queried', 
   await enter(page); await page.getByRole('button', { name: '预览留存清理' }).click(); await page.getByRole('checkbox').check(); await page.getByRole('button', { name: '确认清理本批内容' }).click(); await expect(page.locator('[data-retention-pending]')).toBeVisible(); await expect(page.getByRole('button', { name: '预览留存清理' })).toBeDisabled(); await page.getByRole('button', { name: '查询清理回执' }).click(); await expect(page.locator('[data-retention-receipt]')).toBeVisible(); expect(posts).toBe(1)
 })
 test('late preview cannot restore data after logout', async ({ page }) => { let release = () => {}; const held = new Promise<void>(r => { release = r }); const v = fixture(); await page.route('**/api/v1/ai/retention', async route => { await held; await route.fulfill({ json: v }) }); await enter(page); const requested = page.waitForRequest('**/api/v1/ai/retention'); await page.getByRole('button', { name: '预览留存清理' }).click(); await requested; await page.getByRole('textbox', { name: '平台开发 Token（仅保存在当前标签页内存）' }).fill(''); release(); await expect(page.locator('[data-retention-preview]')).toHaveCount(0) })
+
+test('retention keeps receipt recovery available without an empty request form upfront', async ({ page }) => {
+ await enter(page);
+ await expect(page.getByRole('button', { name: '预览留存清理' })).toBeEnabled();
+ const request = page.getByRole('textbox', { name: '清理请求标识', includeHidden: true });
+ await expect(request).not.toBeVisible();
+ await page.getByText('查询已有清理回执', { exact: true }).click();
+ await expect(request).toBeVisible();
+ await expect(page.getByRole('button', { name: '查询清理回执' })).toBeDisabled();
+});
+
+test('tab closure cannot discard an uncertain retention receipt or retry its write', async ({ page }) => {
+ const v = fixture(); let posts = 0; let command: any; let receiptGets = 0
+ await page.route(/\/api\/v1\/ai\/retention(?:\/.*)?$/, route => {
+  if (route.request().method() === 'POST') { posts++; command = route.request().postDataJSON(); return route.abort('failed') }
+  if (new URL(route.request().url()).pathname.includes('/runs/')) { receiptGets++; return route.fulfill({ json: { schemaVersion: '1.0', storage: 'postgres', state: 'COMPLETED', tenantId: v.policy.tenantId, actor: v.preview.actor, command, preview: v.preview, completedAt: new Date().toISOString() } }) }
+  return route.fulfill({ json: v })
+ })
+ await enter(page)
+ await page.getByRole('button', { name: '布局设置', exact: true }).click()
+ await page.getByRole('radio', { name: '多页签布局 多个页面同时打开，切换时保留编辑' }).check()
+ await page.getByRole('button', { name: '完成', exact: true }).click()
+ await page.getByRole('button', { name: '预览留存清理' }).click()
+ await page.getByRole('checkbox').check()
+ await page.getByRole('button', { name: '确认清理本批内容' }).click()
+ await expect(page.locator('[data-retention-pending]')).toBeVisible()
+ await page.getByRole('button', { name: '关闭AI 数据留存页面', exact: true }).click()
+ const dialog = page.getByRole('dialog', { name: '页面暂时不能关闭' })
+ await expect(dialog).toContainText('原请求回执')
+ await expect(dialog.getByRole('button', { name: '关闭页面', exact: true })).toBeDisabled()
+ await dialog.getByRole('button', { name: '保留页面' }).click()
+ await page.getByRole('navigation', { name: '产品模块' }).getByRole('link', { name: '运维工作台', exact: true }).click()
+ await page.getByRole('tablist', { name: '已打开页面' }).getByRole('tab', { name: 'AI 数据留存', exact: true }).click()
+ await expect(page.getByRole('textbox', { name: '清理请求标识' })).toHaveValue(command.requestId)
+ await page.getByRole('button', { name: '查询清理回执' }).click()
+ await expect(page.locator('[data-retention-receipt]')).toBeVisible()
+ expect(posts).toBe(1); expect(receiptGets).toBe(1)
+ await page.getByRole('button', { name: '关闭AI 数据留存页面', exact: true }).click()
+ await expect(page.getByRole('tablist', { name: '已打开页面' }).getByRole('tab', { name: 'AI 数据留存', exact: true })).toHaveCount(0)
+})

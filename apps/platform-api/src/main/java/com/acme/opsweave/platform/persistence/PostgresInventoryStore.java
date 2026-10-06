@@ -91,7 +91,7 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
     public Optional<EntityView> find(TenantId tenantId, EntityId entityId) {
         try (var connection = dataSource.getConnection();
              var statement = connection.prepareStatement("""
-                SELECT entity_type, name, lifecycle, version,
+                SELECT entity_type, name, lifecycle, version, model_id, model_revision, model_digest,
                        CASE WHEN octet_length(attributes::text) <= 16384 THEN attributes END AS attributes
                   FROM %s
                  WHERE tenant_id = ? AND id = ?
@@ -114,7 +114,7 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
     public List<EntityView> list(TenantId tenantId) {
         try (var connection = dataSource.getConnection();
              var statement = connection.prepareStatement("""
-                SELECT id, entity_type, name, lifecycle, version,
+                SELECT id, entity_type, name, lifecycle, version, model_id, model_revision, model_digest,
                        CASE WHEN octet_length(attributes::text) <= 16384 THEN attributes END AS attributes
                   FROM %s
                  WHERE tenant_id = ?
@@ -137,7 +137,7 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
     @Override
     public List<EntityView> page(TenantId tenant, EntityVisibility visibility, EntityPageQuery query) {
         try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement("""
-            SELECT id, entity_type, name, lifecycle, version,
+            SELECT id, entity_type, name, lifecycle, version, model_id, model_revision, model_digest,
                    CASE WHEN octet_length(attributes::text) <= 16384 THEN attributes END AS attributes
             FROM %s
             WHERE tenant_id = ? AND (? OR id = ANY (?)) AND (?::uuid IS NULL OR id > ?::uuid)
@@ -166,13 +166,15 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
 
     @Override
     public void upsert(Entity entity, Observation observation, ExternalLink link) {
-        Observation.checkWrite(entity, observation, link);
+        Entity sourceEntity = entity.withModelPin(null);
+        Observation.checkWrite(sourceEntity, observation, link);
         Transactions.run(dataSource, connection -> {
             PostgresSourceScans.unmanaged(connection,new SourceScan.Scope(link.key().tenantId(),link.key().sourceInstanceId(),link.key().externalType()));
-            upsertInside(connection,entity,observation,link);
+            upsertInside(connection,sourceEntity,observation,link);
         });
     }
     private void upsertInside(java.sql.Connection connection,Entity entity,Observation observation,ExternalLink link)throws SQLException {
+            entity = entity.withModelPin(null);
             PostgresSourceReviews.lock(connection, entity.tenantId(), entity.id());
             try (var lock = connection.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")) {
                 lock.setString(1, "observation:" + entity.tenantId().value().length() + ":" + entity.tenantId().value() + observation.id());
@@ -190,14 +192,17 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
             var projected = PostgresSourceReviews.incoming(connection, entity);
             try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO inventory.entity (
-                    tenant_id, id, entity_type, name, lifecycle, version, attributes, last_seen_at, last_seen_epoch_nanos
-                ) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?)
+                    tenant_id, id, entity_type, name, lifecycle, version, attributes, model_id, model_revision, model_digest, last_seen_at, last_seen_epoch_nanos
+                ) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, NULL, NULL, NULL, ?, ?)
                 ON CONFLICT (tenant_id, id) DO UPDATE SET
                     entity_type = EXCLUDED.entity_type,
                     name = EXCLUDED.name,
                     lifecycle = EXCLUDED.lifecycle,
                     version = inventory.entity.version + 1,
                     attributes = EXCLUDED.attributes,
+                    model_id = NULL,
+                    model_revision = NULL,
+                    model_digest = NULL,
                     last_seen_at = EXCLUDED.last_seen_at,
                     last_seen_epoch_nanos = EXCLUDED.last_seen_epoch_nanos
                 WHERE inventory.entity.last_seen_epoch_nanos <= EXCLUDED.last_seen_epoch_nanos
@@ -348,7 +353,17 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
             rows.getString("name"),
             rows.getString("lifecycle"),
             rows.getLong("version"),
-            attributes
+            attributes,
+            modelPin(rows)
         );
+    }
+
+    private static com.acme.opsweave.inventory.domain.EntityModelPin modelPin(ResultSet rows) throws SQLException {
+        String id = rows.getString("model_id");
+        Object revision = rows.getObject("model_revision");
+        String digest = rows.getString("model_digest");
+        if (id == null && revision == null && digest == null) return null;
+        if (id == null || revision == null || digest == null) throw new IllegalStateException("Entity model pin is incomplete");
+        return new com.acme.opsweave.inventory.domain.EntityModelPin(id, ((Number) revision).intValue(), digest);
     }
 }

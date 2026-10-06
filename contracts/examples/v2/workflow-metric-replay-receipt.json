@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "20000000-0000-4000-8000-000000000136",
+  "planId": "10000000-0000-4000-8000-000000000136",
+  "reference": {
+    "id": "fixture-standard-cpu",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "commandDigest": "sha256:bc1c6fc08caed40d8f39917b2c6fab41744b51f496d246a97c7e99f1afe29509",
+  "acceptedAt": "2026-10-05T00:02:02Z",
+  "updatedAt": "2026-10-05T00:02:03Z",
+  "state": "CONFIRMED",
+  "error": null
+}

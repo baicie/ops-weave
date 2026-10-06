@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "2.0",
+  "items": [
+    {
+      "binding": {
+        "sourceType": "zabbix",
+        "sourceInstanceId": "fixture-mapping-maintenance",
+        "externalItemId": "20001",
+        "entityId": "10000000-0000-4000-8000-000000000001",
+        "hostExternalId": "10084",
+        "metricKey": "host.cpu.usage.user",
+        "fixedDimensions": {
+          "mode": "user"
+        },
+        "sourceUnit": "%",
+        "valueTransform": "multiply:0.01",
+        "mappingRevision": 1,
+        "lifecycle": "ACTIVE",
+        "version": 2,
+        "mappingPin": {
+          "id": "zabbix-cpu-user",
+          "revision": 1,
+          "digest": "sha256:99a6d3d6b549bd47da048352fd902f2eb4a3ca54a4c6c8824be20bef33877247"
+        }
+      },
+      "canConfigure": true,
+      "candidates": [
+        {
+          "mappingPin": {
+            "id": "zabbix-cpu-user",
+            "revision": 1,
+            "digest": "sha256:99a6d3d6b549bd47da048352fd902f2eb4a3ca54a4c6c8824be20bef33877247"
+          },
+          "connector": "zabbix",
+          "sourceKey": "system.cpu.util[,user]",
+          "metricKey": "host.cpu.usage.user",
+          "displayName": "Host CPU usage (user)",
+          "metricType": "GAUGE",
+          "unit": "1",
+          "valueType": "DOUBLE",
+          "dimensionSchema": [
+            "mode"
+          ],
+          "fixedDimensions": {
+            "mode": "user"
+          },
+          "valueTransform": "multiply:0.01",
+          "minimum": "0",
+          "maximum": "1"
+        }
+      ]
+    }
+  ],
+  "truncated": false
+}

@@ -1,0 +1,620 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-observation",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "HOST_SCAN",
+        "METRIC_STREAM",
+        "LOG_STREAM"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000001
+    },
+    "state": {
+      "enum": [
+        "CHECKED",
+        "REJECTED",
+        "SOURCE_FAILED"
+      ]
+    },
+    "from": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 30
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "till": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 30
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30
+    },
+    "queueWaitMillis": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "relatedBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "AUTHORIZATION_EXPIRED",
+            "AUTHORIZATION_REVOKED",
+            "BACKLOG_LIMIT",
+            "CAPACITY",
+            "EXECUTION_LIMIT",
+            "FORBIDDEN",
+            "INVALID_SAMPLE",
+            "MAPPING_CHANGED",
+            "MODEL_CHANGED",
+            "OPERATOR_CHANGED",
+            "OPERATOR_PIN_REQUIRED",
+            "OUTPUT_REJECTED",
+            "OUTPUT_UNAVAILABLE",
+            "OUTPUT_UNCONFIRMED",
+            "RUNTIME_UNAVAILABLE",
+            "SOURCE_CHANGED",
+            "SOURCE_UNAVAILABLE",
+            "SOURCE_WINDOW_CHANGED",
+            "TASK_CHANGED",
+            "WINDOW_EXPIRED",
+            "WINDOW_INCOMPLETE"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result": {
+      "$ref": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-result"
+    },
+    "sourceRead": {
+      "anyOf": [
+        {
+          "$ref": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-source"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dispatch": {
+      "anyOf": [
+        {
+          "$ref": "workflow-diagnostic-dispatch.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "reference",
+    "kind",
+    "generation",
+    "state",
+    "from",
+    "till",
+    "startedAt",
+    "completedAt",
+    "queueWaitMillis",
+    "relatedBatchId",
+    "error",
+    "result"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "CHECKED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "null"
+          },
+          "result": {
+            "properties": {
+              "coverage": {
+                "const": "COMPLETE"
+              },
+              "rejected": {
+                "const": 0
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "SOURCE_FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "properties": {
+              "coverage": {
+                "const": "UNAVAILABLE"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "result": {
+            "properties": {
+              "coverage": {
+                "enum": [
+                  "COMPLETE",
+                  "PARTIAL"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "REJECTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "properties": {
+              "rejected": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "HOST_SCAN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "from": {
+            "type": "null"
+          },
+          "till": {
+            "type": "null"
+          },
+          "result": {
+            "properties": {
+              "received": {
+                "maximum": 5
+              },
+              "unitMismatch": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "till": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "METRIC_STREAM"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "properties": {
+              "received": {
+                "maximum": 600
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "LOG_STREAM"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "properties": {
+              "unitMismatch": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "sourceRead": {
+            "type": "object",
+            "properties": {
+              "failed": {
+                "const": 1
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "const": "SOURCE_FAILED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "kind": {
+            "const": "HOST_SCAN"
+          },
+          "sourceRead": {
+            "type": "object"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourceRead": {
+            "properties": {
+              "received": {
+                "maximum": 5
+              },
+              "failureCode": {
+                "not": {
+                  "enum": [
+                    "UNIT_CHANGED",
+                    "SOURCE_KEY_CHANGED",
+                    "VALUE_TYPE_CHANGED"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "kind": {
+            "const": "METRIC_STREAM"
+          },
+          "sourceRead": {
+            "type": "object"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourceRead": {
+            "properties": {
+              "received": {
+                "maximum": 600
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "sourceRead": {
+            "type": "object",
+            "properties": {
+              "failureCode": {
+                "enum": [
+                  "METADATA_CHANGED",
+                  "SOURCE_KEY_CHANGED",
+                  "VALUE_TYPE_CHANGED",
+                  "UNIT_CHANGED"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "SOURCE_CHANGED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "sourceRead": {
+            "type": "object",
+            "properties": {
+              "failureCode": {
+                "enum": [
+                  "UNAVAILABLE"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "SOURCE_UNAVAILABLE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "sourceRead": {
+            "type": "object",
+            "properties": {
+              "failureCode": {
+                "enum": [
+                  "INCOMPLETE_WINDOW"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "WINDOW_INCOMPLETE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "sourceRead": {
+            "type": "object",
+            "properties": {
+              "failureCode": {
+                "enum": [
+                  "INVALID_RESPONSE"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "INVALID_SAMPLE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "sourceRead"
+        ],
+        "properties": {
+          "sourceRead": {
+            "type": "object",
+            "properties": {
+              "failureCode": {
+                "const": "ACCESS_DENIED"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "FORBIDDEN",
+              "AUTHORIZATION_EXPIRED",
+              "AUTHORIZATION_REVOKED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "dispatch"
+        ],
+        "properties": {
+          "dispatch": {
+            "type": "object"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queueWaitMillis": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600000
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queueWaitMillis": {
+            "type": "integer"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "dispatch"
+        ],
+        "properties": {
+          "dispatch": {
+            "$ref": "workflow-diagnostic-dispatch.schema.json"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "dispatch": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

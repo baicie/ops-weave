@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-metric-replay-execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt"],
+  "properties": {
+    "receipt": {"anyOf": [{"$ref": "workflow-metric-replay-receipt.schema.json"}, {"type": "null"}]}
+  }
+}

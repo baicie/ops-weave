@@ -1,0 +1,6 @@
+{
+  "eventTime": "2026-10-01T00:00:00Z",
+  "body": "  Fixture log text  ",
+  "severityText": "INFO",
+  "serviceName": "fixture-service"
+}

@@ -18,14 +18,23 @@ record JsonRpcWatermarkBounds(List<Long> ids, String digest) {
 
     static JsonRpcWatermarkBounds capture(ZabbixJsonRpcConnector.Transport transport, URI endpoint,
                                          String token, String method, String idField) {
+        return capture(transport,endpoint,token,method,idField,List.of());
+    }
+
+    static JsonRpcWatermarkBounds capture(ZabbixJsonRpcConnector.Transport transport, URI endpoint,
+                                         String token, String method, String idField,List<String> groupIds) {
+        var groups=com.acme.opsweave.integration.domain.SourceConnectionConfiguration.normalizeHostGroupIds(groupIds);
+        String groupFilter=ZabbixJsonRpcConnector.groupIdsParameter(groups);
         String countBody = "{\"jsonrpc\":\"2.0\",\"method\":\"" + method
-            + "\",\"params\":{\"countOutput\":true},\"id\":1}";
+            + "\",\"params\":{\"countOutput\":true"+groupFilter+"},\"id\":1}";
         long count = transport.readCount(transport.exchange(endpoint, countBody, token));
         if (count < 0 || count > MAX_IDS) throw new IllegalStateException("Zabbix manifest limit exceeded");
         String body = "{\"jsonrpc\":\"2.0\",\"method\":\"" + method + "\",\"params\":{"
             + "\"output\":[\"" + idField + "\"],\"sortfield\":\"" + idField
-            + "\",\"sortorder\":\"ASC\",\"limit\":" + (MAX_IDS + 1) + "},\"id\":1}";
+            + "\",\"sortorder\":\"ASC\",\"limit\":" + (MAX_IDS + 1)
+            + (groupIds.isEmpty() ? "" : ",\"selectGroups\":[\"groupid\"]") + groupFilter+"},\"id\":1}";
         List<Long> ids = transport.readHostArray(transport.exchange(endpoint, body, token)).stream()
+            .peek(row -> ZabbixHostGroupVerifier.requireHostMembership(row, groups))
             .map(row -> id(row, idField)).toList();
         if (ids.size() != count || ids.size() > MAX_IDS) throw new IllegalStateException("Zabbix manifest changed");
         long previous = 0;
@@ -34,8 +43,9 @@ record JsonRpcWatermarkBounds(List<Long> ids, String digest) {
             previous = id;
         }
         try {
+            String scope=groupIds.isEmpty()?"":" groups="+groupIds;
             String digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                .digest((method + ":" + ids).getBytes(StandardCharsets.UTF_8)));
+                .digest((method + ":" + ids+scope).getBytes(StandardCharsets.UTF_8)));
             return new JsonRpcWatermarkBounds(ids, digest);
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 unavailable", impossible);

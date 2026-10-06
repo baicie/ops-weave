@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "20000000-0000-4000-8000-000000000136",
+  "planId": "10000000-0000-4000-8000-000000000136",
+  "reference": {
+    "id": "fixture-log",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "commandDigest": "sha256:ad5d97f9a8a1273d81624b445edc0b4d3c34aae78c3765ae403ee12b6565cbe4",
+  "acceptedAt": "2026-10-05T00:02:02Z",
+  "updatedAt": "2026-10-05T00:02:03Z",
+  "state": "CONFIRMED",
+  "error": null
+}

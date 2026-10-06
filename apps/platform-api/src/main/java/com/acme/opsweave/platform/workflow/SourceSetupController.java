@@ -31,7 +31,7 @@ public class SourceSetupController {
         catalog=new ModelCatalogService(wiring.modelCatalog(),builtin.definitions(),Clock.systemUTC());
         service=new SourceSetupService(wiring.workflows(),this::model,this::connectionDigest,Clock.systemUTC());
     }
-    private Principal principal(HttpServletRequest request) {if(!request.getParameterMap().isEmpty())throw new IllegalArgumentException();var p=principals.requirePrincipal();service.authorize(p);catalog.authorize(p,false);return p;}
+    private Principal principal(HttpServletRequest request) {if(!request.getParameterMap().isEmpty())throw new IllegalArgumentException();var p=principals.requirePrincipal();service.authorize(p);return p;}
     private ModelDefinition model(Principal p,WorkflowDefinition.Target target) {catalog.authorize(p,false);return builtin.definitions().stream().filter(m->m.ref().equals(target.ref())).findFirst().orElseGet(()->catalog.find(p,target.ref()).definition());}
     private SourceSetupService.Connection connectionDigest(Principal p,WorkflowDefinition.Source source) {
         if(source.kind().equals("MANUAL_SAMPLE"))return new SourceSetupService.Connection(WorkflowDefinition.hash(List.of("manual-samples-v1")),"MANUAL_SAMPLE");
@@ -53,13 +53,17 @@ public class SourceSetupController {
     private Map<String,Object> type(String id,String status,Map<String,Object> connection) {var value=new LinkedHashMap<String,Object>();value.put("id",id);value.put("status",status);value.put("connection",connection);return value;}
     private Map<String,Object> manual() {var c=new LinkedHashMap<String,Object>();c.put("instanceId","manual");c.put("digest",WorkflowDefinition.hash(List.of("manual-samples-v1")));c.put("dataMode","MANUAL_SAMPLE");c.put("endpoint",null);c.put("credentialRef",null);return c;}
     @GetMapping public Object list(HttpServletRequest request) {
-        var p=principal(request);var remote=zabbix(p);var models=new ArrayList<ModelDefinition>(builtin.definitions().stream().filter(m->m.kind()==ModelDefinition.Kind.ENTITY&&!m.fields().isEmpty()).toList());var custom=catalog.published(p);models.addAll(custom.items().stream().map(com.acme.opsweave.catalog.api.ModelCatalogStore.Entry::definition).filter(m->m.kind()==ModelDefinition.Kind.ENTITY&&!m.fields().isEmpty()).toList());var setups=service.list(p);
-        return Map.of("schemaVersion","1.0","storage",wiring.label(),"types",List.of(type("ZABBIX_HOST",remote==null?"UNAVAILABLE":"AVAILABLE",remote),type("MANUAL_SAMPLE","AVAILABLE",manual()),type("CMDB_SNAPSHOT","LEGACY_IMPORT",null)),"models",models.stream().map(m->Map.of("definition",CatalogJson.wire(m),"digest",m.digest())).toList(),"modelsTruncated",custom.truncated(),"setups",Map.of("items",setups.items().stream().map(SourceSetupJson::wire).toList(),"truncated",setups.truncated()));
+        var p=principal(request);var remote=zabbix(p);var models=new ArrayList<ModelDefinition>(builtin.definitions().stream().filter(m->m.kind()==ModelDefinition.Kind.ENTITY&&!m.fields().isEmpty()).toList());boolean canReadCatalog=new com.acme.opsweave.identity.domain.Authorizer().decide(p,new com.acme.opsweave.identity.domain.ResourceRef(p.tenantId(),"catalog","*"),com.acme.opsweave.identity.domain.Permission.ENTITY_READ).allowed();if(!canReadCatalog)models.clear();var custom=canReadCatalog?catalog.published(p):null;if(custom!=null)models.addAll(custom.items().stream().map(com.acme.opsweave.catalog.api.ModelCatalogStore.Entry::definition).filter(m->m.kind()==ModelDefinition.Kind.ENTITY&&!m.fields().isEmpty()).toList());var setups=service.list(p);
+        return Map.of("schemaVersion","1.0","storage",wiring.label(),"types",List.of(type("ZABBIX_HOST",remote==null?"UNAVAILABLE":"AVAILABLE",remote),type("MANUAL_SAMPLE","AVAILABLE",manual()),type("CMDB_SNAPSHOT","LEGACY_IMPORT",null)),"models",models.stream().map(m->Map.of("definition",CatalogJson.wire(m),"digest",m.digest())).toList(),"modelsTruncated",custom!=null&&custom.truncated(),"setups",Map.of("items",setups.items().stream().map(SourceSetupJson::wire).toList(),"truncated",setups.truncated()));
     }
     @PostMapping(value="/confirm",consumes="application/json") public Object confirm(HttpServletRequest request)throws IOException {
-        var p=principal(request);var n=CatalogJson.read(request);fields(n,Set.of("requestId","name","description","source","connectionDigest","target"));
-        return wire(service.confirm(p,new SourceSetupService.Command(UUID.fromString(text(n,"requestId")),text(n,"name"),SourceSetupJson.description(n),SourceSetupJson.source(n.get("source")),text(n,"connectionDigest"),SourceSetupJson.target(n.get("target")))));
+        var p=principal(request);var n=CatalogJson.read(request);fields(n,n.has("target")?Set.of("requestId","name","description","source","connectionDigest","target"):Set.of("requestId","name","description","source","connectionDigest"));
+        return wire(service.confirm(p,new SourceSetupService.Command(UUID.fromString(text(n,"requestId")),text(n,"name"),SourceSetupJson.description(n),SourceSetupJson.source(n.get("source")),text(n,"connectionDigest"),n.has("target")?SourceSetupJson.target(n.get("target")):null)));
     }
     @GetMapping("/{id}")public Object read(@PathVariable UUID id,HttpServletRequest request) {return wire(service.read(principal(request),id));}
-    private Object wire(SourceSetupService.Confirmed result) {return Map.of("setup",SourceSetupJson.wire(result.setup()),"workflow",WorkflowJson.wire(result.workflow()));}
+    @GetMapping("/{id}/continuation")public Object continuation(@PathVariable UUID id,HttpServletRequest request) {
+        var result=service.continueWorkflow(principal(request),id);
+        var value=new LinkedHashMap<String,Object>();value.put("schemaVersion","1.0");value.put("setupId",result.setupId());value.put("workflow",result.workflow()==null?null:WorkflowJson.wire(result.workflow()));return value;
+    }
+    private Object wire(SourceSetupService.Confirmed result) {var v=new LinkedHashMap<String,Object>();v.put("setup",SourceSetupJson.wire(result.setup()));v.put("workflow",result.workflow()==null?null:WorkflowJson.wire(result.workflow()));return v;}
 }

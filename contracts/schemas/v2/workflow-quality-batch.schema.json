@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-quality-batch",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30
+    },
+    "from": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 30
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "till": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 30
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unit": {
+      "enum": [
+        "ENTITY",
+        "POINT",
+        "LOG_RECORD"
+      ]
+    },
+    "state": {
+      "enum": [
+        "READY",
+        "IN_FLIGHT",
+        "UNKNOWN",
+        "FAILED",
+        "CONFIRMED"
+      ]
+    },
+    "coverage": {
+      "enum": [
+        "PAGE",
+        "WINDOW"
+      ]
+    },
+    "sampleRate": {
+      "type": "null"
+    },
+    "counts": {
+      "$ref": "https://contracts.opsweave.invalid/v2/workflow-quality-counts"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "AUTHORIZATION_EXPIRED",
+            "AUTHORIZATION_REVOKED",
+            "BACKLOG_LIMIT",
+            "CAPACITY",
+            "EXECUTION_LIMIT",
+            "FORBIDDEN",
+            "INVALID_SAMPLE",
+            "MAPPING_CHANGED",
+            "MODEL_CHANGED",
+            "OPERATOR_CHANGED",
+            "OPERATOR_PIN_REQUIRED",
+            "OUTPUT_REJECTED",
+            "OUTPUT_UNAVAILABLE",
+            "OUTPUT_UNCONFIRMED",
+            "RUNTIME_UNAVAILABLE",
+            "SOURCE_CHANGED",
+            "SOURCE_UNAVAILABLE",
+            "SOURCE_WINDOW_CHANGED",
+            "TASK_CHANGED",
+            "WINDOW_EXPIRED",
+            "WINDOW_INCOMPLETE"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reconcilesBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "observedAt",
+    "updatedAt",
+    "from",
+    "till",
+    "unit",
+    "state",
+    "coverage",
+    "sampleRate",
+    "counts",
+    "error",
+    "reconcilesBatchId"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "coverage": {
+            "const": "PAGE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unit": {
+            "const": "ENTITY"
+          },
+          "from": {
+            "type": "null"
+          },
+          "till": {
+            "type": "null"
+          },
+          "reconcilesBatchId": {
+            "type": "null"
+          },
+          "counts": {
+            "properties": {
+              "accepted": {
+                "type": "null"
+              },
+              "rejected": {
+                "type": "null"
+              },
+              "filtered": {
+                "type": "null"
+              },
+              "deduplicated": {
+                "type": "null"
+              },
+              "outputExpected": {
+                "type": "null"
+              },
+              "outputRejected": {
+                "type": "null"
+              },
+              "unknown": {
+                "type": "null"
+              },
+              "pending": {
+                "type": "null"
+              },
+              "repeatedOutput": {
+                "type": "null"
+              },
+              "late": {
+                "type": "null"
+              },
+              "input": {
+                "maximum": 5
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "unit": {
+            "enum": [
+              "POINT",
+              "LOG_RECORD"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 30
+          },
+          "till": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 30
+          },
+          "counts": {
+            "properties": {
+              "accepted": {
+                "type": "integer"
+              },
+              "rejected": {
+                "type": "integer"
+              },
+              "filtered": {
+                "type": "integer"
+              },
+              "deduplicated": {
+                "type": "integer"
+              },
+              "outputExpected": {
+                "type": "integer"
+              },
+              "outputRejected": {
+                "type": "integer"
+              },
+              "unknown": {
+                "type": "integer"
+              },
+              "pending": {
+                "type": "integer"
+              },
+              "repeatedOutput": {
+                "type": "integer"
+              },
+              "late": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "READY",
+              "IN_FLIGHT",
+              "CONFIRMED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "enum": [
+              "AUTHORIZATION_EXPIRED",
+              "AUTHORIZATION_REVOKED",
+              "BACKLOG_LIMIT",
+              "CAPACITY",
+              "EXECUTION_LIMIT",
+              "FORBIDDEN",
+              "INVALID_SAMPLE",
+              "MAPPING_CHANGED",
+              "MODEL_CHANGED",
+              "OPERATOR_CHANGED",
+              "OPERATOR_PIN_REQUIRED",
+              "OUTPUT_REJECTED",
+              "OUTPUT_UNAVAILABLE",
+              "OUTPUT_UNCONFIRMED",
+              "RUNTIME_UNAVAILABLE",
+              "SOURCE_CHANGED",
+              "SOURCE_UNAVAILABLE",
+              "SOURCE_WINDOW_CHANGED",
+              "TASK_CHANGED",
+              "WINDOW_EXPIRED",
+              "WINDOW_INCOMPLETE"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "unit": {
+            "const": "POINT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "input": {
+                "maximum": 600
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

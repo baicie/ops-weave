@@ -1,0 +1,10 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"Model-backed entity instance command","type":"object","additionalProperties":false,
+  "required":["requestId","entityId","model","name","attributes"],
+  "properties":{
+    "requestId":{"type":"string","format":"uuid","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"},"entityId":{"type":"string","format":"uuid","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"},
+    "model":{"type":"object","additionalProperties":false,"required":["id","revision"],"properties":{"id":{"type":"string","pattern":"^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"},"revision":{"type":"integer","minimum":1,"maximum":10000}}},
+    "name":{"type":"string","minLength":1,"maxLength":255},"lifecycle":{"enum":["DISCOVERED","ACTIVE","INACTIVE","DELETED","ARCHIVED"]},
+    "attributes":{"type":"object","maxProperties":32,"additionalProperties":{"type":["string","number","boolean","null"]}},"expectedVersion":{"type":"integer","minimum":1,"maximum":9007199254740990}
+  }
+}

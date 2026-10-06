@@ -23,6 +23,35 @@ dependencies {
 }
 
 tasks.named<ProcessResources>("processResources") {
+    from(rootProject.file("db/migrations/platform/V035__source_instance_versions.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V036__source_inspection.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V037__source_credentials.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V038__source_connection_configuration.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V040__metric_mapping_pin.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V041__workflow_control_receipts.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V042__workflow_metric_output.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V043__workflow_host_batches.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V044__workflow_metric_stream.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V045__workflow_host_schedule.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V046__workflow_log_output.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V047__metric_window_reconciliation.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V048__workflow_log_stream.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V049__workflow_diagnostics.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V050__workflow_recovery_closure.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V051__workflow_task_archive.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V052__log_rejection_certainty.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V053__workflow_sample_recovery.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V054__workflow_quality_alerts.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V055__workflow_history_selection.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V056__workflow_metric_replay.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V057__workflow_log_replay.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V058__entity_relation_write.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V059__entity_instance_write.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V060__entity_model_pin.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V039__source_metric_metadata_budget.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V032__workflow_runtime.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V033__workflow_graph_trace_budget.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V034__workflow_batch_cursor.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V031__entity_relation_read.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V030__source_setup.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V029__transform_workflow.sql")) { into("db/migration") }

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metric-mapping-binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceType",
+    "sourceInstanceId",
+    "externalItemId",
+    "entityId",
+    "hostExternalId",
+    "metricKey",
+    "fixedDimensions",
+    "sourceUnit",
+    "valueTransform",
+    "mappingRevision",
+    "lifecycle",
+    "version",
+    "mappingPin"
+  ],
+  "properties": {
+    "sourceType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "sourceInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+    },
+    "externalItemId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "entityId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "hostExternalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "metricKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "fixedDimensions": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "sourceUnit": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "valueTransform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "mappingRevision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "lifecycle": {
+      "enum": [
+        "ACTIVE",
+        "INACTIVE"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000
+    },
+    "mappingPin": {
+      "oneOf": [
+        {
+          "$ref": "metric-mapping-pin.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

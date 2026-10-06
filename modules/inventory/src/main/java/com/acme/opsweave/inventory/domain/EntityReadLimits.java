@@ -5,7 +5,9 @@ import java.util.Map;
 /** Conservative JSON size/depth budget shared by read adapters; never silently truncate attributes. */
 public final class EntityReadLimits {
     private EntityReadLimits() {}
-    public static void check(Map<String, Object> attributes) { size(attributes, 0, new int[] {16_384}); }
+    public static void check(Map<String, Object> attributes) { check(attributes, 16_384); }
+    public static void checkForWrite(Map<String, Object> attributes) { check(attributes, 15_000); }
+    private static void check(Map<String, Object> attributes, int maximum) { size(attributes, 0, new int[] {maximum}); }
     private static void size(Object value, int depth, int[] budget) {
         if (depth > 8 || (budget[0] -= 4) < 0) throw new IllegalStateException("Entity attributes exceed read budget");
         if (value == null || value instanceof Boolean) { budget[0] -= 5; }

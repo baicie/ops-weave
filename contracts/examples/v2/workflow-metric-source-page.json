@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "2.0",
+  "source": {
+    "kind": "ZABBIX_HOST",
+    "instanceId": "connection-22222222-2222-4222-8222-222222222222",
+    "configuration": {
+      "sourceId": "22222222-2222-4222-8222-222222222222",
+      "revision": 1,
+      "digest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e"
+    }
+  },
+  "items": [
+    {
+      "source": {
+        "kind": "ZABBIX_METRIC",
+        "instanceId": "connection-22222222-2222-4222-8222-222222222222",
+        "configuration": {
+          "sourceId": "22222222-2222-4222-8222-222222222222",
+          "revision": 1,
+          "digest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e"
+        },
+        "metric": {
+          "inspectionId": "10000000-0000-4000-8000-000000000072",
+          "itemId": "20001",
+          "hostId": "10084",
+          "sourceKey": "system.cpu.util[,user]",
+          "sourceUnit": "%",
+          "sourceValueType": "FLOAT",
+          "digest": "sha256:1d25f3d574fc407b896acea711e45b0b567e35e9c39ae6838b8729d9aba97e12"
+        }
+      },
+      "item": {
+        "itemId": "20001",
+        "hostId": "10084",
+        "sourceKey": "system.cpu.util[,user]",
+        "name": "Fixture CPU user time",
+        "sourceUnit": "%",
+        "sourceValueType": "FLOAT",
+        "mappingStatus": "MAPPED",
+        "mapping": {
+          "id": "zabbix-cpu-user",
+          "revision": 1,
+          "digest": "sha256:99a6d3d6b549bd47da048352fd902f2eb4a3ca54a4c6c8824be20bef33877247",
+          "metricKey": "host.cpu.usage.user",
+          "unit": "1",
+          "valueType": "DOUBLE",
+          "valueTransform": "multiply:0.01"
+        }
+      },
+      "asOf": "2026-10-03T00:00:00Z",
+      "expiresAt": "2026-10-03T00:15:01Z"
+    }
+  ],
+  "truncated": false
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "2.0",
+  "id": "fixture-log",
+  "revision": 1,
+  "name": "Fixture LOG preview",
+  "source": {
+    "kind": "MANUAL_SAMPLE",
+    "instanceId": "manual"
+  },
+  "target": {
+    "kind": "LOG",
+    "schemaVersion": "1.0"
+  },
+  "nodes": [
+    {
+      "id": "source",
+      "type": "SOURCE",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "id": "mapping",
+      "type": "MAP",
+      "version": "1",
+      "config": {
+        "eventTime": "eventTime",
+        "body": "body",
+        "severityText": "severityText",
+        "serviceName": "serviceName",
+        "traceId": "traceId",
+        "spanId": "spanId"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "VALIDATE",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "id": "output",
+      "type": "OUTPUT",
+      "version": "1",
+      "config": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "source",
+      "to": "mapping"
+    },
+    {
+      "from": "mapping",
+      "to": "validate"
+    },
+    {
+      "from": "validate",
+      "to": "output"
+    }
+  ]
+}

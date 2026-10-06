@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePageCloseGuard } from '../../state/page-workspace.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { isUuid } from '../../api/insights.ts'
 import { applyRetention, getRetentionPreview, getRetentionReceipt, RetentionError, type RetentionReceipt, type RetentionView } from '../../api/ai-retention.ts'
@@ -41,6 +43,7 @@ export function RetentionPage() {
   }, [])
 
   const disabled = busy || !ready
+  usePageCloseGuard(busy || pending ? { message: pending ? '清理结果待确认，请先查询原请求回执。' : '留存请求正在处理，请等待结果后关闭。', blocked: true } : null)
 
   async function run(work: (signal: AbortSignal, current: () => boolean) => Promise<void>) {
     activeRef.current?.abort()
@@ -109,13 +112,13 @@ export function RetentionPage() {
 
   return (
     <section className="panel" data-page="retention">
-      <h2>AI 数据留存</h2>
-      <p>按租户策略清理已过期的诊断与证据正文，以及超过留存期的读取审计。运行标识、授权范围、关联元数据和费用记录继续保留。</p>
-      <p>策略由管理员的可信配置文件提供。清理仅作用于当前预览的一批内容；正文清除不可通过本页面恢复。数据库备份与存储空间回收需要单独管理。</p>
-      <Button variant="outline" disabled={disabled || pending} onClick={load}>预览留存清理</Button>
+      <PageHeader title="AI 数据留存" description="清理已过期的诊断、证据正文和读取审计。先预览数量，再确认清理。" actions={<Button variant="outline" disabled={disabled || pending} onClick={load}>预览留存清理</Button>} />
+      <PageBody className="console-maintenance">
+      <details className="retention-policy-note"><summary>留存规则</summary><p>策略由管理员配置。运行标识、关联元数据与费用记录继续保留；数据库备份和空间回收另行管理。</p></details>
       {review ? (
         <section data-retention-preview>
           <h3>待确认清理</h3>
+          <p>仅清理下方这批内容，清除后无法通过本页面恢复。</p>
           <p>{`租户 ${review.policy.tenantId} · 操作者 ${review.preview.actor} · 策略 ${review.policy.version}`}</p>
           <p>{`结果 ${review.policy.insightDays} 天 · 证据 ${review.policy.evidenceDays} 天 · 审计 ${review.policy.auditDays} 天 · 保留 Incident ${review.policy.heldIncidents.length} 个`}</p>
           <ul>
@@ -145,8 +148,10 @@ export function RetentionPage() {
         </section>
       ) : null}
       {pending ? <p data-retention-pending>提交结果待确认；请先查询原请求回执，不会自动重试或执行下一批。</p> : null}
+      <details className="retention-receipt-lookup" open={pending || !!requestId}><summary>查询已有清理回执</summary>
       <label>清理请求标识<Input value={requestId} disabled={busy} onChange={e => setRequestId(e.currentTarget.value.trim())} /></label>
       <Button variant="outline" disabled={disabled || !isUuid(requestId)} onClick={read}>查询清理回执</Button>
+      </details>
       <p role="alert">{error}</p>
       {busy ? <p role="status">正在请求…</p> : null}
       {receipt ? (
@@ -161,6 +166,7 @@ export function RetentionPage() {
           <p>需要继续处理时，请重新预览下一批。</p>
         </section>
       ) : null}
+      </PageBody>
     </section>
   )
 }

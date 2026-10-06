@@ -22,8 +22,15 @@ public record MetricBinding(
     String valueTransform,
     int mappingRevision,
     MetricLifecycle lifecycle,
-    long version
+    long version,
+    MetricMappingPin mappingPin
 ) {
+    /** Old persisted bindings remain explicitly unpinned until an authorized maintenance command. */
+    public MetricBinding(TenantId tenantId,String sourceType,String sourceInstanceId,String externalItemId,EntityId entityId,
+            String hostExternalId,String metricKey,Map<String,String> fixedDimensions,String sourceUnit,String valueTransform,
+            int mappingRevision,MetricLifecycle lifecycle,long version) {
+        this(tenantId,sourceType,sourceInstanceId,externalItemId,entityId,hostExternalId,metricKey,fixedDimensions,sourceUnit,valueTransform,mappingRevision,lifecycle,version,null);
+    }
     public MetricBinding {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(sourceType, "sourceType");
@@ -44,5 +51,17 @@ public record MetricBinding(
             throw new IllegalArgumentException("Metric binding revision and version must start at 1");
         }
         fixedDimensions = Map.copyOf(new LinkedHashMap<>(fixedDimensions));
+        if(mappingPin!=null&&mappingPin.revision()!=mappingRevision)throw new IllegalArgumentException("Metric mapping revision differs from pin");
+    }
+
+    public MetricBinding withPin(MetricMappingPin pin,long nextVersion) {
+        return new MetricBinding(tenantId,sourceType,sourceInstanceId,externalItemId,entityId,hostExternalId,metricKey,
+            fixedDimensions,sourceUnit,valueTransform,mappingRevision,lifecycle,nextVersion,pin);
+    }
+
+    /** Source refresh can observe metadata, but cannot silently replace a previously selected mapping. */
+    public static void requireRefreshCompatible(MetricBinding existing,MetricBinding incoming) {
+        if(existing!=null&&existing.mappingPin()!=null&&!existing.mappingPin().equals(incoming.mappingPin()))
+            throw new IllegalStateException("Metric mapping changed; explicit maintenance required");
     }
 }

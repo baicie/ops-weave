@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-metric-manifest-reference.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "snapshotId",
+    "asOf",
+    "expiresAt",
+    "total",
+    "fingerprint"
+  ],
+  "properties": {
+    "snapshotId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

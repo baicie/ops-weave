@@ -4,6 +4,7 @@ import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
 import com.acme.opsweave.inventory.domain.EntityPageQuery;
 import com.acme.opsweave.inventory.domain.EntityVisibility;
+import com.acme.opsweave.inventory.domain.EntityModelPin;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +27,12 @@ public interface InventoryQuery {
         String name,
         String lifecycle,
         long version,
-        Map<String, Object> attributes
-    ) {}
+        Map<String, Object> attributes,
+        EntityModelPin model
+    ) {
+        public EntityView(EntityId id, TenantId tenantId, String type, String name, String lifecycle,
+                          long version, Map<String, Object> attributes) {
+            this(id, tenantId, type, name, lifecycle, version, attributes, null);
+        }
+    }
 }

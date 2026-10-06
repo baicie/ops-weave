@@ -1,0 +1,21 @@
+{
+  "workflowId": "localtest-runtime",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "settings": {
+    "identityField": "source_id",
+    "nameField": "name"
+  },
+  "error": null,
+  "id": "10000000-0000-4000-8000-000000000001",
+  "origin": "MANUAL_SAMPLE",
+  "syncRunId": null,
+  "createdAt": "2026-10-02T00:00:00Z",
+  "state": "SUCCEEDED",
+  "accepted": 1,
+  "rejected": 0,
+  "filtered": 0,
+  "entityIds": [
+    "10000000-0000-4000-8000-000000000002"
+  ]
+}

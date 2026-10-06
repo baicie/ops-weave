@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "2.0",
+  "closure": {
+    "schemaVersion": "2.0",
+    "requestId": "10000000-0000-4000-8000-000000000131",
+    "commandDigest": "sha256:a13e59b7f2cb8b8cd97d2c44588ccec179d36b10d25487e01aa7e197aeb998bc",
+    "reference": {
+      "id": "sample-fixture",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "kind": "LOG_SAMPLE",
+    "batchId": "20000000-0000-4000-8000-000000000131",
+    "batchDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "proofUpdatedAt": "2026-10-05T00:00:00Z",
+    "acceptedAt": "2026-10-05T00:00:01Z",
+    "state": "ABANDONED",
+    "uncertainRecords": 2
+  }
+}

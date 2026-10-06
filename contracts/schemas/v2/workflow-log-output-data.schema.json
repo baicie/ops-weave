@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "readAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "storage": {
+      "const": "clickhouse"
+    },
+    "expectedRecords": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "eventTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "severityText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "serviceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "traceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "spanId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{16}$"
+          }
+        },
+        "required": [
+          "index",
+          "eventTime",
+          "body",
+          "severityText",
+          "serviceName",
+          "traceId",
+          "spanId"
+        ]
+      }
+    }
+  },
+  "required": [
+    "requestId",
+    "readAt",
+    "storage",
+    "expectedRecords",
+    "complete",
+    "records"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          },
+          "expectedRecords": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "minItems": 1,
+            "maxItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          },
+          "expectedRecords": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          },
+          "expectedRecords": {
+            "const": 3
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "minItems": 3,
+            "maxItems": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          },
+          "expectedRecords": {
+            "const": 4
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "minItems": 4,
+            "maxItems": 4
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          },
+          "expectedRecords": {
+            "const": 5
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "minItems": 5,
+            "maxItems": 5
+          }
+        }
+      }
+    }
+  ]
+}

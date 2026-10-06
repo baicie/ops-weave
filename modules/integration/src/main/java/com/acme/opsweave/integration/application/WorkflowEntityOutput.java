@@ -1,0 +1,19 @@
+package com.acme.opsweave.integration.application;
+import com.acme.opsweave.identity.domain.*;
+import com.acme.opsweave.integration.domain.*;
+import com.acme.opsweave.integration.domain.WorkflowRuntime.Settings;
+import com.acme.opsweave.inventory.api.InventoryWritePort;
+import com.acme.opsweave.inventory.domain.*;
+import com.acme.opsweave.sharedkernel.EntityId;
+import java.time.Instant;
+import java.util.*;
+
+/** Separate workflow source namespace: never matches or overwrites an existing Zabbix identity. */
+public final class WorkflowEntityOutput implements WorkflowRuntimeService.Output {
+ private final InventoryWritePort writer;
+ public WorkflowEntityOutput(InventoryWritePort writer){this.writer=writer;}
+ private static String identity(Map<String,Object> input,Settings settings){var value=input.get(settings.identityField());if(value==null||!(value instanceof String||value instanceof Number||value instanceof Boolean)||value.toString().isBlank()||value.toString().length()>256)throw new IllegalArgumentException("Explicit source identity required");String canonical=value instanceof Number?new java.math.BigDecimal(value.toString()).stripTrailingZeros().toPlainString():value.toString();return WorkflowDefinition.hash(List.of(settings.identityField(),value instanceof Number?"number":value instanceof Boolean?"boolean":"text",canonical));}
+ private static EntityId entityId(Principal p,WorkflowDefinition d,String identity){return new EntityId(UUID.nameUUIDFromBytes((p.tenantId().value()+"|workflow|"+d.id()+"|"+d.target().id()+"|"+identity).getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
+ public void validate(Principal p,WorkflowDefinition d,Settings settings,List<Map<String,Object>> input,WorkflowEvaluation evaluation){var unique=new HashSet<String>();var auth=new Authorizer();for(var row:evaluation.rows()){if(!row.status().equals("ACCEPTED"))continue;var key=identity(input.get(row.index()),settings);if(!unique.add(key))throw new IllegalArgumentException("Duplicate source identity");var name=row.steps().getLast().values().get(settings.nameField());if(!(name instanceof String text)||text.isBlank()||text.length()>255)throw new IllegalArgumentException("Explicit entity name required");if(auth.decide(p,ResourceRef.entity(p.tenantId(),entityId(p,d,key)),Permission.ENTITY_MANAGE).denied())throw new WorkflowFailure(WorkflowFailure.Code.FORBIDDEN);}}
+ public String write(Principal p,WorkflowDefinition d,Settings settings,UUID execution,Instant time,Map<String,Object> input,Map<String,Object> values,String origin){if(!Set.of("MANUAL_SAMPLE","fixture","zabbix-jsonrpc").contains(origin))throw new IllegalArgumentException();var identity=identity(input,settings);var id=entityId(p,d,identity);var attrs=new LinkedHashMap<String,Object>();values.forEach((key,value)->{if(value!=null)attrs.put(key,value);});attrs.put("workflowId",d.id());attrs.put("workflowRevision",d.revision());attrs.put("source","workflow");attrs.put("sourceInstanceId","workflow."+d.id());attrs.put("dataMode",origin.equals("fixture")?"labeled-fixture":origin);attrs.put("lastSeen",time.toString());attrs.put("rawReference","workflow-execution:"+execution);attrs.put("pipelineId",d.id());attrs.put("pipelineRevision",d.revision());attrs.put("pipelineDigest",d.digest());String type=d.target().id().equals("builtin.host")?"Host":d.target().id().equals("builtin.service")?"Service":d.target().id();var entity=new Entity(id,p.tenantId(),type,(String)values.get(settings.nameField()),Lifecycle.ACTIVE,1,time,attrs);var key=new ExternalObjectKey(p.tenantId(),"workflow."+d.id(),"entity",identity,d.target().id());var observation=new Observation("workflow."+WorkflowDefinition.hash(List.of(execution.toString(),identity)).substring(7),key,id,time,time,values,"workflow-execution:"+execution,d.revision());writer.upsert(entity,observation,new ExternalLink(id,key));return id.value().toString();}
+}

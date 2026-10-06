@@ -78,7 +78,8 @@ public final class ZabbixItemMapper {
             mapping.valueTransform(),
             mapping.mappingRevision(),
             MetricLifecycle.ACTIVE,
-            1
+            1,
+            mapping.pin()
         );
         return new MappedMetric(definition, binding);
     }

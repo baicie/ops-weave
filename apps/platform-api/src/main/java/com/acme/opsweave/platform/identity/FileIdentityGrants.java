@@ -18,6 +18,11 @@ public final class FileIdentityGrants {
         return read().stream().filter(row -> row.grant().externalSubject().equals(subject) && row.grant().enabled()).findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Identity is not authorized"));
     }
+    /** Trusted metadata lookup includes disabled entries; it never authorizes their execution. */
+    public Bound inspect(String subject) {
+        return read().stream().filter(row -> row.grant().externalSubject().equals(subject)).findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Identity is not configured"));
+    }
     private List<Bound> read() {
         try {
             if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw new IllegalArgumentException();
@@ -42,7 +47,7 @@ public final class FileIdentityGrants {
                 var refs = new HashSet<ResourceRef>();
                 for (var resource : scope.get("resources")) {
                     exact(resource, "type", "id"); var type = text(resource, "type"); var id = text(resource, "id");
-                    if (!Set.of("entity", "incident", "metric", "source", "evidence", "ai-insight", "skill").contains(type)
+                    if (!Set.of("entity", "incident", "metric", "log", "source", "source-endpoint", "credential", "workflow", "evidence", "ai-insight", "skill").contains(type)
                         || !id.matches("[A-Za-z0-9_.:/%*-]{1,128}") || !refs.add(new ResourceRef(tenant, type, id))) throw new IllegalArgumentException();
                 }
                 if (scope.get("tenantWide").asBoolean() && !refs.isEmpty()) throw new IllegalArgumentException();

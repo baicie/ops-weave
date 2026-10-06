@@ -4,6 +4,7 @@ import { useViewLocation, useSelectionSessionReset } from '../../state/view-loca
 import { incidentDefault, incidentHash, incidentSelection, type IncidentSelection } from '../../state/view-selection.ts'
 import { ProblemHistory } from './ProblemHistory.tsx'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { EntityRequestError, getEntity, type EntityItem } from '../../api/entities.ts'
 import { INCIDENT_STATUSES, IncidentRequestError, getIncident, importProblems, listIncidents, transitionIncident,
@@ -161,8 +162,8 @@ export function IncidentsPage() {
 
   return (
     <section className="panel incident-panel" data-page="incidents">
-      <h2>Incident 列表</h2>
-      <p>查看已导入的外部告警、恢复事实和人工处理状态。来源恢复不会自动关闭 Incident。</p>
+      <PageHeader title="Incident 列表" description="查看已导入的外部告警、恢复事实和人工处理状态。来源恢复不会自动关闭 Incident。" />
+      <PageBody>
       <p>地址保留已应用的状态、游标与选中 Incident；刷新或返回后请重新读取。导入和人工操作不会由地址触发。</p>
       <details className="incident-import">
         <summary>从已配置的 Zabbix 导入告警</summary>
@@ -222,6 +223,7 @@ export function IncidentsPage() {
           <p>这是重新授权读取的当前资产详情，可能与告警发生时不同。</p>
         </section>
       ) : null}
+      </PageBody>
     </section>
   )
 }

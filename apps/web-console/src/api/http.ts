@@ -1,7 +1,7 @@
 import { CredentialSession, platformCredentials, type CredentialTicket } from './credential-session.ts'
 
 type FailureMetadata = { failureCode: string; pages: number | null }
-type Options = { signal: AbortSignal; method?: 'GET' | 'POST'; body?: unknown; timeoutMs?: number; responseBytes?: number; bootstrap?: boolean; error?: (status: number, code: string, metadata: FailureMetadata) => Error }
+type Options = { signal: AbortSignal; method?: 'GET' | 'POST' | 'PATCH'; body?: unknown; timeoutMs?: number; responseBytes?: number; bootstrap?: boolean; error?: (status: number, code: string, metadata: FailureMetadata) => Error }
 export class TransportError extends Error {
   readonly requestId: string
   constructor(message: string, requestId: string) { super(`${message}（请求 ${requestId}）`); this.requestId = requestId }
@@ -20,8 +20,10 @@ export class JsonClient {
     const requestId = crypto.randomUUID()
     const fail = (message: string) => new TransportError(message, requestId)
     const url = new URL(path, 'http://same-origin.invalid')
-    if (!path.startsWith(this.surface === 'platform' ? '/api/v1/' : '/agent/api/v1/') || path.length > 8192 || /[\\\x00-\x20#]/.test(path)
-      || url.origin !== 'http://same-origin.invalid' || !url.pathname.startsWith(this.surface === 'platform' ? '/api/v1/' : '/agent/api/v1/')) throw fail('请求地址不在允许的 API 范围')
+    const localBootstrap = this.surface === 'platform' && this.session.isLocalPreview() && options.bootstrap === true && path === '/__opsweave/local-session'
+    const allowed = (value: string) => this.surface === 'platform' ? value.startsWith('/api/v1/') || /^\/api\/v2\/(?:data-sources|metric-bindings)(?:\/|$)/.test(value) : value.startsWith('/agent/api/v1/')
+    if (!localBootstrap && (!allowed(path) || path.length > 8192 || /[\\\x00-\x20#]/.test(path)
+      || url.origin !== 'http://same-origin.invalid' || !allowed(url.pathname))) throw fail('请求地址不在允许的 API 范围')
     const timeoutMs = options.timeoutMs ?? 35000
     const responseBytes = options.responseBytes ?? MAX_RESPONSE
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 80000) throw fail('请求超时预算不正确')
@@ -29,9 +31,9 @@ export class JsonClient {
     const body = options.body === undefined ? undefined : JSON.stringify(options.body)
     if (body && encoder.encode(body).byteLength > 65536) throw fail('请求正文超过限制')
     if (options.signal.aborted) throw new DOMException('请求已取消', 'AbortError')
-    if (options.bootstrap && (this.surface !== 'platform' || !this.session.isCookie() || path !== '/api/v1/auth/session' || body !== undefined || options.method === 'POST')) throw fail('会话读取地址不正确')
+    if (options.bootstrap && ((!localBootstrap && (this.surface !== 'platform' || !this.session.isCookie() || path !== '/api/v1/auth/session')) || body !== undefined || options.method !== undefined && options.method !== 'GET')) throw fail('会话读取地址不正确')
     const ticket: CredentialTicket = this.session.capture(Date.now(), options.bootstrap)
-    if (ticket.cookie && this.surface !== 'platform') throw fail('浏览器会话不能转发到演示 Runtime')
+    if ((ticket.cookie || ticket.local) && this.surface !== 'platform') throw fail('浏览器会话不能转发到演示 Runtime')
     const controller = new AbortController(); const unregister = this.session.register(ticket, controller)
     let timedOut = false; let consumed = false; let knownError: Error | undefined
     const cancel = () => controller.abort()
@@ -44,7 +46,7 @@ export class JsonClient {
     }
     try {
       const response = await this.fetcher(path, { method: options.method ?? (body === undefined ? 'GET' : 'POST'), body, signal: controller.signal,
-        headers: { Accept: 'application/json', ...(ticket.cookie ? (ticket.csrf && !options.bootstrap ? { 'X-CSRF-TOKEN': ticket.csrf } : {}) : { Authorization: `Bearer ${ticket.token}` }), 'X-OpsWeave-Request-Id': requestId, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        headers: { Accept: 'application/json', ...(ticket.local ? { 'X-OpsWeave-Local-Session': localBootstrap ? 'bootstrap' : ticket.token } : ticket.cookie ? (ticket.csrf && !options.bootstrap ? { 'X-CSRF-TOKEN': ticket.csrf } : {}) : { Authorization: `Bearer ${ticket.token}` }), 'X-OpsWeave-Request-Id': requestId, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
         credentials: ticket.cookie ? 'same-origin' : 'omit', mode: 'same-origin', redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer' })
       current()
       const echoed = response.headers.get('X-OpsWeave-Request-Id')

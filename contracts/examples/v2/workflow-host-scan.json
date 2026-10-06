@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "2.0",
+  "checkpoint": {
+    "workflowId": "fixture-runtime-control",
+    "revision": 1,
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "generation": 1,
+    "updatedAt": "2026-10-04T00:00:00Z",
+    "scanId": "10000000-0000-4000-8000-000000000116",
+    "pendingBatchId": null,
+    "confirmedBatches": 1,
+    "confirmedRecords": 1,
+    "complete": true
+  },
+  "batches": [
+    {
+      "workflowId": "fixture-runtime-control",
+      "revision": 1,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "settings": {
+        "identityField": "source_id",
+        "nameField": "name"
+      },
+      "updatedAt": "2026-10-04T00:00:00Z",
+      "id": "10000000-0000-4000-8000-000000000117",
+      "scanId": "10000000-0000-4000-8000-000000000116",
+      "sequence": 1,
+      "complete": true,
+      "observedAt": "2026-10-04T00:00:00Z",
+      "state": "CONFIRMED",
+      "entityIds": [
+        "10000000-0000-4000-8000-000000000118"
+      ],
+      "error": null,
+      "recordCount": 1
+    }
+  ]
+}

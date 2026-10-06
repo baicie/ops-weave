@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-result",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "coverage": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "UNAVAILABLE"
+      ]
+    },
+    "sampleRate": {
+      "type": "null"
+    },
+    "received": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "accepted": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rejected": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "filtered": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unknown": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schemaMismatch": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "missingIdentity": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "invalidTimestamp": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unitMismatch": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nodes": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-node"
+      }
+    }
+  },
+  "required": [
+    "coverage",
+    "sampleRate",
+    "received",
+    "accepted",
+    "rejected",
+    "filtered",
+    "unknown",
+    "schemaMismatch",
+    "missingIdentity",
+    "invalidTimestamp",
+    "unitMismatch",
+    "nodes"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "coverage": {
+            "const": "UNAVAILABLE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "received": {
+            "type": "null"
+          },
+          "accepted": {
+            "type": "null"
+          },
+          "rejected": {
+            "type": "null"
+          },
+          "filtered": {
+            "type": "null"
+          },
+          "unknown": {
+            "type": "null"
+          },
+          "schemaMismatch": {
+            "type": "null"
+          },
+          "missingIdentity": {
+            "type": "null"
+          },
+          "invalidTimestamp": {
+            "type": "null"
+          },
+          "unitMismatch": {
+            "type": "null"
+          },
+          "nodes": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "received": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "accepted": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "rejected": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "filtered": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "unknown": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "schemaMismatch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "missingIdentity": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "invalidTimestamp": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "coverage": {
+            "const": "COMPLETE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unknown": {
+            "const": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "coverage": {
+            "const": "PARTIAL"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unknown": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metric-mapping-command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "expectedBindingVersion",
+    "mappingPin"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+    },
+    "expectedBindingVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999999999
+    },
+    "mappingPin": {
+      "$ref": "metric-mapping-pin.schema.json"
+    }
+  }
+}

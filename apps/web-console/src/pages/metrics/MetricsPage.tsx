@@ -4,6 +4,7 @@ import { useViewLocation, useSelectionSessionReset } from '../../state/view-loca
 import { metricsDefault, metricsHash, metricsSelection, type MetricsSelection } from '../../state/view-selection.ts'
 import { LineChart } from '../../adapters/chart/LineChart.tsx'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { EntityRequestError, getEntity, pageEntities, type EntityItem } from '../../api/entities.ts'
 import { MetricRequestError, listMetricDefinitions, queryMetricSeries, type MetricDefinitionItem, type MetricSeriesPage } from '../../api/metrics.ts'
@@ -203,8 +204,8 @@ export function MetricsPage() {
 
   return (
     <section className="panel" data-page="metrics">
-      <h2>指标</h2>
-      <p>曲线来自已采集的时序库。页面不查询 Zabbix，也不提交查询语句。</p>
+      <PageHeader title="指标" description="曲线来自已采集的时序库。页面不查询 Zabbix，也不提交查询语句。" />
+      <PageBody>
       <p>查询地址保留资源、指标和实际时间窗口。刷新或返回只还原选择，请重新读取目录和查询；选择 Last 时间范围后可查询最近数据。</p>
       {intent ? <p data-metric-window>{`固定时间窗口（UTC）：${new Date(intent.from * 1000).toISOString()} 至 ${new Date(intent.till * 1000).toISOString()}。读取目录会重新验证资产权限。`}</p> : null}
       {requestedEntity ? <p data-metric-selection>{`选中资产 ${requestedEntity} · 指标 ${requestedMetric || '读取目录后选择'}`}</p> : null}
@@ -261,6 +262,7 @@ export function MetricsPage() {
           onView={setSeriesView}
         />
       ) : null}
+      </PageBody>
     </section>
   )
 }
@@ -271,7 +273,7 @@ function SeriesView(props: { entity: string; metric: string; page: MetricSeriesP
   const resets = props.page.series.flatMap(row => row.counterRates.filter(rate => rate.counterReset))
   const hasRates = props.page.series.some(row => row.counterRates.length > 0)
   return (
-    <div>
+    <div className="console-series">
       <p>{`Host: ${props.entity}`}</p>
       <p>{`Metric: ${props.metric}`}</p>
       {props.page.derivation ? (

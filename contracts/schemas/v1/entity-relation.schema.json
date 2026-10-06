@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entity relation instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "tenantId", "fromEntityId", "toEntityId", "relationType", "relationRevision", "validFrom", "validTo", "dataMode", "version"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"}, "id": {"type": "string", "format": "uuid"},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128}, "fromEntityId": {"type": "string", "format": "uuid"}, "toEntityId": {"type": "string", "format": "uuid"},
+    "relationType": {"type": "string", "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"}, "relationRevision": {"type": "integer", "minimum": 1, "maximum": 10000},
+    "validFrom": {"type": "string", "format": "date-time"}, "validTo": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "dataMode": {"enum": ["fixture", "zabbix-jsonrpc", "import", "unknown"]}, "version": {"type": "integer", "minimum": 1}
+  }
+}

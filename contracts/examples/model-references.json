@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "report": {
+    "target": {
+      "id": "builtin.host",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "inspectedAt": "2026-10-04T07:00:00Z",
+    "workflowsAvailable": true,
+    "references": {
+      "items": [
+        {
+          "kind": "WORKFLOW",
+          "id": "fixture-host",
+          "revision": 1,
+          "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "label": "Fixture host workflow",
+          "state": "PUBLISHED",
+          "editVersion": 0,
+          "roles": [
+            "OUTPUT"
+          ],
+          "fieldIds": [
+            "name"
+          ],
+          "tasks": []
+        }
+      ],
+      "truncated": false
+    }
+  }
+}

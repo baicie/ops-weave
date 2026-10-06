@@ -3,6 +3,27 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  devctl:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.26.5', cache: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22.18'}
+      - run: go -C scripts/devctl test -v ./...
+      - run: go -C scripts/devctl vet ./...
+      - run: node scripts/devctl/build.mjs
+      - run: node scripts/devctl/run.mjs --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opsweave-dev-${{ runner.os }}-${{ runner.arch }}
+          path: dist/devctl/
+          if-no-files-found: error
   contracts:
     runs-on: ubuntu-latest
     steps:
@@ -14,7 +35,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '21'}
       - run: pip install -r requirements-dev.txt
-      - run: python scripts/check_repo.py && python scripts/check_java_domain.py && python -m pytest tests/contracts
+      - run: python scripts/generate_workflow_operators.py --check && python scripts/check_repo.py && python scripts/check_java_domain.py && python -m pytest tests/contracts
   rust:
     runs-on: ubuntu-latest
     steps:
@@ -34,11 +55,12 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22.18', cache: 'pnpm'}
-      - run: node --test tests/acceptance/*.test.mjs
+      - run: node --experimental-strip-types --test tests/acceptance/*.test.mjs
       - run: test -f pnpm-lock.yaml || (echo 'Generate, review and commit pnpm-lock.yaml'; exit 1)
       - run: pnpm install --frozen-lockfile && pnpm typecheck:web && pnpm build:web
       - run: pnpm --filter @opsweave/web-console exec playwright install chromium --with-deps
       - run: pnpm test:web
+      - run: pnpm test:web-local
   java:
     runs-on: ubuntu-latest
     steps:

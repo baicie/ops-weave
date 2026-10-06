@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-host-batch-storage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workflowId",
+    "revision",
+    "digest",
+    "id",
+    "scanId",
+    "settings",
+    "sequence",
+    "complete",
+    "observedAt",
+    "state",
+    "entityIds",
+    "error",
+    "updatedAt",
+    "beforeCursor",
+    "nextCursor",
+    "records"
+  ],
+  "properties": {
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scanId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identityField": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,47}$"
+            },
+            {
+              "not": {
+                "enum": [
+                  "tenantId",
+                  "tenant_id",
+                  "authorization",
+                  "Authorization",
+                  "constructor",
+                  "prototype",
+                  "secret",
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          ]
+        },
+        "nameField": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,47}$"
+            },
+            {
+              "not": {
+                "enum": [
+                  "tenantId",
+                  "tenant_id",
+                  "authorization",
+                  "Authorization",
+                  "constructor",
+                  "prototype",
+                  "secret",
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "identityField",
+        "nameField"
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "enum": [
+        "READY",
+        "IN_FLIGHT",
+        "UNKNOWN",
+        "FAILED",
+        "CONFIRMED"
+      ]
+    },
+    "entityIds": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "INVALID_SAMPLE",
+        "SOURCE_UNAVAILABLE",
+        "FORBIDDEN",
+        "MODEL_CHANGED",
+        "OUTPUT_UNAVAILABLE",
+        "BACKLOG_LIMIT",
+        "RUNTIME_UNAVAILABLE",
+        "OPERATOR_CHANGED",
+        "AUTHORIZATION_EXPIRED",
+        "AUTHORIZATION_REVOKED",
+        "EXECUTION_LIMIT"
+      ]
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "beforeCursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 96,
+          "pattern": "^ids-v1\\|[a-f0-9]{64}\\|[1-9][0-9]{0,3}\\|[1-9][0-9]{0,3}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 96,
+          "pattern": "^ids-v1\\|[a-f0-9]{64}\\|[1-9][0-9]{0,3}\\|[1-9][0-9]{0,3}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "ip",
+          "lifecycle",
+          "entity_id"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "ip": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "lifecycle": {
+            "enum": [
+              "DISCOVERED",
+              "ACTIVE",
+              "INACTIVE",
+              "DELETED",
+              "ARCHIVED"
+            ]
+          },
+          "entity_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "READY",
+              "IN_FLIGHT",
+              "CONFIRMED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

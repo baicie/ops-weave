@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-log-source-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "source",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "source": {
+      "allOf": [
+        {
+          "$ref": "workflow-source.schema.json"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "ZABBIX_HOST"
+            }
+          },
+          "required": [
+            "configuration"
+          ]
+        }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://opsweave.dev/schemas/v2/workflow-log-source-selection.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "item",
+          "asOf",
+          "expiresAt"
+        ],
+        "properties": {
+          "source": {
+            "allOf": [
+              {
+                "$ref": "workflow-source.schema.json"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "ZABBIX_LOG"
+                  }
+                }
+              }
+            ]
+          },
+          "item": {
+            "allOf": [
+              {
+                "$ref": "source-metric-discovery.schema.json#/properties/items/items"
+              },
+              {
+                "properties": {
+                  "sourceValueType": {
+                    "const": "LOG"
+                  }
+                }
+              }
+            ]
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}

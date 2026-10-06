@@ -24,7 +24,9 @@ export function ObservationHistory(props: { entity: { id: string; tenantId: stri
     controllerRef.current?.abort(); const active = new AbortController(); controllerRef.current = active; const current = ++sequenceRef.current
     const prior = page; const till = Math.floor(Date.now() / 1000)
     const query = next && prior ? { ...prior.query, after: prior.nextCursor } : { from: till - days * 86400, till, asOf: null, source, after: null, limit: 25 as const }
-    setBusy(true); setError(''); setPage(null)
+    // Keep the last confirmed page visible while a refresh or next-page request is in flight.
+    // A failed read must not erase evidence the operator already inspected.
+    setBusy(true); setError('')
     try { const value = await readObservations(props.entity, query, active.signal); if (current === sequenceRef.current) setPage(value) }
     catch (cause) { if (current === sequenceRef.current) setError(cause instanceof Error ? cause.message : '观测历史不可用') }
     finally { if (current === sequenceRef.current) setBusy(false) }

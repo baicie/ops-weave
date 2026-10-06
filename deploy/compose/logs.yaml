@@ -1,0 +1,25 @@
+name: opsweave-logs-dev
+services:
+  clickhouse:
+    profiles: [logs]
+    image: clickhouse/clickhouse-server@sha256:0152dd511befe6a2c2ef53e930726179669b08116da78500b37c51c96ff5ee77
+    environment:
+      CLICKHOUSE_USER: opsweave_logs_admin
+      CLICKHOUSE_PASSWORD: ${OPSWEAVE_LOGS_ADMIN_PASSWORD:?Provide a private local log-store credential}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "127.0.0.1:8123:8123"
+    volumes:
+      - logsdata:/var/lib/clickhouse
+      - ../clickhouse/controlled-logs.xml:/etc/clickhouse-server/config.d/controlled-logs.xml:ro
+      - ../../db/migrations/logs/V001__workflow_records.sql:/docker-entrypoint-initdb.d/001-workflow-records.sql:ro
+      - ../../db/migrations/logs/V002__workflow_log_windows.sql:/docker-entrypoint-initdb.d/002-workflow-log-windows.sql:ro
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  logsdata:

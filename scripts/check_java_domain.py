@@ -11,6 +11,9 @@ sources = [str(p) for p in (root / "modules").rglob("*.java")]
 smokes = sorted((root / "tests/domain").glob("*.java"))
 sources.extend(str(p) for p in smokes)
 with tempfile.TemporaryDirectory(prefix="aiops-domain-") as output:
-    subprocess.run(["javac", "--release", "21", "-encoding", "UTF-8", "-d", output, *sources], check=True)
+    # javac's argument file also works when the repository exceeds Windows' command-line limit.
+    arguments = Path(output) / "sources.args"
+    arguments.write_text("\n".join('"' + path.replace('\\', '/') + '"' for path in sources), encoding="utf-8")
+    subprocess.run(["javac", "--release", "21", "-encoding", "UTF-8", "-d", output, "@" + str(arguments)], check=True)
     for smoke in smokes:
         subprocess.run(["java", "-cp", output, smoke.stem], check=True)

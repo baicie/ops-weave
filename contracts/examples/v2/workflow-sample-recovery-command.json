@@ -1,0 +1,11 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000131",
+  "id": "sample-fixture",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "kind": "LOG_SAMPLE",
+  "batchId": "20000000-0000-4000-8000-000000000131",
+  "batchDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "expectedUpdatedAt": "2026-10-05T00:00:00Z",
+  "acknowledgeUncertainOutput": true
+}

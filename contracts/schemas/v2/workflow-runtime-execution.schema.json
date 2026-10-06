@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identityField": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,47}$"
+            },
+            {
+              "not": {
+                "enum": [
+                  "tenantId",
+                  "tenant_id",
+                  "authorization",
+                  "Authorization",
+                  "constructor",
+                  "prototype",
+                  "secret",
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          ]
+        },
+        "nameField": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,47}$"
+            },
+            {
+              "not": {
+                "enum": [
+                  "tenantId",
+                  "tenant_id",
+                  "authorization",
+                  "Authorization",
+                  "constructor",
+                  "prototype",
+                  "secret",
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "identityField",
+        "nameField"
+      ]
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "INVALID_SAMPLE",
+        "SOURCE_UNAVAILABLE",
+        "FORBIDDEN",
+        "MODEL_CHANGED",
+        "OUTPUT_UNAVAILABLE",
+        "BACKLOG_LIMIT",
+        "RUNTIME_UNAVAILABLE",
+        "OPERATOR_CHANGED",
+        "AUTHORIZATION_EXPIRED",
+        "AUTHORIZATION_REVOKED",
+        "EXECUTION_LIMIT"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "MANUAL_SAMPLE",
+        "fixture",
+        "zabbix-jsonrpc"
+      ]
+    },
+    "syncRunId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "SUCCEEDED",
+        "FAILED"
+      ]
+    },
+    "accepted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "rejected": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "filtered": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "entityIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "maxItems": 5,
+      "uniqueItems": true
+    },
+    "authorizationId": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "format": "uuid"
+        }
+      ]
+    }
+  },
+  "required": [
+    "workflowId",
+    "revision",
+    "digest",
+    "settings",
+    "error",
+    "id",
+    "origin",
+    "syncRunId",
+    "createdAt",
+    "state",
+    "accepted",
+    "rejected",
+    "filtered",
+    "entityIds"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

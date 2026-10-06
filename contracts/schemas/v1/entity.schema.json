@@ -37,6 +37,9 @@
       "type": "integer",
       "minimum": 1
     },
+    "model": {
+      "$ref": "entity-model-pin.schema.json"
+    },
     "attributes": {
       "type": "object"
     }

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "10000000-0000-4000-8000-000000000136",
+  "reference": {
+    "id": "fixture-standard-cpu",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "commandDigest": "sha256:5bb73de932838e08b362d47f146e31340340d9664b831ee15ec940a17c7cb774",
+  "from": "2026-10-05T00:00:00Z",
+  "till": "2026-10-05T00:01:00Z",
+  "createdAt": "2026-10-05T00:02:00Z",
+  "updatedAt": "2026-10-05T00:02:01Z",
+  "expiresAt": "2026-10-05T00:12:00Z",
+  "purpose": "REBUILD_METRIC_PROJECTION",
+  "outputPolicy": "ISOLATED_METRIC_SERIES",
+  "notifications": false,
+  "actions": false,
+  "state": "READY",
+  "proof": {
+    "inputDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "batchDigest": "sha256:c51a4609169ea261a7e993a725121e52cbe709038919f60db9fed9cb042fd054",
+    "inputCount": 1,
+    "filtered": 0,
+    "collapsed": 0,
+    "labels": {
+      "tenant_id": "replay-fixture",
+      "owner_scope": "507a8e48fb71e87793b0342aeae2b0be58965b8671306159c33f0d85913a1004",
+      "source_instance_id": "connection-22222222-2222-4222-8222-222222222222",
+      "external_item_id": "20001",
+      "host_external_id": "10084",
+      "metric_key": "host.cpu.usage.user",
+      "unit": "1",
+      "mapping_id": "zabbix-cpu-user",
+      "mapping_revision": "1",
+      "mapping_digest": "sha256:99a6d3d6b549bd47da048352fd902f2eb4a3ca54a4c6c8824be20bef33877247",
+      "workflow_id": "fixture-standard-cpu",
+      "workflow_revision": "1",
+      "workflow_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "configuration_digest": "sha256:fdb7c7af20479d5a48b9dc28017c38c19d2b321c94d77fe075484e318fe86e0e",
+      "data_mode": "zabbix-jsonrpc",
+      "collection_mode": "REPLAY_60S",
+      "replay_id": "10000000-0000-4000-8000-000000000136",
+      "dim_mode": "user"
+    },
+    "timestamps": [
+      1791158401000
+    ]
+  },
+  "error": null
+}

@@ -17,3 +17,9 @@ shadcn 组件源码放在 `src/components/ui`，不从 CDN 运行时拉取。按
 AntV X6 / G6 仍由适配层按需加载，节点保持引擎自己的 DOM，不改用 React 节点包装，也不把图 JSON 当作持久协议。ADR-058 的查询与导航边界不变。
 
 Agent 控制台、chat 组件和生产 OIDC/BFF 仍未接入。
+
+## 2026-10-01 运维管理界面
+
+按用户指定的 [shadcn-admin](https://github.com/satnaing/shadcn-admin) 参考其后台布局、分组侧栏、卡片和标签页结构。沿用本仓库 React、shadcn/ui、hash 路由和可信会话适配，不引入模板的示例用户、营收数据、Clerk 或 TanStack Router。新增本地 Card 与 Radix Tabs 组合，统一亮暗主题变量和业务页面容器。
+
+开始页改为运维工作台，显式查询既有有界 GET API，所有统计仅代表当前查询页。缺少权限、超时和未知数据不会变成正常或零值。图适配层固定最多16节点，使用同步视图更新避免节点ID重用后旧DOM残留；普通滚轮仍滚动页面。使用和验证范围见[控制台说明](../runbooks/admin-console.md)与 VALIDATION-REPORT §77。

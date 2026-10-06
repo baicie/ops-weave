@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metric-mapping-page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "metric-mapping-view.schema.json"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}

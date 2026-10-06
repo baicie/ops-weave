@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-quality-task",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "state": {
+      "enum": [
+        "RUNNING",
+        "STOPPED",
+        "FAILED",
+        "ABANDONED"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000001
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "AUTHORIZATION_EXPIRED",
+            "AUTHORIZATION_REVOKED",
+            "BACKLOG_LIMIT",
+            "CAPACITY",
+            "EXECUTION_LIMIT",
+            "FORBIDDEN",
+            "INVALID_SAMPLE",
+            "MAPPING_CHANGED",
+            "MODEL_CHANGED",
+            "OPERATOR_CHANGED",
+            "OPERATOR_PIN_REQUIRED",
+            "OUTPUT_REJECTED",
+            "OUTPUT_UNAVAILABLE",
+            "OUTPUT_UNCONFIRMED",
+            "RUNTIME_UNAVAILABLE",
+            "SOURCE_CHANGED",
+            "SOURCE_UNAVAILABLE",
+            "SOURCE_WINDOW_CHANGED",
+            "TASK_CHANGED",
+            "WINDOW_EXPIRED",
+            "WINDOW_INCOMPLETE"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pendingBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "state",
+    "generation",
+    "updatedAt",
+    "error",
+    "pendingBatchId"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "FAILED",
+              "ABANDONED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "AUTHORIZATION_EXPIRED",
+              "AUTHORIZATION_REVOKED",
+              "BACKLOG_LIMIT",
+              "CAPACITY",
+              "EXECUTION_LIMIT",
+              "FORBIDDEN",
+              "INVALID_SAMPLE",
+              "MAPPING_CHANGED",
+              "MODEL_CHANGED",
+              "OPERATOR_CHANGED",
+              "OPERATOR_PIN_REQUIRED",
+              "OUTPUT_REJECTED",
+              "OUTPUT_UNAVAILABLE",
+              "OUTPUT_UNCONFIRMED",
+              "RUNTIME_UNAVAILABLE",
+              "SOURCE_CHANGED",
+              "SOURCE_UNAVAILABLE",
+              "SOURCE_WINDOW_CHANGED",
+              "TASK_CHANGED",
+              "WINDOW_EXPIRED",
+              "WINDOW_INCOMPLETE"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "generation": {
+            "const": 1000001
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "enum": [
+              "STOPPED",
+              "ABANDONED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "ABANDONED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "OUTPUT_UNAVAILABLE",
+              "OUTPUT_UNCONFIRMED"
+            ]
+          },
+          "authorization": false,
+          "pendingBatchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  ]
+}

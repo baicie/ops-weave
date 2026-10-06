@@ -75,7 +75,7 @@
             "permissions": {
               "type": "array",
               "uniqueItems": true,
-              "maxItems": 12,
+              "maxItems": 16,
               "items": {
                 "enum": [
                   "entity.read",
@@ -89,7 +89,11 @@
                   "ai.retention.manage",
                   "skill.read",
                   "skill.manage",
-                  "source.sync"
+                  "source.sync",
+                  "source.configure",
+                  "log.read",
+                  "log.write",
+                  "workflow.replay"
                 ]
               }
             }

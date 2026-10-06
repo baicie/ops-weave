@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "2.0",
+  "asOf": "2026-10-05T00:00:00Z",
+  "reference": {
+    "id": "diagnostic-fixture",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "observations": [],
+  "truncated": false
+}

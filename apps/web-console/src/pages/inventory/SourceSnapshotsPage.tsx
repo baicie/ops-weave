@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePageCloseGuard } from '../../state/page-workspace.ts'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { usePlatformSession } from '../../state/platform-session.ts'
@@ -18,6 +20,7 @@ export function SourceSnapshotsPage() {
   const [id, setId] = useState(new URLSearchParams(location.hash.split('?')[1]).get('requestId') ?? '')
   const controllerRef = useRef<AbortController | undefined>(undefined)
   const sequenceRef = useRef(0)
+  usePageCloseGuard(busy || pending ? { message: pending ? '操作结果待确认，请先查询原请求回执。' : '请求正在处理，请等待结果后关闭。', blocked: true } : !receipt && (raw !== '[]' || complete) ? { message: '快照有尚未提交的内容。' } : null)
 
   function clear() {
     controllerRef.current?.abort(); sequenceRef.current++; setConfig(null); setReceipt(null); setRaw('[]'); setComplete(false); setConfirmed(false); setPending(false); setBusy(false); setError('')
@@ -42,9 +45,9 @@ export function SourceSnapshotsPage() {
   }
   function read() { void run(async (signal, current) => { const r = await snapshotReceipt(id, signal); if (current()) { setReceipt(r); setPending(false) } }) }
   const disabled = busy || !ready
-  return <section className="panel" data-page="source-snapshots"><h2>CMDB 来源快照</h2><p>导入明确的来源记录，按人工核对并登记的资产 UUID 自动定位。字段进入待审核记录；名称或 IP 不会自动合并资产。</p>
+  return <section className="panel" data-page="source-snapshots"><PageHeader title="CMDB 来源快照" description="导入明确的来源记录，按人工核对并登记的资产 UUID 自动定位。字段进入待审核记录；名称或 IP 不会自动合并资产。" actions={<Button variant="outline" disabled={disabled || pending} onClick={load}>读取快照配置</Button>} />
+    <PageBody className="console-maintenance">
     <p>这是人工导入适配，未连接 CMDB 厂商 API。来源确认有效期为 7 天；完整快照会把该来源未出现的已绑定记录标记为缺失，其他来源仍有效的资产会保留。</p>
-    <Button variant="outline" disabled={disabled || pending} onClick={load}>读取快照配置</Button>
     {config ? <><p>{`${config.tenantId} · ${config.actor} · ${config.sourceInstanceId} · ${config.namespace} · import / postgres · 最多100条，浏览器正文上限64KiB`}</p>
       <label>来源观测时间（UTC）<Input value={observed} disabled={disabled || pending} onChange={event => { setObserved(event.currentTarget.value); setConfirmed(false) }} /></label>
       <label>来源记录 JSON<Textarea rows={8} value={raw} disabled={disabled || pending} onChange={event => { setRaw(event.currentTarget.value); setConfirmed(false) }} /></label>
@@ -58,5 +61,6 @@ export function SourceSnapshotsPage() {
     <p role="alert">{error}</p>{receipt ? <section data-snapshot-receipt><h3>快照已保存</h3><p>{`${receipt.tenantId} · ${receipt.actor} · ${receipt.ingestedAt} · 来源标记缺失 ${receipt.markedAbsent} 条`}</p>
       <p>字段值尚未自动采用。请进入资产详情读取补充来源并审核；已有生效字段需先撤销，再导入新快照取得当前版本的待审记录。</p>
       <ul>{receipt.resolved.map(row => <li key={row.reviewId}>{`${row.externalId} → ${row.entityId} · 待审 ${row.reviewId}`}</li>)}</ul></section> : null}
+    </PageBody>
   </section>
 }

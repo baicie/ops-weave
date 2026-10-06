@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-quality-alert-status",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}(\\d{3}(\\d{3})?)?)?Z$"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ]
+    },
+    "configuration": {
+      "anyOf": [
+        {
+          "$ref": "workflow-quality-alert-configuration.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "from": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 30,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}(\\d{3}(\\d{3})?)?)?Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "till": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 30,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}(\\d{3}(\\d{3})?)?)?Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluations": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "$ref": "workflow-quality-alert-evaluation.schema.json"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "asOf",
+    "reference",
+    "configuration",
+    "from",
+    "till",
+    "evaluations"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "configuration": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "from": {
+            "type": "null"
+          },
+          "till": {
+            "type": "null"
+          },
+          "evaluations": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 30,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}(\\d{3}(\\d{3})?)?)?Z$"
+          },
+          "till": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 30,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}(\\d{3}(\\d{3})?)?)?Z$"
+          }
+        }
+      }
+    }
+  ]
+}

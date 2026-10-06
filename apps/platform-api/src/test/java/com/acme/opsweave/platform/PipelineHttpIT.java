@@ -110,6 +110,23 @@ class PipelineHttpIT {
     }
 
     @Test
+    void rejectsAmbiguousPipelineJson() throws Exception {
+        String path = ROOT + "/pipeline/replay";
+        JsonNode sync = ok(call("POST", ROOT + "/sync", null, true));
+        String run = sync.get("syncRunId").asString();
+        String target = json.writeValueAsString(sync.get("pipelineVersion"));
+        String duplicate = "{\"syncRunId\":\"" + run + "\",\"syncRunId\":\"" + run
+            + "\",\"targetVersion\":" + target + ",\"purpose\":\"COMPARE_VERSION\",\"dryRun\":true}";
+        HttpResponse<String> duplicateResponse = rawJson("POST", path, duplicate, true);
+        assertEquals(400, duplicateResponse.statusCode(), duplicateResponse.body());
+
+        String trailing = "{\"syncRunId\":\"" + run + "\",\"targetVersion\":" + target
+            + ",\"purpose\":\"COMPARE_VERSION\",\"dryRun\":true} {}";
+        HttpResponse<String> trailingResponse = rawJson("POST", path, trailing, true);
+        assertEquals(400, trailingResponse.statusCode(), trailingResponse.body());
+    }
+
+    @Test
     void durableReplayIsIdempotentAndHasScopedHistory() throws Exception {
         JsonNode sync = ok(call("POST", ROOT + "/sync", null, true));
         var body = new LinkedHashMap<String, Object>();
@@ -195,5 +212,12 @@ class PipelineHttpIT {
             ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
         else builder.GET();
         return http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> rawJson(String method, String path, String body, boolean authorized) throws Exception {
+        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).timeout(Duration.ofSeconds(10));
+        if (authorized) builder.header("Authorization", "Bearer pipeline-test-token-not-for-other-use");
+        return http.send(builder.header("Content-Type", "application/json")
+            .method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 }

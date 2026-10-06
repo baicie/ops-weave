@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "review": {
+    "candidate": {
+      "id": "custom.fixture_host",
+      "revision": 2,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "editVersion": 1,
+    "base": {
+      "id": "custom.fixture_host",
+      "revision": 1,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "reviewedAt": "2026-10-04T07:00:00Z",
+    "compatible": true,
+    "reasons": [],
+    "changes": [
+      {
+        "fieldId": "owner",
+        "property": "FIELD",
+        "before": null,
+        "after": "TEXT · optional",
+        "compatible": true
+      }
+    ]
+  }
+}

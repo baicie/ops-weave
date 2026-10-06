@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-stream-task-storage",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000001
+    },
+    "state": {
+      "enum": [
+        "RUNNING",
+        "STOPPED",
+        "FAILED"
+      ]
+    },
+    "cursor": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pendingBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confirmedWindows": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "confirmedRecords": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200000
+    },
+    "sessionBatches": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "FORBIDDEN",
+            "AUTHORIZATION_REVOKED",
+            "AUTHORIZATION_EXPIRED",
+            "EXECUTION_LIMIT",
+            "SOURCE_CHANGED",
+            "SOURCE_UNAVAILABLE",
+            "INVALID_SAMPLE",
+            "WINDOW_INCOMPLETE",
+            "SOURCE_WINDOW_CHANGED",
+            "CAPACITY",
+            "WINDOW_EXPIRED",
+            "OUTPUT_REJECTED",
+            "OUTPUT_UNCONFIRMED",
+            "RUNTIME_UNAVAILABLE",
+            "OPERATOR_CHANGED",
+            "OPERATOR_PIN_REQUIRED"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority": {
+      "anyOf": [
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "issuedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "maxBatches": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "consumedBatches": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20
+            },
+            "issuer": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f]).*\\S.*$"
+            },
+            "externalSubject": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f]).*\\S.*$"
+            },
+            "grantDigest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "id",
+            "issuedAt",
+            "expiresAt",
+            "maxBatches",
+            "consumedBatches",
+            "issuer",
+            "externalSubject",
+            "grantDigest"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "workflowId",
+    "revision",
+    "digest",
+    "generation",
+    "state",
+    "cursor",
+    "pendingBatchId",
+    "confirmedWindows",
+    "confirmedRecords",
+    "sessionBatches",
+    "updatedAt",
+    "error",
+    "authority"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "FORBIDDEN",
+              "AUTHORIZATION_REVOKED",
+              "AUTHORIZATION_EXPIRED",
+              "EXECUTION_LIMIT",
+              "SOURCE_CHANGED",
+              "SOURCE_UNAVAILABLE",
+              "INVALID_SAMPLE",
+              "WINDOW_INCOMPLETE",
+              "SOURCE_WINDOW_CHANGED",
+              "CAPACITY",
+              "WINDOW_EXPIRED",
+              "OUTPUT_REJECTED",
+              "OUTPUT_UNCONFIRMED",
+              "RUNTIME_UNAVAILABLE",
+              "OPERATOR_CHANGED",
+              "OPERATOR_PIN_REQUIRED"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

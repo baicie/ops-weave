@@ -1,0 +1,7 @@
+{
+  "id": "fixture-host",
+  "name": "Fixture Host endpoint",
+  "connectorKind": "ZABBIX_HOST",
+  "address": "https://192.0.2.10/api_jsonrpc.php",
+  "digest": "sha256:d2187c8b693831fd92ae3357626a693c2e5be9b80e457b216200cad8522557ae"
+}

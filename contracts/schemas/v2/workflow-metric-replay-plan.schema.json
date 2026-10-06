@@ -1,0 +1,481 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-metric-replay-plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "reference",
+    "commandDigest",
+    "from",
+    "till",
+    "createdAt",
+    "updatedAt",
+    "expiresAt",
+    "purpose",
+    "outputPolicy",
+    "notifications",
+    "actions",
+    "state",
+    "proof",
+    "error"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$(?![\\s\\S])"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$(?![\\s\\S])"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+        }
+      }
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+    },
+    "from": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    },
+    "till": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3}(?:\\d{3}(?:\\d{3})?)?)?Z$(?![\\s\\S])"
+    },
+    "purpose": {
+      "const": "REBUILD_METRIC_PROJECTION"
+    },
+    "outputPolicy": {
+      "const": "ISOLATED_METRIC_SERIES"
+    },
+    "notifications": {
+      "const": false
+    },
+    "actions": {
+      "const": false
+    },
+    "state": {
+      "enum": [
+        "PREPARING",
+        "READY",
+        "FAILED"
+      ]
+    },
+    "proof": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inputDigest",
+            "batchDigest",
+            "inputCount",
+            "filtered",
+            "collapsed",
+            "labels",
+            "timestamps"
+          ],
+          "properties": {
+            "inputDigest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+            },
+            "batchDigest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+            },
+            "inputCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60
+            },
+            "filtered": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60
+            },
+            "collapsed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 24,
+              "required": [
+                "tenant_id",
+                "owner_scope",
+                "source_instance_id",
+                "external_item_id",
+                "host_external_id",
+                "metric_key",
+                "unit",
+                "mapping_id",
+                "mapping_revision",
+                "mapping_digest",
+                "workflow_id",
+                "workflow_revision",
+                "workflow_digest",
+                "configuration_digest",
+                "data_mode",
+                "collection_mode",
+                "replay_id"
+              ],
+              "properties": {
+                "tenant_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "owner_scope": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+                },
+                "source_instance_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "external_item_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "host_external_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "metric_key": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "unit": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "mapping_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "mapping_revision": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "mapping_digest": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "workflow_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "workflow_revision": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "workflow_digest": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "configuration_digest": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                },
+                "data_mode": {
+                  "const": "zabbix-jsonrpc"
+                },
+                "collection_mode": {
+                  "const": "REPLAY_60S"
+                },
+                "replay_id": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$(?![\\s\\S])"
+                }
+              },
+              "patternProperties": {
+                "^dim_[A-Za-z_][A-Za-z0-9_]{0,59}$": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                }
+              }
+            },
+            "timestamps": {
+              "type": "array",
+              "maxItems": 60,
+              "uniqueItems": true,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 253402300799999
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "enum": [
+        null,
+        "FORBIDDEN",
+        "SOURCE_UNAVAILABLE",
+        "SOURCE_CHANGED",
+        "MAPPING_CHANGED",
+        "INVALID_SAMPLE",
+        "WINDOW_INCOMPLETE",
+        "SOURCE_WINDOW_CHANGED",
+        "WINDOW_EXPIRED",
+        "RUNTIME_UNAVAILABLE"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "READY"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "proof": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "inputDigest",
+              "batchDigest",
+              "inputCount",
+              "filtered",
+              "collapsed",
+              "labels",
+              "timestamps"
+            ],
+            "properties": {
+              "inputDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+              },
+              "batchDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$(?![\\s\\S])"
+              },
+              "inputCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 60
+              },
+              "filtered": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 60
+              },
+              "collapsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 60
+              },
+              "labels": {
+                "type": "object",
+                "additionalProperties": false,
+                "maxProperties": 24,
+                "required": [
+                  "tenant_id",
+                  "owner_scope",
+                  "source_instance_id",
+                  "external_item_id",
+                  "host_external_id",
+                  "metric_key",
+                  "unit",
+                  "mapping_id",
+                  "mapping_revision",
+                  "mapping_digest",
+                  "workflow_id",
+                  "workflow_revision",
+                  "workflow_digest",
+                  "configuration_digest",
+                  "data_mode",
+                  "collection_mode",
+                  "replay_id"
+                ],
+                "properties": {
+                  "tenant_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "owner_scope": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+                  },
+                  "source_instance_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "external_item_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "host_external_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "metric_key": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "mapping_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "mapping_revision": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "mapping_digest": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "workflow_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "workflow_revision": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "workflow_digest": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "configuration_digest": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  },
+                  "data_mode": {
+                    "const": "zabbix-jsonrpc"
+                  },
+                  "collection_mode": {
+                    "const": "REPLAY_60S"
+                  },
+                  "replay_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$(?![\\s\\S])"
+                  }
+                },
+                "patternProperties": {
+                  "^dim_[A-Za-z_][A-Za-z0-9_]{0,59}$": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_.:/%\\-]{1,128}$(?![\\s\\S])"
+                  }
+                }
+              },
+              "timestamps": {
+                "type": "array",
+                "maxItems": 60,
+                "uniqueItems": true,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 253402300799999
+                }
+              }
+            }
+          },
+          "error": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "proof": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "FORBIDDEN",
+              "SOURCE_UNAVAILABLE",
+              "SOURCE_CHANGED",
+              "MAPPING_CHANGED",
+              "INVALID_SAMPLE",
+              "WINDOW_INCOMPLETE",
+              "SOURCE_WINDOW_CHANGED",
+              "WINDOW_EXPIRED",
+              "RUNTIME_UNAVAILABLE"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

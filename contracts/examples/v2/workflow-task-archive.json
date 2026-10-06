@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "2.0",
+  "reference": {
+    "id": "fixture-task-version",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "kind": "METRIC_STREAM",
+  "task": {
+    "state": "STOPPED",
+    "generation": 2,
+    "updatedAt": "2026-10-05T00:00:00Z",
+    "error": null,
+    "pendingBatchId": null
+  },
+  "replacedBy": {
+    "id": "fixture-task-version",
+    "revision": 2,
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "nextGeneration": 3,
+  "replacedAt": "2026-10-05T00:00:01Z",
+  "schedule": null
+}

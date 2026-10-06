@@ -3,6 +3,9 @@ package com.acme.opsweave.platform.integration;
 import com.acme.opsweave.integration.infrastructure.ZabbixJsonRpcConnector;
 import java.io.IOException;
 import java.net.URI;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -24,14 +27,45 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
     public static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final HttpClient registeredHttp = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
+        .followRedirects(HttpClient.Redirect.NEVER).proxy(new ProxySelector() {
+            @Override public List<Proxy> select(URI uri) { return List.of(Proxy.NO_PROXY); }
+            @Override public void connectFailed(URI uri,SocketAddress address,IOException failed) { }
+        }).build();
+
+    /** Bound to one already validated, numeric destination. Every exchange rechecks exact equality. */
+    public ZabbixJsonRpcConnector.Transport registered(URI expected,com.acme.opsweave.platform.OpsweaveProperties properties) {
+        com.acme.opsweave.platform.workflow.RegisteredSourceEndpoints.validateAddress(expected.toString(),properties);
+        return new ZabbixJsonRpcConnector.Transport() {
+            public String exchange(URI endpoint,String body,String token) {
+                if(!expected.equals(endpoint))throw new IllegalStateException("Registered source destination changed");
+                return JacksonZabbixTransport.this.exchange(registeredHttp,expected,body,token);
+            }
+            public String exchangeWithin(URI endpoint,String body,String token,Duration remaining) {
+                if(!expected.equals(endpoint))throw new IllegalStateException("Registered source destination changed");
+                return JacksonZabbixTransport.this.exchange(registeredHttp,expected,body,token,remaining);
+            }
+            public List<Map<String,Object>> readHostArray(String json){return JacksonZabbixTransport.this.readHostArray(json);}
+            public long readCount(String json){return JacksonZabbixTransport.this.readCount(json);}
+            public String readText(String json){return JacksonZabbixTransport.this.readText(json);}
+        };
+    }
 
     @Override
     public String exchange(URI endpoint, String jsonBody, String bearerToken) {
+        return exchange(http,endpoint,jsonBody,bearerToken);
+    }
+
+    private String exchange(HttpClient client,URI endpoint,String jsonBody,String bearerToken) {
+        return exchange(client,endpoint,jsonBody,bearerToken,Duration.ofSeconds(10));
+    }
+    private String exchange(HttpClient client,URI endpoint,String jsonBody,String bearerToken,Duration remaining) {
+        if(remaining.isNegative()||remaining.isZero()||remaining.compareTo(Duration.ofSeconds(20))>0)throw new IllegalArgumentException("Invalid source read budget");
         if (!"http".equalsIgnoreCase(endpoint.getScheme()) && !"https".equalsIgnoreCase(endpoint.getScheme())) {
             throw new IllegalStateException("Zabbix endpoint must be http or https");
         }
         HttpRequest.Builder request = HttpRequest.newBuilder(endpoint)
-            .timeout(Duration.ofSeconds(10))
+            .timeout(remaining.compareTo(Duration.ofSeconds(10))<0?remaining:Duration.ofSeconds(10))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
         if (bearerToken != null) {
@@ -40,7 +74,7 @@ public final class JacksonZabbixTransport implements ZabbixJsonRpcConnector.Tran
             throw new IllegalStateException("Only Zabbix version discovery may be anonymous");
         }
         try {
-            HttpResponse<String> response = http.send(request.build(), ignored -> new BoundedBodySubscriber());
+            HttpResponse<String> response = client.send(request.build(), ignored -> new BoundedBodySubscriber());
             if (response.statusCode() / 100 != 2) {
                 throw new IllegalStateException("Zabbix HTTP status " + response.statusCode());
             }

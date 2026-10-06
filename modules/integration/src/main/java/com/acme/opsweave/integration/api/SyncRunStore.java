@@ -20,6 +20,11 @@ public interface SyncRunStore {
      */
     SyncRun start(TenantId tenantId, String sourceInstanceId, String objectType, String dataMode);
 
+    /** Opens a run pinned to an immutable registered-connection revision and scope digest. */
+    default SyncRun start(TenantId tenantId,String sourceInstanceId,String objectType,String dataMode,SyncRun.SourceScope sourceScope) {
+        return start(tenantId,sourceInstanceId,objectType,dataMode);
+    }
+
     void checkpoint(
         TenantId tenantId,
         UUID id,
@@ -32,6 +37,12 @@ public interface SyncRunStore {
 
     /** Marks the walk succeeded and records how it was bounded. */
     void succeed(TenantId tenantId, UUID id, String scanConsistency);
+
+    /** Marks a successful reconciliation together with the number of bindings retired in its fenced transaction. */
+    default void succeed(TenantId tenantId,UUID id,String scanConsistency,int retired) {
+        if(retired<0)throw new IllegalArgumentException("Invalid retired count");
+        succeed(tenantId,id,scanConsistency);
+    }
 
     /** Marks the walk failed and records how it was bounded; a failure never claims a snapshot. */
     void fail(TenantId tenantId, UUID id, String reason, String scanConsistency);
@@ -50,6 +61,14 @@ public interface SyncRunStore {
         SyncRunCursor after,
         int limit
     );
+
+    /** Newest-first runs for one registered connection revision, including at most limit + 1 rows. */
+    List<SyncRun> registeredRecent(TenantId tenantId,UUID sourceId,int configurationRevision,SyncRunCursor after,int limit);
+
+    /** Oldest completed batches after an exclusive completion cursor, including failures.
+     * At most limit+1 rows; old history must not consume a workflow's pending-batch budget. */
+    List<SyncRun> completedAfter(TenantId tenantId, String sourceInstanceId, String objectType,
+        java.time.Instant after, UUID afterId, int limit);
 
     /**
      * Rows the retention policy keeps for one scope right now. Read-only: it prunes nothing, so a

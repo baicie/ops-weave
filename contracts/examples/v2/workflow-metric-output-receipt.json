@@ -1,0 +1,41 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000115",
+  "workflowId": "fixture-metric-output",
+  "revision": 1,
+  "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "previewId": "10000000-0000-4000-8000-000000000116",
+  "commandDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "createdAt": "2026-10-04T00:00:01Z",
+  "updatedAt": "2026-10-04T00:00:02Z",
+  "state": "UNKNOWN",
+  "accepted": 1,
+  "filtered": 0,
+  "collapsed": 0,
+  "confirmed": 0,
+  "failed": 0,
+  "unknown": 1,
+  "error": "OUTPUT_UNCONFIRMED",
+  "labels": {
+    "tenant_id": "fixture-output",
+    "owner_scope": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_instance_id": "fixture-source",
+    "external_item_id": "50740",
+    "host_external_id": "10683",
+    "metric_key": "host.cpu.usage.user",
+    "unit": "1",
+    "mapping_id": "zabbix-cpu-user",
+    "mapping_revision": "7",
+    "mapping_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "workflow_id": "fixture-metric-output",
+    "workflow_revision": "1",
+    "workflow_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "configuration_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "data_mode": "zabbix-jsonrpc",
+    "dim_mode": "user"
+  },
+  "seriesHash": "68e93a6bdec148f486f19f6029ce4a1932728a7c45684135b19f73409c19e667",
+  "batchDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "timestamps": [
+    1791072000000
+  ]
+}

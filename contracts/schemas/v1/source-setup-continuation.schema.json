@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/source-setup-continuation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "setupId", "workflow"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "setupId": { "type": "string", "format": "uuid", "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$" },
+    "workflow": { "oneOf": [{ "$ref": "../v2/workflow-entry.schema.json" }, { "type": "null" }] }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pinned standard GAUGE output with exact decimal text",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timestamp",
+    "metricKey",
+    "value",
+    "unit",
+    "metricType",
+    "dimensions",
+    "mappingPin"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "format": "date-time"
+    },
+    "metricKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:/-]{0,127}$"
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "metricType": {
+      "const": "GAUGE"
+    },
+    "dimensions": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "mappingPin": {
+      "$ref": "metric-mapping-pin.schema.json"
+    }
+  }
+}

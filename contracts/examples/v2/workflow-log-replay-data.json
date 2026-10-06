@@ -1,0 +1,31 @@
+{
+  "batchId": "10000000-0000-4000-8000-000000000136",
+  "readAt": "2026-10-05T00:02:01Z",
+  "storage": "clickhouse",
+  "expectedRecords": 2,
+  "complete": true,
+  "afterIndex": -1,
+  "nextIndex": null,
+  "records": [
+    {
+      "index": 0,
+      "position": "2026-10-05T00:00:01Z",
+      "eventTime": "2026-10-05T00:00:01Z",
+      "body": "Synthetic Fixture replay 0",
+      "severityText": null,
+      "serviceName": null,
+      "traceId": null,
+      "spanId": null
+    },
+    {
+      "index": 1,
+      "position": "2026-10-05T00:00:02Z",
+      "eventTime": "2026-10-05T00:00:02Z",
+      "body": "Synthetic Fixture replay 1",
+      "severityText": null,
+      "serviceName": null,
+      "traceId": null,
+      "spanId": null
+    }
+  ]
+}

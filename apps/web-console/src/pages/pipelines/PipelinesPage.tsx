@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePageCloseGuard } from '../../state/page-workspace.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageBody } from '../../components/PageLayout.tsx'
 import { Input } from '@/components/ui/input'
 import { getPipeline, hostDefinition, previewPipeline, publishPipeline, executeReplay, getReplay, listReplays, syncSample,
   saveDraft, getDraft, listDrafts, sameDraftDefinition, type Draft, type DraftList, type DraftHeader,
@@ -46,6 +48,8 @@ export function PipelinesPage() {
     catch { return false }
   }
   const validRun = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(runId)
+  const dirty = draft ? !draftMatchesForm() : id !== 'zabbix-host-default' || revision !== '2' || nameField !== 'name' || policy !== 'skipRecord'
+  usePageCloseGuard(busy || pending ? { message: pending ? '重放结果待确认，请先查询原请求回执。' : '流水线请求正在处理，请等待结果后关闭。', blocked: true } : dirty ? { message: '流水线有未保存的修改。' } : null)
 
   async function execute(action: 'sync' | 'preview' | 'publish' | 'read' | 'replay' | 'history' | 'next' | 'detail' | 'resume' | 'retry' | 'draft-save' | 'draft-read' | 'draft-list', selectedId?: string, selectedRevision?: number) {
     abortRef.current?.abort()
@@ -129,8 +133,8 @@ export function PipelinesPage() {
 
   return (
     <section className="panel pipeline-controls" data-page="pipelines">
-      <h2>Host 接入流水线</h2>
-      <p>先预览历史原始记录，再发布固定版本。重放仅比较映射结果，不写库存；差异不代表当前资产的增删。</p>
+      <PageHeader title="Host 接入流水线" description="先预览历史原始记录，再发布固定版本。重放仅比较映射结果，不写库存；差异不代表当前资产的增删。" />
+      <PageBody className="console-maintenance">
       <label>同步批次 ID<Input value={runId} onChange={e => { invalidate(); setRunId(e.currentTarget.value) }} /></label>
       <Button variant="outline" disabled={busy || !authenticated} onClick={() => { void execute('sync') }}>同步 Host 并取得批次</Button>
       <p>同步按钮会从已配置来源采集并更新资产。也可直接填写已有批次 ID；来源模式由服务端配置决定。</p>
@@ -218,6 +222,7 @@ export function PipelinesPage() {
         </div>
       ) : null}
       {report ? <EvaluationView report={report} /> : null}
+      </PageBody>
     </section>
   )
 }

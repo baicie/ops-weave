@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "2.0",
+  "storage": "postgres",
+  "dataMode": "zabbix-jsonrpc",
+  "sourceId": "6c8ed184-178d-4c9b-a1d9-51d09b09d51a",
+  "sourceInstanceId": "monitoring-prod",
+  "configurationRevision": 2,
+  "connectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "hostGroupIds": ["7", "12"],
+  "scopeDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "pages": 4,
+  "fetched": 820,
+  "accepted": 817,
+  "rejected": 3,
+  "retired": 5,
+  "snapshotComplete": true,
+  "scanConsistency": "itemid-watermark-snapshot",
+  "syncRunId": "2a280e6d-b35e-4d6e-8e71-f79bc4e38747"
+}

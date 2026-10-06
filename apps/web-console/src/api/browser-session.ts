@@ -1,7 +1,7 @@
 import { platformCredentials, type BrowserSession } from './credential-session.ts'
 import { platformClient } from './http.ts'
 
-const permissions = ['entity.read', 'entity.manage', 'metric.read', 'incident.read', 'incident.manage', 'evidence.read', 'ai.diagnose', 'ai.insight.read', 'ai.retention.manage', 'skill.read', 'skill.manage', 'source.sync']
+const permissions = ['entity.read', 'entity.manage', 'metric.read', 'incident.read', 'incident.manage', 'evidence.read', 'ai.diagnose', 'ai.insight.read', 'ai.retention.manage', 'skill.read', 'skill.manage', 'source.sync', 'source.configure', 'log.read', 'log.write', 'workflow.replay']
 export function parseBrowserSession(value: unknown): BrowserSession {
   const exact = (v: unknown, keys: string[]): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === keys.length && keys.every(k => k in v)
   if (!exact(value, ['schemaVersion', 'mode', 'dataMode', 'authenticated', 'csrfToken', 'sessionId', 'expiresAt', 'principal', 'loginPath'])

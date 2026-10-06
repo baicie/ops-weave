@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bounded normalized log preview record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventTime",
+    "body"
+  ],
+  "properties": {
+    "eventTime": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 80
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "\\S"
+    },
+    "severityText": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "serviceName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "traceId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "spanId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{16}$"
+    }
+  }
+}

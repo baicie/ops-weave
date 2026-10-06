@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v1/metric-binding-page",
+  "type": "object", "additionalProperties": false, "required": ["items"],
+  "properties": {
+    "items": {"type": "array", "maxItems": 1000, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tenantId", "sourceType", "sourceInstanceId", "externalItemId", "entityId", "hostExternalId", "metricKey", "fixedDimensions", "sourceUnit", "valueTransform", "mappingRevision", "lifecycle"],
+      "properties": {
+        "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "sourceType": {"type": "string", "minLength": 1, "maxLength": 64},
+        "sourceInstanceId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "externalItemId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "entityId": {"type": "string", "format": "uuid"},
+        "hostExternalId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "metricKey": {"type": "string", "pattern": "^[A-Za-z0-9_.:/%-]{1,128}$"},
+        "fixedDimensions": {"type": "object", "maxProperties": 32, "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"}, "additionalProperties": {"type": "string", "maxLength": 128}},
+        "sourceUnit": {"type": "string", "maxLength": 64},
+        "valueTransform": {"type": "string", "maxLength": 128},
+        "mappingRevision": {"type": "integer", "minimum": 1},
+        "lifecycle": {"enum": ["ACTIVE", "INACTIVE"]}
+      }
+    }}
+  }
+}

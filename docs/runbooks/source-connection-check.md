@@ -4,15 +4,15 @@
 
 需现有 PG（或内存存储）与源级 `source.sync`。V026 只增加回执表与索引；不新增服务或密钥。
 
-1. 打开“来源扫描”页面，填入平台开发 Token（或生产 OIDC 会话），找到“来源连接自检（只读）”一节。
-2. 点击“来源连接自检”：页面会调用一次有界 probe。
+1. 打开数据源实例详情，使用平台开发会话（或生产 OIDC 会话），在实例维护抽屉的“连接与发现”区域找到“测试保存的连接”。
+2. 点击“测试保存的连接”：页面会固定当前实例的连接版本和凭据版本，并调用一次有界授权读取。新版入口使用 `/api/v2/data-sources/{id}/connection-check`；旧版来源扫描页的全局 v1 自检仍保留给兼容入口，不代表其它实例的状态。
    - fixture 模式：回执是 `reachable: true`、`statusCode: labeled-fixture`、`reportedVersion: 无版本声明`。
      这只说明**合成探针**可用，不证明真实厂商可用。
    - JSON-RPC 模式：回执是 `reachable: true`、`statusCode: ok`、`reportedVersion` 为来源自报的 `apiinfo.version`。
      这个版本是**来源的声明**，不是平台验证过的支持结论；请把它与团队声明的支持版本对照后再决定是否继续。
    - 不可达：回执是 `reachable: false`、`statusCode: unreachable`、`reportedVersion: null`。不要据此改配置重试，
      先检查来源地址/网络/TLS 与凭据引用。
-3. 点击“读取自检回执”查看该来源最近的回执（每页 10/20/50，默认 20，倒序）。每个 tenant/source 只保留最近
+3. 点击“读取连接检查记录”查看该实例最近的 TEST 回执（默认最多 20，倒序）。每个 tenant/source 只保留最近
    100 份，更旧的会被清理；回执不参与授权、不能被请求覆盖。
 4. 把这次回执的 `checkId` 与时间记入验收记录：它只证明“某一刻这个来源这样回答过”，不替代后续的真实
    `host.get` 分页、完整快照与人工诊断审阅。

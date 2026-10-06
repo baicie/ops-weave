@@ -1,0 +1,44 @@
+import { platformClient } from './http.ts'
+import type { Entry, Page } from './workflows.ts'
+// Wire authority: contracts/schemas/v2/workflow-log-output-*.schema.json.
+export type LogOutputCommand={requestId:string;id:string;revision:number;digest:string;previewId:string;samples:Record<string,string|number|boolean|null>[]}
+export type LogSourceOutputCommand={requestId:string;id:string;revision:number;digest:string}
+export type AnyLogOutputCommand=LogOutputCommand|LogSourceOutputCommand
+export type LogOutputReceipt={requestId:string;workflowId:string;revision:number;digest:string;previewId:string;commandDigest:string;createdAt:string;updatedAt:string;state:'PENDING'|'CONFIRMED'|'FAILED'|'UNKNOWN';accepted:number;filtered:number;confirmed:number;failed:number;unknown:number;error:string|null;batchDigest:string;indices:number[]}
+export type LogOutputRecord={index:number;eventTime:string;body:string;severityText:string|null;serviceName:string|null;traceId:string|null;spanId:string|null}
+export type LogOutputData={requestId:string;readAt:string;storage:'clickhouse';expectedRecords:number;complete:boolean;records:LogOutputRecord[]}
+export type LogOutputCapability={schemaVersion:'2.0';mode:'MANUAL_LOG_BATCH'|'SOURCE_LOG_SAMPLE';available:boolean;maxRecords:5;readAllowed:boolean;writeAllowed:boolean}
+export class LogOutputError extends Error{constructor(readonly status:number,message:string){super(message)}}
+const uuid=/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/,digest=/^sha256:[a-f0-9]{64}$/
+function invalid():never{throw new Error('日志输出结果不符合契约，请查询原回执')}
+function object(v:unknown,keys:string[]):Record<string,unknown>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length!==keys.length||keys.some(k=>!Object.hasOwn(v,k)))invalid();return v as Record<string,unknown>}
+function integer(v:unknown,min:number,max:number){if(!Number.isSafeInteger(v)||Number(v)<min||Number(v)>max)invalid()}
+function date(v:unknown){if(typeof v!=='string'||v.length>40||!/^\d{4}-\d\d-\d\dT/.test(v)||!Number.isFinite(Date.parse(v)))invalid()}
+async function hash(parts:string[]){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(parts.map(p=>new TextEncoder().encode(p).length+':'+p).join('')));return 'sha256:'+[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+function numberText(value:number){const text=String(value);if(!text.includes('e'))return text;const [coefficient,exponent]=text.split('e'),sign=coefficient.startsWith('-')?'-':'',[whole,fraction='']=coefficient.replace(/^-/, '').split('.'),digits=whole+fraction,index=whole.length+Number(exponent);return sign+(index<=0?'0.'+'0'.repeat(-index)+digits:index>=digits.length?digits+'0'.repeat(index-digits.length):digits.slice(0,index)+'.'+digits.slice(index))}
+async function commandDigest(c:AnyLogOutputCommand){if(!('previewId' in c))return hash(['workflow-log-source-command-v1',c.id,String(c.revision),c.digest]);const parts=['workflow-log-command-v1',c.id,String(c.revision),c.digest,c.previewId];for(const row of c.samples){parts.push('record');Object.entries(row).sort(([a],[b])=>a<b?-1:a>b?1:0).forEach(([key,value])=>parts.push(key,value===null?'null':typeof value==='number'?'number':typeof value==='boolean'?'boolean':'text',value===null?'':typeof value==='number'?numberText(value):String(value)))}return hash(parts)}
+export async function parseLogOutput(value:unknown,entry?:Entry,command?:AnyLogOutputCommand):Promise<LogOutputReceipt>{
+ const r=object(value,['requestId','workflowId','revision','digest','previewId','commandDigest','createdAt','updatedAt','state','accepted','filtered','confirmed','failed','unknown','error','batchDigest','indices'])
+ for(const key of ['requestId','previewId'])if(typeof r[key]!=='string'||!uuid.test(r[key] as string))invalid()
+ if(typeof r.workflowId!=='string'||!/^[a-z][a-z0-9_-]{0,47}$/.test(r.workflowId))invalid();integer(r.revision,1,10000)
+ for(const key of ['digest','commandDigest','batchDigest'])if(typeof r[key]!=='string'||!digest.test(r[key] as string))invalid();date(r.createdAt);date(r.updatedAt)
+ if(Date.parse(String(r.updatedAt))<Date.parse(String(r.createdAt))||!['PENDING','UNKNOWN','CONFIRMED','FAILED'].includes(String(r.state)))invalid()
+ for(const key of ['accepted','filtered','confirmed','failed','unknown'])integer(r[key],0,5)
+ const count=Number(r.accepted);if(count<1||count+Number(r.filtered)>5||Number(r.confirmed)+Number(r.failed)+Number(r.unknown)!==count||!Array.isArray(r.indices)||r.indices.length!==count)invalid()
+ let previous=-1;for(const index of r.indices){integer(index,0,4);if(index<=previous)invalid();previous=index}
+ if(r.state==='CONFIRMED'?(r.confirmed!==count||r.failed!==0||r.unknown!==0||r.error!==null):r.state==='FAILED'?(r.failed!==count||r.confirmed!==0||r.unknown!==0||!['OUTPUT_REJECTED','FORBIDDEN','RUNTIME_UNAVAILABLE'].includes(String(r.error))):(r.confirmed!==0||r.failed!==0||r.unknown!==count||(r.state==='PENDING'?r.error!==null:r.error!=='OUTPUT_UNCONFIRMED')))invalid()
+ if(entry&&(r.workflowId!==entry.definition.id||r.revision!==entry.definition.revision||r.digest!==entry.digest))invalid()
+ if(command&&(r.requestId!==command.requestId||('previewId' in command&&r.previewId!==command.previewId)||r.commandDigest!==await commandDigest(command)))invalid()
+ return value as LogOutputReceipt
+}
+const messages:Record<string,string>={SOURCE_CHANGED:'来源日志项的主机、完整键、类型或单位已变化，请重新发现并显式选择',FORBIDDEN:'当前身份没有此工作流或日志的权限',SOURCE_UNAVAILABLE:'日志存储或固定来源不可用',CONFLICT:'原请求内容不匹配，请查询原回执',PREVIEW_REQUIRED:'样本执行已过期或不匹配，请核对原回执',CAPACITY:'日志回执已达到容量上限',BUSY:'输出并发已满，请稍后显式重试',INVALID_SAMPLE:'日志记录须通过校验，时间须在本次执行前24小时内'}
+const request=(path:string,signal:AbortSignal,body?:unknown)=>platformClient.request('/api/v1/integrations/workflows/log-outputs'+path,{signal,body,error:(status,code)=>new LogOutputError(status,messages[code]??'日志输出请求失败（HTTP '+status+'）')})
+export async function logOutputCapability(entry:Entry,signal:AbortSignal):Promise<LogOutputCapability>{const r=object(await request('/workflows/'+encodeURIComponent(entry.definition.id)+(entry.definition.source.kind==='ZABBIX_LOG'?'/'+entry.definition.revision:'')+'/capability',signal),['schemaVersion','mode','available','maxRecords','readAllowed','writeAllowed']);if(r.schemaVersion!=='2.0'||r.mode!==(entry.definition.source.kind==='ZABBIX_LOG'?'SOURCE_LOG_SAMPLE':'MANUAL_LOG_BATCH')||r.maxRecords!==5||['available','readAllowed','writeAllowed'].some(k=>typeof r[k]!=='boolean'))invalid();return r as LogOutputCapability}
+export async function logOutputHistory(entry:Entry,signal:AbortSignal):Promise<Page<LogOutputReceipt>>{const r=object(await request('/workflows/'+encodeURIComponent(entry.definition.id)+'/receipts',signal),['items','truncated']);if(!Array.isArray(r.items)||r.items.length>20||typeof r.truncated!=='boolean')invalid();const items=await Promise.all(r.items.map(v=>parseLogOutput(v)));if(items.some(v=>v.workflowId!==entry.definition.id)||new Set(items.map(v=>v.requestId)).size!==items.length)invalid();return {items,truncated:r.truncated}}
+export async function writeLogOutput(entry:Entry,command:AnyLogOutputCommand,signal:AbortSignal){return parseLogOutput(await request('previewId' in command?'':'/source',signal,command),entry,command)}
+export async function readLogOutput(entry:Entry,id:string,signal:AbortSignal,verify=false,command?:AnyLogOutputCommand){const r=await parseLogOutput(await request('/commands/'+encodeURIComponent(id)+(verify?'/verification':''),signal),entry,command);if(r.requestId!==id)invalid();return r}
+export async function logOutputData(receipt:LogOutputReceipt,signal:AbortSignal):Promise<LogOutputData>{
+ const r=object(await request('/commands/'+encodeURIComponent(receipt.requestId)+'/records',signal),['requestId','readAt','storage','expectedRecords','complete','records']);date(r.readAt);if(r.requestId!==receipt.requestId||r.storage!=='clickhouse'||r.expectedRecords!==receipt.accepted||typeof r.complete!=='boolean'||!Array.isArray(r.records)||r.records.length>5)invalid()
+ let previous=-1;for(const v of r.records){const row=object(v,['index','eventTime','body','severityText','serviceName','traceId','spanId']);integer(row.index,0,4);if(Number(row.index)<=previous||!receipt.indices.includes(Number(row.index)))invalid();previous=Number(row.index);date(row.eventTime);if(typeof row.body!=='string'||!row.body.trim()||row.body.length>2048)invalid();for(const key of ['severityText','serviceName','traceId','spanId'])if(row[key]!==null&&(typeof row[key]!=='string'||(row[key] as string).length>128))invalid();if(row.traceId!==null&&!/^[a-f0-9]{32}$/.test(String(row.traceId))||row.spanId!==null&&!/^[a-f0-9]{16}$/.test(String(row.spanId)))invalid()}
+ if(r.complete&&(r.records.length!==receipt.accepted||r.records.some((v,i)=>(v as LogOutputRecord).index!==receipt.indices[i])))invalid();return r as LogOutputData
+}

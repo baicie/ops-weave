@@ -15,6 +15,7 @@ import com.acme.opsweave.integration.application.HostPipelineService;
 import com.acme.opsweave.integration.application.PipelineReplayService;
 import com.acme.opsweave.integration.application.PipelineDraftService;
 import com.acme.opsweave.integration.application.SourceScanRunQueryService;
+import com.acme.opsweave.integration.application.RegisteredSourceScanRunQueryService;
 import com.acme.opsweave.integration.application.SourceConnectionCheckService;
 import com.acme.opsweave.integration.application.IngestZabbixItemsUseCase;
 import com.acme.opsweave.integration.application.ReadZabbixHistoryUseCase;
@@ -195,6 +196,13 @@ public class PlatformConfiguration {
             OpsweaveProperties properties) {
         return new SourceScanRunQueryService(authorization, wiring.syncRuns(), wiring.pipelines(),
             properties.zabbix().sourceInstanceId(), properties.scanRunRetention(null, null));
+    }
+
+    @Bean
+    RegisteredSourceScanRunQueryService registeredSourceScanRunQueryService(AuthorizationService authorization,
+            InventoryWiring wiring, OpsweaveProperties properties) {
+        return new RegisteredSourceScanRunQueryService(authorization, wiring.syncRuns(),
+            properties.scanRunRetention(null, null));
     }
 
     @Bean

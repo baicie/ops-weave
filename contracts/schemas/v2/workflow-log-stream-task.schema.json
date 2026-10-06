@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-log-stream-task",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,47}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000001
+    },
+    "state": {
+      "enum": [
+        "RUNNING",
+        "STOPPED",
+        "FAILED",
+        "ABANDONED"
+      ]
+    },
+    "cursor": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pendingBatchId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confirmedWindows": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "confirmedRecords": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200000
+    },
+    "sessionBatches": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "FORBIDDEN",
+            "AUTHORIZATION_REVOKED",
+            "AUTHORIZATION_EXPIRED",
+            "EXECUTION_LIMIT",
+            "SOURCE_CHANGED",
+            "SOURCE_UNAVAILABLE",
+            "INVALID_SAMPLE",
+            "WINDOW_INCOMPLETE",
+            "SOURCE_WINDOW_CHANGED",
+            "CAPACITY",
+            "WINDOW_EXPIRED",
+            "OUTPUT_REJECTED",
+            "OUTPUT_UNCONFIRMED",
+            "RUNTIME_UNAVAILABLE",
+            "OPERATOR_CHANGED",
+            "OPERATOR_PIN_REQUIRED"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authorization": {
+      "$ref": "workflow-runtime-authorization.schema.json"
+    }
+  },
+  "required": [
+    "workflowId",
+    "revision",
+    "digest",
+    "generation",
+    "state",
+    "cursor",
+    "pendingBatchId",
+    "confirmedWindows",
+    "confirmedRecords",
+    "sessionBatches",
+    "updatedAt",
+    "error"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "FAILED",
+              "ABANDONED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "FORBIDDEN",
+              "AUTHORIZATION_REVOKED",
+              "AUTHORIZATION_EXPIRED",
+              "EXECUTION_LIMIT",
+              "SOURCE_CHANGED",
+              "SOURCE_UNAVAILABLE",
+              "INVALID_SAMPLE",
+              "WINDOW_INCOMPLETE",
+              "SOURCE_WINDOW_CHANGED",
+              "CAPACITY",
+              "WINDOW_EXPIRED",
+              "OUTPUT_REJECTED",
+              "OUTPUT_UNCONFIRMED",
+              "RUNTIME_UNAVAILABLE",
+              "OPERATOR_CHANGED",
+              "OPERATOR_PIN_REQUIRED"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "ABANDONED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "enum": [
+              "OUTPUT_UNCONFIRMED"
+            ]
+          },
+          "authorization": false,
+          "pendingBatchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "2.0",
+  "mode": "SOURCE_LOG_SAMPLE",
+  "available": false,
+  "maxRecords": 5,
+  "readAllowed": false,
+  "writeAllowed": false
+}

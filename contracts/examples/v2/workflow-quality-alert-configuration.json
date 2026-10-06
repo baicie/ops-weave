@@ -1,0 +1,28 @@
+{
+  "reference": {
+    "id": "quality-alert-fixture",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "editVersion": 1,
+  "windowSeconds": 600,
+  "rules": [
+    {
+      "kind": "SOURCE_FAILURES",
+      "threshold": 3
+    },
+    {
+      "kind": "OUTPUT_REJECTIONS",
+      "threshold": 1
+    },
+    {
+      "kind": "QUEUE_WAIT",
+      "threshold": 250
+    },
+    {
+      "kind": "TASK_FAILURE",
+      "threshold": 1
+    }
+  ],
+  "updatedAt": "2026-10-05T12:00:00Z"
+}

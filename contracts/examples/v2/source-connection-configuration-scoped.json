@@ -1,0 +1,22 @@
+{
+  "sourceId": "22222222-2222-4222-8222-222222222222",
+  "revision": 1,
+  "connectorVersion": "host-jsonrpc-v2",
+  "endpoint": {
+    "id": "fixture-host",
+    "name": "Fixture Host endpoint",
+    "connectorKind": "ZABBIX_HOST",
+    "address": "https://192.0.2.10/api_jsonrpc.php",
+    "digest": "sha256:d2187c8b693831fd92ae3357626a693c2e5be9b80e457b216200cad8522557ae"
+  },
+  "credentialPin": {
+    "credentialId": "10000000-0000-4000-8000-000000000081",
+    "revision": 1,
+    "versionId": "10000000-0000-4000-8000-000000000081"
+  },
+  "hostGroupIds": [
+    "1001"
+  ],
+  "connectionDigest": "sha256:1771b1d5b9ae2c1d694e0c4b3002d6d88a51ca6ebedd18c4c972fde12a3721ce",
+  "createdAt": "2026-10-03T00:00:00Z"
+}

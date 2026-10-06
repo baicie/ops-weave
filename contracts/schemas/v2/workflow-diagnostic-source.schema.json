@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-diagnostic-source",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "attempts": {
+      "const": 1
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "received": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "failureCode": {
+      "enum": [
+        null,
+        "UNAVAILABLE",
+        "ACCESS_DENIED",
+        "INCOMPLETE_WINDOW",
+        "INVALID_RESPONSE",
+        "METADATA_CHANGED",
+        "SOURCE_KEY_CHANGED",
+        "VALUE_TYPE_CHANGED",
+        "UNIT_CHANGED",
+        "OTHER_FAILURE"
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3}([0-9]{3}([0-9]{3})?)?)?Z$"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 30,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3}([0-9]{3}([0-9]{3})?)?)?Z$"
+    }
+  },
+  "required": [
+    "attempts",
+    "completed",
+    "failed",
+    "received",
+    "failureCode",
+    "startedAt",
+    "completedAt"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "completed": {
+          "const": 1
+        },
+        "failed": {
+          "const": 0
+        },
+        "received": {
+          "type": "integer"
+        },
+        "failureCode": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "completed": {
+          "const": 0
+        },
+        "failed": {
+          "const": 1
+        },
+        "received": {
+          "type": "null"
+        },
+        "failureCode": {
+          "enum": [
+            "UNAVAILABLE",
+            "ACCESS_DENIED",
+            "INCOMPLETE_WINDOW",
+            "INVALID_RESPONSE",
+            "METADATA_CHANGED",
+            "SOURCE_KEY_CHANGED",
+            "VALUE_TYPE_CHANGED",
+            "UNIT_CHANGED",
+            "OTHER_FAILURE"
+          ]
+        }
+      }
+    }
+  ]
+}

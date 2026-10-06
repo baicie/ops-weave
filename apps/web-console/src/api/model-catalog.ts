@@ -51,6 +51,10 @@ function page(v: unknown): CatalogPage {
 export class CatalogError extends Error { constructor(readonly status: number, code: string) { super(({ CONFLICT: '草稿或发布版本已变化，请重新读取后再编辑', INCOMPATIBLE_REVISION: '该修改不兼容旧版本；当前只允许追加可选字段及修改说明', UNKNOWN_ENTITY_TYPE: '关系端点必须引用本租户已发布的实体类型', FORBIDDEN: '当前身份没有模型目录权限', INVALID_REQUEST: '模型字段或样本不符合契约，请核对后重试' } as Record<string, string>)[code] ?? '模型目录请求失败（HTTP ' + status + '）') } }
 const options = (signal: AbortSignal) => ({ signal, error: (s: number, c: string) => new CatalogError(s, c) })
 export async function readCatalog(signal: AbortSignal): Promise<CatalogPage> { return page(await platformClient.request('/api/v1/catalog', options(signal))) }
+export async function readModelVersion(reference: ModelRef, signal: AbortSignal): Promise<ModelEntry> {
+  ref(reference); const value=entry(await platformClient.request('/api/v1/catalog/versions/'+encodeURIComponent(reference.id)+'/'+reference.revision,options(signal)))
+  if(value.state!=='PUBLISHED'||value.definition.id!==reference.id||value.definition.revision!==reference.revision)invalid();return value
+}
 export async function saveModel(definition: ModelDefinition, expectedEditVersion: number, signal: AbortSignal): Promise<ModelEntry> {
   parseDefinition(definition); const e = entry(await platformClient.request('/api/v1/catalog/drafts', { ...options(signal), body: { definition, expectedEditVersion } })); if (e.state !== 'DRAFT' || e.editVersion !== expectedEditVersion + 1 || e.definition.id !== definition.id || e.definition.revision !== definition.revision) invalid(); return e
 }

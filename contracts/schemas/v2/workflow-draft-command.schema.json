@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-draft-command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["definition", "layout", "expectedEditVersion"],
+  "properties": {
+    "definition": {"$ref": "workflow-definition.schema.json"},
+    "layout": {
+      "type": "object", "maxProperties": 16,
+      "propertyNames": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$"},
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["x", "y"],
+        "properties": {
+          "x": {"type": "integer", "minimum": 0, "maximum": 4000},
+          "y": {"type": "integer", "minimum": 0, "maximum": 4000}
+        }
+      }
+    },
+    "expectedEditVersion": {"type": "integer", "minimum": 0, "maximum": 1000000}
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RelationGraph } from '../../adapters/graph/RelationGraph.tsx'
+import { PageHeader } from '../../components/PageLayout.tsx'
 import { pageEntities, type EntityItem, type EntityPage } from '../../api/entities.ts'
 import { originLabel, readTopology, type Topology } from '../../api/topology.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
@@ -52,14 +53,7 @@ export function TopologyPage() {
 
   return (
     <section className="topology-page">
-      <header className="page-title">
-        <div>
-          <span className="eyebrow">资源观测</span>
-          <h2>资产关系图</h2>
-          <p>选择一项资产，查看它与其他资产之间已保存的直接关系。</p>
-        </div>
-        <a className="quiet-link" href="#/modeling/relations">定义关系类型 ↗</a>
-      </header>
+      <PageHeader title="资产关系图" description="选择一项资产，查看它与其他资产之间已保存的直接关系。" actions={<a className="quiet-link" href="#/modeling/relations">定义关系类型 ↗</a>} />
       <p role="alert">{error}</p>
       <div className="topology-workbench">
         <aside className="topology-assets">

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.opsweave.invalid/v2/workflow-quality-alert-rule",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "SOURCE_FAILURES",
+        "OUTPUT_REJECTIONS",
+        "QUEUE_WAIT",
+        "TASK_FAILURE"
+      ]
+    },
+    "threshold": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600000
+    }
+  },
+  "required": [
+    "kind",
+    "threshold"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "SOURCE_FAILURES"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "OUTPUT_REJECTIONS"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "QUEUE_WAIT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600000
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "TASK_FAILURE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  ]
+}

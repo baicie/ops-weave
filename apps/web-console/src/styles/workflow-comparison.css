@@ -1,0 +1,23 @@
+.workflow-comparison-drawer { position:fixed;inset:0 0 0 auto;margin:0;width:min(860px,100vw);max-width:100vw;height:100dvh;max-height:100dvh;padding:0;border:0;border-left:1px solid var(--ow-line);border-radius:0;background:var(--ow-surface);color:var(--ow-ink);box-shadow:-12px 0 28px #0002; }
+.workflow-comparison-drawer:popover-open { display:flex;flex-direction:column; }
+.workflow-comparison-drawer>header { display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--ow-line); }
+.workflow-comparison-drawer h3 { margin:0;font-size:17px; }
+.workflow-comparison-drawer>header button { display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;background:transparent;color:var(--ow-muted); }
+.workflow-comparison-body { padding:20px 24px;overflow:auto;min-height:0; }
+.workflow-comparison-selection { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
+.workflow-comparison-selection label { display:grid;gap:7px;min-width:0;font-size:12px; }
+.workflow-comparison-selection select { width:100%;min-width:0; }
+.workflow-comparison-actions { display:flex;gap:8px;margin:16px 0; }
+.workflow-comparison-summary { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px; }
+.workflow-comparison-summary time,.workflow-comparison-body>p { font-size:12px;color:var(--ow-muted); }
+.workflow-comparison-body>p[role=alert] { color:var(--ow-danger); }
+.workflow-comparison-group { margin:20px 0; }
+.workflow-comparison-group h4 { display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px; }
+.workflow-comparison-group h4 small { font-weight:400;color:var(--ow-muted); }
+.workflow-comparison-table { overflow:auto; }
+.workflow-comparison-table table { width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px; }
+.workflow-comparison-table th,.workflow-comparison-table td { padding:10px 12px;border-bottom:1px solid var(--ow-line);text-align:left;vertical-align:top;overflow-wrap:anywhere; }
+.workflow-comparison-table thead th { background:var(--ow-canvas);font-weight:500; }
+.workflow-comparison-table th:first-child { width:22%; }
+.workflow-comparison-table code { white-space:pre-wrap;font-size:11px;overflow-wrap:anywhere; }
+@media(max-width:760px) { .workflow-comparison-drawer>header { padding:16px; }.workflow-comparison-body { padding:16px; }.workflow-comparison-selection { grid-template-columns:1fr;gap:12px; }.workflow-comparison-table th,.workflow-comparison-table td { padding:8px 6px; }.workflow-comparison-summary { flex-wrap:wrap; } }

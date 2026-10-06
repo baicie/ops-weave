@@ -152,6 +152,16 @@
           "type": "boolean"
         }
       }
+    },
+    "operatorCatalog": {
+      "$ref": "workflow-operator-catalog.schema.json"
+    },
+    "metricMappings": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "metric-mapping-definition.schema.json"
+      }
     }
   }
 }

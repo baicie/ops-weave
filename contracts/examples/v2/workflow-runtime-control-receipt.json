@@ -1,0 +1,18 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000114",
+  "operation": "START",
+  "commandDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "createdAt": "2026-10-04T00:00:00Z",
+  "task": {
+    "workflowId": "fixture-runtime-control",
+    "revision": 1,
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "settings": { "identityField": "source_id", "nameField": "name" },
+    "generation": 1,
+    "state": "RUNNING",
+    "cursor": "2026-10-04T00:00:00Z",
+    "cursorId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "updatedAt": "2026-10-04T00:00:00Z",
+    "error": null
+  }
+}

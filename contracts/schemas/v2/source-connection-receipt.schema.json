@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/source-connection-receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "receipt",
+    "connection"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "storage": {
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "receipt": {
+      "$ref": "source-instance-command-receipt.schema.json#/properties/receipt"
+    },
+    "connection": {
+      "$ref": "source-connection-configuration.schema.json"
+    }
+  }
+}

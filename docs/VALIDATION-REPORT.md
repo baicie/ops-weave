@@ -1,6 +1,115 @@
 # 本次交付验证报告 · OpsWeave v4
 
-最新本机追加记录见第 75 节。以下早期交付包的“未执行/未实现”按当时状态保留，不代表后续本机增量状态。
+## 150. 2026-10-06 · 注册连接指标目录同步与范围隔离
+
+完成注册连接的 Item Sync 闭环：同步固定 source UUID、配置 revision 和 host group 范围；扫描回执记录 connection/scope digest 与退休数量；只读历史按同一 revision 分页，并在返回前复验租户、物理来源、对象类型、数据模式和摘要。仅已验证的 item 快照允许写入非零退休数；空清单、范围漂移、失租或失败不会退休绑定。前端实例抽屉增加“指标同步”页签，首次打开自动读取历史，手动同步期间禁用重复提交，未知结果提示刷新历史核对且不自动重试。
+
+| 实际检查 | 结果 |
+|---|---|
+| UTF-8 Python 全量契约 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest -q tests/contracts 退出0 |
+| 新增注册 Item 契约 | 上述全量契约包含 test_registered_item_scan.py，退出0；默认 Python 3.11 未指定 UTF-8 时因 Windows GBK 解码现有中文样例退出1，不计为通过 |
+| 结构化仓库检查 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 scripts/check_repo.py 退出0，568份结构化文件 |
+| Java 纯领域 | python -X utf8 scripts/check_java_domain.py 退出0；包含 RegisteredItemScanRunQuerySmoke: 24 checks passed 与既有扫描 smoke |
+| Java 平台定向测试 | ./gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.persistence.RegisteredSyncRunStoreTest --tests com.acme.opsweave.platform.persistence.PostgresItemSyncIT --offline --console=plain BUILD SUCCESSFUL；PostgreSQL 用例因 OPSWEAVE_TEST_JDBC_URL 未配置被环境门禁跳过 |
+| Rust 默认/all-features | cargo test --workspace --locked -j 4 与 cargo test --workspace --all-features --locked -j 4 均通过，默认7+9+25项、全特性15+9+25项 |
+| 差异检查 | git diff --check 退出0；保留既有 CRLF 规范化提示 |
+
+未运行真实 PostgreSQL HTTP/多实例 Item Sync，也未运行本轮前端浏览器验收；完整目标继续 active。私有对标边界词表未在仓库内发现，未伪造检查结果。
+
+## 149. 2026-10-06 · 注册连接范围下的指标/日志窗口回归
+
+补齐现有受控工作流读取器的 `hostGroupIds` 协议回归：指标和日志分别覆盖范围内完整读取、主机已在范围外时不发 history 请求、以及窗口读取期间主机移出范围后拒绝完整结果。item 查询的组过滤与 `host.get` 独立成员核对均在 history 前后验证；fixture 返回仅用于协议测试。本轮没有调用外部来源、启动/重启服务或修改持久化行为。
+
+窗口每次最多20个 history 分页 RPC。范围启用时，开始和结束各执行一次 item 元数据与 host 成员检查，所以总量上限为24个 JSON-RPC 请求；实际网络读取仍共享20秒期限。
+
+| 实际检查 | 结果 |
+|---|---|
+| Python 3.14 contracts | `py -3.14 -X utf8 -m pytest -q tests/contracts` 退出0；quiet 配置未打印用例总数。默认 Python 3.11 与工作区依赖 Python 的 pytest 尝试因缺少 pytest 模块退出1，不计为通过 |
+| Java 纯领域 | `python -X utf8 scripts/check_java_domain.py` 退出0；仅记录实际脚本退出状态，不由测试文件存在推定通过 |
+| Java 定向窗口测试 | `./gradlew.bat :apps:platform-api:test --tests 'com.acme.opsweave.platform.workflow.ZabbixWorkflowMetricWindowTest' --tests 'com.acme.opsweave.platform.workflow.ZabbixWorkflowLogWindowTest' --offline` 通过；XML分别为9与8项，失败/错误/跳过均0 |
+| Rust `--locked` | 默认41项与 `--all-features -j 1` 49项通过 |
+| Web | `pnpm build:web` 通过；保留现有大 chunk warning。本轮未运行浏览器测试 |
+| PostgreSQL HTTP/多实例 | 未运行，`OPSWEAVE_TEST_JDBC_URL` 未配置 |
+
+未验证项：旧全局 History/Item Sync/Problem 入口仍读取环境级配置；本轮没有迁移这些入口。Item Sync 当前退休逻辑未按注册连接范围隔离，不能直接添加查询过滤后宣称安全。契约边界检查所需正式私有策略未找到，本轮未运行该检查。最终 `git diff --check` 退出0；保留既有 CRLF 规范化提示。完整目标保持 active。
+
+## 148. 2026-10-06 · 关系实例工作台与授权分页
+
+拓扑仍是只读投影；关系类型在独立工作台选择并创建。页面包含授权资产搜索/游标页、关系加载更多、租户已发布关系模型以及目录截断提示；关系分页后续请求复用首屏 `asOf`。抽屉以键盘圈闭焦点，Esc 可关闭并归还焦点；身份变化会清理当前资产和关系。内置端点类型在领域层按稳定键比较，不改写已发布模型的原值。后端扫描有界候选并按两端 `ENTITY_READ` 填充 limit+1 可见结果，返回游标锚定当前可见页末项；1000候选预算耗尽返回明确503。没有新增服务、表或迁移。
+
+| 实际检查 | 结果 |
+|---|---|
+| Python 契约 | `& 'C:\Users\20555\AppData\Local\Programs\Python\Python314\python.exe' -X utf8 -m pytest -q` 全量通过。执行前按 `requirements-dev.txt` 安装缺失的 `rfc3339-validator==0.1.4`；修正 OpenAPI 路径测试以接受当前已登记的 v1/v2 API 路径，并继续逐路径断言 `clientRequestId` 可选参数 |
+| Java 纯领域 | `python scripts/check_java_domain.py` 通过；关系 smoke 覆盖内置端点命名匹配、隐藏关系穿插、可见 lookahead、末页和1000候选扫描预算 |
+| Java 定向测试 | `./gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.inventory.InventoryErrorsTest --offline --console=plain` 通过；验证扫描预算映射503且原授权拒绝仍403 |
+| Web | 设置 `OPSWEAVE_TEST_CHROMIUM_EXECUTABLE` 为已安装 Chrome 路径后运行 `pnpm --filter @opsweave/web-console exec playwright test e2e/relation-instances.spec.ts --project=chromium`，6项通过；命令内的 `pnpm build` 执行 TypeScript `--noEmit` 与 Vite 构建。保留既有大于500KB的 chunk warning |
+| Rust | `cargo test --locked` 默认41项通过；`cargo test --locked --all-features -j 1` 49项通过 |
+| 平台完整 Gradle | `./gradlew.bat :apps:platform-api:test --offline --console=plain` Java 编译成功；547项中17项 PostgreSQL 集成测试在数据库初始化阶段失败，321项跳过。`OPSWEAVE_TEST_JDBC_URL` 未配置，真实 PostgreSQL HTTP/多实例分页验收未运行 |
+| 差异检查 | `git diff --check` 退出0 |
+
+一次 Playwright 复跑最初因默认缓存中没有 Playwright Chromium 而未启动测试；使用已安装 Chrome 的显式 executable path 后再次独占运行，6项全部通过。一次额外并发运行与另一个 preview 争用4173端口，导航失败；独占复跑结果为准。全站浏览器回归、真实 PostgreSQL、远程 CI 和生产部署未运行；完整目标保持 active。
+
+## 147. 2026-10-06 · 模型约束实体实例写入
+
+实体实例写入已接入可信主体、已发布实体模型和对象授权边界。服务端在持久化前执行字段清洗/校验，使用 expectedVersion 做 CAS，并以 requestId 保存原始回执；同一请求的服务端时间变化不会破坏稳定幂等匹配。来源扫描仍不能通过该接口绕过 fenced 写入。
+
+实际通过：`./gradlew.bat :apps:platform-api:compileJava :apps:platform-api:compileTestJava --offline --console=plain`；`./gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.inventory.EntityInstanceStoreTest --offline --console=plain`（1 test，0 skipped/failure）；新增 `EntityInstanceSmoke` 随 `python scripts/check_java_domain.py` 执行；实体实例 command/receipt Schema 使用 Python 标准库解析；`git diff --check`。当前解释器缺少 pytest，契约回归未执行；缺少 `OPSWEAVE_TEST_JDBC_URL` 时未执行 PostgreSQL HTTP/多实例联测；本节不提高生产退出声明，完整目标继续 active。
+
+为避免同一新 `requestId` 的并发事务同时观察到无回执，PostgreSQL 写入现以 tenant/requestId 获取事务级 advisory lock；新增六路相同创建的条件式集成用例，断言只写入一次且返回相同模型 pin。后续复验：`py -3.14 -X utf8 -m pytest -q tests/contracts` 全集达到100%并退出0（quiet配置没有打印用例总数）；`python -X utf8 scripts/check_java_domain.py` 退出0，全部领域 smoke 通过；`.\gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.inventory.EntityInstanceStoreTest --offline` 编译平台主代码和全部测试源码并通过内存存储测试；`pnpm build:web` 在本轮 Java 后端修改前通过，Web 源码未改。新增 PostgreSQL 并发集成测试已编译，但因 `OPSWEAVE_TEST_JDBC_URL` 未设置未连接数据库。
+
+## 146. 2026-10-06 · 关系实例受控维护闭环
+
+新增关系实例纯领域模型、发布关系类型与端点版本校验、双端实体授权和版本 CAS；`requestId` 作为稳定实例 ID/幂等键，重放返回原回执，改变请求内容返回冲突。V058 为既有关系投影增加请求键和关系版本，Java 平台提供关系实例有界分页与受控创建；读取要求 `entity.read`，写入要求 `entity.manage`，另一端未经授权时不会泄漏关系。`sourceRef` 只在服务端保存，响应与前端 adapter 不返回原始引用。拓扑页面保持只读，未把未验收的模型选择器和写入表单混入拓扑浏览。
+
+实际通过：`./gradlew.bat :apps:platform-api:compileJava :apps:platform-api:compileTestJava --offline --console=plain`；`./gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.inventory.EntityRelationStoreTest --offline --console=plain`（1 test，0 skipped/failure）；`python scripts/check_java_domain.py`（包含 EntityRelationSmoke 6 checks）；关系四份 Schema JSON 解析；`pnpm --filter @opsweave/web-console build`；`git diff --check`。契约 pytest 因当前解释器缺少 pytest 未执行，PostgreSQL 关系 HTTP/真实多实例联测本轮未执行。Web build 保留既有大 chunk warning；本节不提高 M0–M4 生产退出声明。
+
+## 145. 2026-10-06 · 工作流执行与输出 OpenAPI 契约对齐
+
+平台 OpenAPI 草案登记已实现的工作流目录、草稿/版本、比较、发布、预览/运行、运行时执行与启停、主机调度、指标/日志持续流，以及指标/日志输出的能力、写入、回执、校验、历史和数据读取路径。草稿保存、发布、评估和指标流校验分别引用控制器实际接受的闭合请求 Schema；响应引用现有 v2 Schema，指标流校验补充 `{batchId}` Schema。契约描述保持可信身份、租户/对象范围、固定版本、CAS、预算和原回执边界，不把登记视为新增执行后端。
+
+实际通过：工作流 OpenAPI 断言（通过）；文本结构检查 `153 paths / 163 operationIds`，重复 operationId 和缺失 Schema 均为 0，YAML 解析及外部 Schema 引用检查通过；`python -m py_compile tests/contracts/test_workflow_openapi.py tests/contracts/test_data_source_openapi.py`；`python scripts/check_java_domain.py`（运行时、持续指标/日志、输出及重放 smoke 通过）；`./gradlew.bat :apps:platform-api:compileJava --offline --console=plain`（BUILD SUCCESSFUL）；`pnpm --filter @opsweave/web-console build`（TypeScript 与 Vite build 通过，保留既有大 chunk warning）；`git diff --check`。完整 `python -m pytest` 因当前解释器缺少 pytest 未执行；Rust、PostgreSQL HTTP 和 Playwright 本轮未重跑。无新增数据库迁移、启动单元、权限或隐藏执行器，完整目标继续保持 active。
+
+## 144. 2026-10-06 · 工作流来源绑定 OpenAPI 契约对齐
+
+补齐平台 OpenAPI 草案中的工作流来源绑定路径：固定连接版本的指标/日志选择页，以及指标映射绑定的分页、详情、CAS维护和原回执查询。响应分别引用 `workflow-metric-source-page`、`workflow-log-source-page`、`metric-mapping-*` v2 闭合 Schema；描述明确发现选择只读取已保存快照，绑定维护由服务端检查租户/主体/来源范围、版本和请求幂等，不接受身份、地址或秘密覆盖。
+
+实际通过：工作流来源与映射 OpenAPI 登记断言（通过）；`python -m py_compile tests/contracts/test_data_source_openapi.py`；`pnpm --filter @opsweave/web-console build`（Vite 1.22s，保留既有大 chunk warning）；`git diff --check`；OpenAPI 文本结构统计为 85 paths、94 个 operationId，重复均为 0。完整 pytest 因当前解释器缺少 pytest 未执行；Node 全局缺少 `js-yaml`，YAML 解析未执行；本轮未重跑 Java/Rust/PostgreSQL HTTP/Playwright。没有新增数据库迁移、启动单元、权限或采集动作，完整目标继续保持 active。
+
+## 143. 2026-10-06 · 数据接入 v2 OpenAPI 登记与前端类型收敛
+
+平台 OpenAPI 草案登记了数据接入 v2 的实例列表/详情/配置历史、连接创建与维护/历史、凭据创建与版本、实例级连接测试、连接检查历史、字段发现、指标发现及指标分页和原始检查回执路径。新增 `tests/contracts/test_data_source_openapi.py`，逐路径核对 HTTP 方法、operation 响应 Schema 和 Schema 文件存在性，并检查关键 operationId 唯一。实例维护抽屉统一兼容旧来源连接快照与版本化连接配置：空 endpoint 安全显示，连接摘要字段按类型收窄。
+
+实际通过：`pnpm --filter @opsweave/web-console build`（Vite 1.27s，保留既有大 chunk warning）；使用仓库外显式 Chromium 路径运行 `pnpm --filter @opsweave/web-console exec playwright test e2e/source-instances.spec.ts --project=chromium`，13 passed；`python -m py_compile tests/contracts/test_data_source_openapi.py tests/contracts/test_workflow_quality_alerts.py`；`git diff --check`。`python -m pytest tests/contracts/test_data_source_openapi.py -q` 因当前解释器缺少 pytest 未执行；Node 全局没有 `js-yaml`，本轮 OpenAPI YAML 解析未执行；本轮未重跑 Java/Rust/PostgreSQL HTTP。没有新增数据库迁移、启动单元、权限或采集动作，完整目标继续保持 active。
+
+## 142. 2026-10-06 · 质量阈值 OpenAPI 契约对齐
+
+平台 OpenAPI 草案补上已实现的质量阈值状态、配置和原回执三条路径，三条路径均引用现有 `contracts/schemas/v2` 闭合 Schema，并在描述中明确只保存/评估元数据，不发送通知或执行动作。
+
+实际通过：Node `js-yaml` 解析 `contracts/openapi/platform-draft.yaml`（58 paths，3 条质量阈值路径）；Node 路径存在性与 Schema 引用断言（3 条）；`python -m py_compile tests/contracts/test_workflow_quality_alerts.py`。`git diff --check` 通过。完整 `python -m pytest tests/contracts/test_workflow_quality_alerts.py -q` 因当前解释器缺少 pytest 未执行；`scripts/check_repo.py` 的 PyYAML 检查也未执行，不能以本节替代完整契约/结构检查。没有新增数据库迁移、启动单元或业务动作端口，目标继续保持 active。
+
+## 141. 2026-10-06 · 质量阈值只读边界提示
+
+质量阈值面板增加“只保存阈值并进行只读评估，不发送通知或执行动作”的明确提示。请求容器、规则默认停用、原 UUID 回执与权限门禁保持不变。
+
+实际通过：`pnpm --filter @opsweave/web-console build`、`git diff --check`；设置仓库外已有的 `OPSWEAVE_TEST_CHROMIUM_EXECUTABLE` 后运行 `pnpm --filter @opsweave/web-console exec playwright test e2e/workflow-quality-alerts.spec.ts --project=chromium`，25 passed（53.6s），覆盖三种宽度、明暗主题、首次读取、保存/CAS、待确认回执、非法响应和身份清理。此前未设置浏览器路径的启动失败不计入通过。Rust、契约及 PostgreSQL HTTP 本轮未重跑；目标继续保持 active。
+
+## 140. 2026-10-06 · 实例维护页切换到实例级连接检查
+
+实例维护抽屉中的“测试保存的连接”现在调用 `/api/v2/data-sources/{id}/connection-check`，并继续提交原 `requestId`、`configurationRevision` 与 `connectionDigest`。回执仍由来源检查契约校验，配置变化、过期、UNKNOWN、越权和会话清理语义保持；历史从同一实例的 `/inspections` 读取。兼容的旧来源扫描页继续使用 v1 全局自检入口，避免把它解释为当前实例状态。
+
+实际通过：`pnpm --filter @opsweave/web-console build`；`pnpm --filter @opsweave/web-console exec playwright test e2e/source-inspections.spec.ts --config=playwright.config.ts`（32 passed）；`./gradlew.bat :apps:platform-api:test --tests com.acme.opsweave.platform.PipelineHttpIT --offline --console=plain`（BUILD SUCCESSFUL，包含重复键和尾随 JSON 两项400负向）；`git diff --check`。本轮未重新执行 Rust、契约或 PostgreSQL HTTP 检查，不能用本节替代第139节的结果；目标继续保持 active。
+
+资产旧版 Host 只读重放仍复用既有租约、幂等、本人/tenant隔离和无写入门禁；本轮审计发现其 JSON 边界允许重复键或尾随对象，已启用严格重复键与尾随 token 拒绝，并补充 HTTP 负向覆盖。
+
+## 139. 2026-10-06 · 实例级连接检查历史按类型取数
+
+本轮将实例级 `GET /api/v2/data-sources/{id}/connection-checks` 的历史查询下沉到存储层，先按 `TEST` 类型取最近 20 条，再返回结果；不会因较新的字段发现记录挤占连接检查历史。新增 `POST /connection-check` 仍复用现有 `TEST` 的固定配置版本、连接摘要、可信身份、凭据 pin、受控来源读取和 inspection 回执，不增加权限、迁移、数据库或启动单元。契约与连接检查操作说明已同步。
+
+实际通过：`./gradlew :apps:platform-api:compileTestJava --no-daemon --console=plain` BUILD SUCCESSFUL（34s）；`python scripts/check_java_domain.py` 通过，包含新增混合历史断言，Source inspection smoke 38 checks passed；`pnpm --filter @opsweave/web-console build` 通过（Vite 仅保留既有大 chunk warning）；`cargo test --workspace --locked` 41 tests passed；`cargo check --workspace --all-targets --all-features --locked` 完成；`node --check scripts/acceptance/workflow-replay-provider.mjs` 通过；`git diff --check` 通过。前端关联回归由本轮协作代理实际执行，38 passed，覆盖接入初读、权限/503、实例维护、指标列表、多页签、三种宽度和明暗主题。
+
+未通过或未执行项如实保留：`SourceInspectionHttpIT` 共 4 项因未设置 `OPSWEAVE_TEST_JDBC_URL/USER/PASSWORD` 被环境门禁跳过，不能算 HTTP/PG 通过；`python -m pytest tests/contracts -o addopts='' -q` 因当前解释器缺少 pytest 未执行；`python scripts/check_repo.py` 因当前解释器缺少 PyYAML 未执行。契约、仓库结构和真实 PostgreSQL HTTP 结果不能由本轮编译或 smoke 检查替代。目标继续保持 active。
+
+最新本机追加记录见第 138 节。以下早期交付包的“未执行/未实现”按当时状态保留，不代表后续本机增量状态。
 
 日期：2026-09-21。此报告区分实际执行、只提供源码及未具备执行条件三种状态。**未验证 Rust 编译，不声明模板可直接用于生产。**
 
@@ -1298,7 +1407,7 @@ AIInsight 必须匹配本次 run/租户/Incident/版本/资产/窗口，原样�
 | 结构 / 锁与 Wrapper | `.tmp/mvp-check-venv/Scripts/python.exe scripts/check_repo.py`、同解释器 `scripts/check_release_inputs.py` | **244个结构化文件、6个只读 Tool 通过**；Bootstrap 文件存在。没有生成或升级产品锁文件、Wrapper |
 | 契约全量与报告交叉校验 | `.tmp/mvp-check-venv/Scripts/python.exe -m pytest tests/contracts -q`；随后加 `-X utf8 -o addopts=` 复跑 | 首次**收集失败**：既有 `test_incident.py` 使用默认GBK读取UTF-8中文样例，出现 `UnicodeDecodeError`。本地 `scripts/check.ps1`/`check.sh` 已显式启用UTF-8；UTF-8全量复跑通过；扫描计数样例修正后最终 **800 passed（7.29s），退出码0**，输出在 `.tmp/mvp-contracts-final.log`。包含实际CLI失败报告和43份协议fixture报告的Schema交叉校验 |
 | 纯领域 | `node .tmp/domain-check.cjs`，Java21 编译全部 modules/tests/domain 并运行 main | **1141项、41个 main 通过**。新增5项失败日志边界断言；先运行回归，旧实现按预期因原始 Throwable 泄漏失败，修复后全量通过。部分页面已保存且失败不误退休的既有断言仍通过 |
-| Java / 启动包 | `gradlew.bat :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline --console=plain --rerun-tasks` | 首次无存储配置为123通过/122跳过。随后用隔离本机 PG/VM 配置同命令强制复跑：**BUILD SUCCESSFUL（3m33s），两个 bootJar 成功，36任务执行**；XML 平台225、Worker20，合计 **245通过，0失败/错误/跳过** |
+| Java / 启动包 | `gradlew.bat :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline --console=plain --rerun-tasks` | 首次无存储配置为124通过/122跳过。随后用隔离本机 PG/VM 配置同命令强制复跑：**BUILD SUCCESSFUL（3m33s），两个 bootJar 成功，36任务执行**；XML 平台225、Worker20，合计 **245通过，0失败/错误/跳过** |
 | PostgreSQL / VictoriaMetrics | `docker info`、`docker desktop start --timeout 30`，核对测试环境配置 | Docker Desktop 启动超时且 Linux engine named pipe 不存在。改用校验过的官方 Windows 二进制：**PostgreSQL 17.11、VictoriaMetrics v1.152.0**，独立 `.tmp/mvp-native` 数据、随机PG凭据、仅127.0.0.1；245项Java测试全量零跳过通过。属于真实存储引擎上的合成数据测试，外部来源/模型/IdP仍是未验收 |
 | Rust | `node .tmp/rust-check.cjs`：fmt、默认 `cargo test --workspace --locked -j 1`、`cargo test --workspace --all-features --locked -j 1` | **fmt通过，默认40 / all-features44通过，0 failed/ignored**。Rig用例仍是明确协议桩，无真实提供方请求 |
 | TypeScript / Web build | `pnpm typecheck:web`、`pnpm build:web`；浏览器配置改动后 Playwright 的 build 前置再次执行 | **通过**；Vite生产构建82模块。未升级 pnpm/Zeus/TypeScript 等依赖 |
@@ -1920,3 +2029,1649 @@ Ctrl/⌘+K支持页面名、现有路径、分类与业务关键词，多个词�
 | 未复跑 | Playwright、契约 pytest、Java 领域/PG/VM、Rust 默认与 all-features。未启动平台，因此没有用真实草稿渲染 X6，也没有用真实目录渲染 G6。拖动、缩放和键盘移动画布本轮未操作 |
 
 原 M0–M4 退出项不改变。Agent 控制台、聊天组件和生产 OIDC 仍未接入。开发预览只在 127.0.0.1。
+
+## 76. 2026-10-01 Go 跨平台开发服务管理器（追加）
+
+按用户要求实现交互式前后端管理，并将实现语言从最初的 TypeScript 草案改为 Go。Go 是开发工具，不加入平台领域层、不替代 Java/Rust/TypeScript、不增加生产业务启动单元。未提交或推送。操作入口和配置边界见[开发服务管理器](runbooks/dev-manager.md)。
+
+环境：Windows amd64，Go 1.26.5、Java 21.0.11、Rust/Cargo 1.98.1、Node 24.16.0；复用既有前端 node_modules 与 Gradle 缓存。本轮没有执行依赖升级或生成伪造锁文件；Go 只依赖标准库，无需 go.sum。
+
+### 本轮实现
+
+- `scripts/devctl` 提供菜单及 start/stop/restart/status/logs，管理固定 platform/runtime/worker/web。支持全部与单组件，菜单退出后进程继续运行，再次打开可管理。状态区分排队、构建、启动、运行、失败与未受管端口，并展示真实 HTTP 存活/就绪结果。
+- 使用固定应用构建入口：Java 直接调用仓库 Wrapper 的 Java 主类，Rust cargo build --locked，Web 直接调用安装的 Vite；无 shell 字符串拼接，Java/Rust/Vite 启动绑定 loopback，Web strictPort。所有终端共享一个构建名额，构建5分钟/存活探针90秒上限，失败不重试/回退。
+- 管理进程的随机 loopback 控制端口由独立随机凭据鉴权；普通状态/日志不含环境与控制请求。只停止实际持有的子进程对象，拒绝接管外部端口，不按磁盘旧PID杀进程。Windows隐藏进程并停止进程树；Unix使用独立进程组。
+- 字面dotenv配置支持 .env、.env.dev、组件覆盖及系统环境；新增可提交样例 .env.dev.example。显式--demo强制memory/Fixture/Mock、关闭Worker采集与模型出网、固定开发身份，生成复用随机Token且不打印；local失败不自动使用Fixture。公开占位Token被拒绝。切换已有local/demo服务须显式restart。
+- 写入组件日志前脱敏已知凭据与Authorization，处理跨写入分片并省略超长行。源码不包含真实凭据。增加固定Go1.26.5的Windows/Linux/macOS CI矩阵，本轮未运行远程CI。
+
+### 实际运行结果
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| Go 测试 | `go -C scripts/devctl test -v ./...`：最终12个Test入口通过（11个行为检查及1个子进程helper入口），包括dotenv字面值、安全错误、显式演示覆盖/稳定Token/占位拒绝、模式切换拒绝、无shell启动命令、日志分片脱敏、控制鉴权、实际fixture子进程启动/重启/停止、子进程树、共享构建/排队取消、外部端口拒绝与构建失败关闭 |
+| Go vet/build | `go -C scripts/devctl vet ./...`、`go -C scripts/devctl build -o ../../.tmp/bin/ .`通过，生成Windows启动器；后台执行自身副本，使运行中可重建CLI，产物均在忽略目录 |
+| 交叉编译 | 最终源码设置GOOS=linux/GOARCH=amd64，以及GOOS=darwin/GOARCH=arm64，CGO_ENABLED=0，go build均退出0；仅编译，不宣称目标机器运行或Unix信号路径已实测 |
+| 实际四组件生命周期 | Windows二进制`start all --demo`与`restart all --demo`最终退出0，Java API、Rust Runtime、关闭采集的Java Worker及Vite均running，四组件存活/就绪各200/200；Web单独restart与logs也实际执行通过。未使用真实来源、数据库或模型 |
+| 菜单/清理 | 通过标准输入`4`→`0`检查实际菜单与状态，退出码0，退出后服务继续运行；随后stop all退出0，再次status显示四组件stopped/PID0/端口均未占用，管理状态文件移除。本轮临时服务未留后台 |
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -q`退出0，885项通过；不等于业务整链 |
+| Java纯领域 | 原`python -X utf8 scripts/check_java_domain.py`因Windows命令长度限制失败；随后使用既有`.tmp/local-preview/menu-69-domain.cjs`以javac --release21与@参数文件编译同一modules/领域源码并逐个运行47个main，退出0；不是Gradle集成测试 |
+| Rust | `cargo test --workspace --locked -j 1`最终41项通过；`cargo test --workspace --all-features --locked -j 1`49项通过；`cargo fmt --all -- --check`退出0；未触发外部模型/MCP调用 |
+| TypeScript/build | Node直接执行已安装TypeScript的tsc --noEmit -p apps/web-console/tsconfig.json，退出0；apps/web-console目录执行vite build退出0，保留超过500KB块的既有警告；未执行Playwright或重新安装依赖 |
+| 静态 | check_repo与git diff --check通过；未提交.env、凭据、二进制、缓存或target，源码变更没有跨语言业务契约修改 |
+
+中间失败如实保留：Go首次构建的工具进程缺少GOCACHE/LocalAppData，补齐本机缓存环境后通过；Rust首次检查缺少MSVC link.exe环境，配置既有MSVC/Windows SDK后两类测试最终通过。首次Vite调用误在仓库根目录构建，改在Web目录后通过。Java首次启动使用错误Gradle缓存位置而下载等待，另一个终端的Worker构建遇到Wrapper排他锁超时；修正本机GRADLE_USER_HOME并增加跨终端共享构建名额后，Java构建和启动通过。第一次四组件启动的Runtime与all-features检查争用Cargo锁超过5分钟，按预期被停止并保留失败，无隐藏重试；检查完成后显式重跑，最终四组件启动、全部重启和清理均通过。
+
+本轮未运行：完整Java/PG/VM集成、Playwright、真实Zabbix/模型/IdP/TLS及人工评估、Go race检查、macOS/Linux实机生命周期、整机重启和生产部署。新增CI仅提供配置，不报告CI通过。既有生产身份、业务持久性和M0–M4退出项保持原状态。
+
+本机原始输出位于忽略目录`.tmp/dev-checks`（go-final、contracts、domain-argfile、rust-default-final、rust-all-features、web-build、vite-build-final、smoke-final、restart-all-final等日志），组件日志与随机开发凭据在`.tmp/dev`；不提交这些开发产物。
+
+## 77. 2026-10-01 shadcn-admin 风格运维控制台（追加）
+
+按用户指定的shadcn-admin参考其布局、分组导航、卡片及标签页层级，保留现有React/shadcn/ui、hash路由、可信会话与21个页面。没有引入上游的演示业务数据、Clerk/TanStack Router，也没有升级依赖或修改跨语言业务契约。用法见[运维控制台](runbooks/admin-console.md)。未提交或推送。
+
+### 本轮实现
+
+- 统一中性色与蓝色重点色、亮暗主题变量、侧栏层级、顶栏搜索/面包屑、统计卡片、表格/筛选表单和图形工作区。开发凭据区收紧，仍保留完整可访问名称与内存生命周期；使用说明移到业务内容下方。
+- 运维工作台显式调用既有资产/故障分页GET，各最多25条，最多两条并发、15秒预算，无自动重试。卡片、事件表和资产生命周期分布均只代表当前页；事件表按本页创建时间排序取前5条，点击只恢复选择，不自动读详情。后续页、Fixture资产、开发内存均明示。
+- 一项接口503不被解释为空数据，另一项成功可展示；401/403和会话变化取消请求并清空旧结果，迟到响应不能回填。没有新增后端聚合、模型调用或假造全平台指标。
+- 新增本地Card/Radix Tabs组件，接入流程在独立键盘可用的指南标签中。更新旧Zeus控件回归入口与首页导航断言。
+- 完整回归发现X6在clearCells后立即复用节点ID时旧HTML视图残留，固定小图同步更新后消除；恢复普通滚轮的页面滚动链。图适配不改变工作流定义、布局或执行协议。
+
+### 实际运行结果
+
+环境：Windows，Node24.16.0、Java21.0.11、Rust/Cargo1.98.1，复用已有node_modules、契约虚拟环境及本地工具链；浏览器明确指定本机Chrome，不静默替换。
+
+| 检查 | 实际结果 |
+|---|---|
+| 类型检查 | Node直接执行已安装TypeScript的tsc --noEmit -p apps/web-console/tsconfig.json，最终退出0 |
+| 生产构建 | Web目录执行vite build，最终退出0。保留超过500KB块警告：主块约624.5KB，X6约585.8KB，G6约1.4MB；不宣称性能达标 |
+| 全量浏览器 | 在4173生产预览执行Playwright Chromium --workers=2，最终276项通过（1.6分钟），包含新增7项工作台检查。均为显式HTTP Fixture，不等于真实平台联调 |
+| 相关修复复验 | 首页、图工作区、工作流的18项先单独通过；最终全量又验证X6编辑/撤销/重做/保存/预览/发布/测试运行/下一版、拖动与键盘移动、普通滚轮、G6明细/缩放、导航/搜索/主题和权限清理 |
+| 视觉与响应式 | 实际浏览器截图查看1440桌面工作台/资产/数据源及390手机工作台/抽屉、亮暗主题。390×844逐个打开21页，documentElement.scrollWidth均不大于视口，未捕获pageerror。另以显式契约Fixture读取并截图工作台表格与生命周期分布，未注入真实系统数据 |
+| 契约 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -q退出0，885项通过 |
+| Java纯领域 | 复用既有忽略目录menu-69-domain.cjs，以javac --release21/@参数文件编译同一modules领域源码并运行47个main，退出0；不是完整Gradle/PG集成 |
+| Rust | Runtime目录cargo test --locked共41项通过；cargo test --locked --all-features共49项通过；cargo fmt --all -- --check退出0，未调用外部模型或MCP |
+| 静态 | check_repo退出0，271个结构化文件、6个只读Tool检查通过；git diff --check通过 |
+
+中间失败：首次契约入口误指向不存在的scripts/check_contracts.py，改用仓库实际pytest入口后通过。第一次完整浏览器结果为271通过/5失败，其中两项为改版后的首页断言差异，三项暴露X6节点残留与滚轮问题；修正断言和适配层后相关18项及最终全量276项通过。没有把编写测试视为通过。
+
+预览清理后由既有Go管理器restart web启动，Vite存活/就绪200/200，HTTP根页200，保留5173供界面查看；平台/Runtime/Worker仍stopped。第一次start web报告端口占用并拒绝启动，确认5173无监听后显式restart通过，没有接管外部进程。4173测试预览及本轮浏览器已关闭。
+
+本轮未跑完整Java/PG/VM集成、真实Zabbix/模型/IdP/TLS或人工诊断评估、远程CI和生产部署。尚未接入的Agent控制台和M0–M4业务验收状态不改变。原始输出与预览截图在忽略目录.tmp/dev-checks/ui77-*与.tmp/ui77-*，不提交本地凭据、浏览器数据、产物或缓存。
+
+## 78. 2026-10-01 Go 管理器二进制分发与 npm 产物调用（追加）
+
+按用户要求保留Go源码，将日常入口从go run改为编译产物。package.json增加ops以及dev:start/dev:restart/dev:logs等快捷脚本，dev和状态/停止也直接调用二进制。Node适配器仅选择本机平台/架构并转发参数、标准输入输出、信号和退出码，进程管理仍由Go负责。缺少产物不隐式编译或下载；单文件管理器可直接运行，无需Go或Node适配器。业务应用仍需原有仓库和Java/Rust/Node环境。未提交或推送。
+
+产物生成在忽略目录dist/devctl，Go源码位于scripts/devctl。构建显式CGO_ENABLED=0、-trimpath、-ldflags=-s -w；提供Windows/Linux/macOS的amd64/arm64六份二进制、README.txt和SHA256SUMS，不复制.env或凭据。CI三系统矩阵改为同一构建入口并上传本机产物附件；本轮未执行远程CI。用法见[开发服务管理器](runbooks/dev-manager.md)。
+
+### 实际运行结果
+
+环境：Windows amd64、Go1.26.5、Node24.16.0、Java21.0.11、Rust/Cargo1.98.1。复用已安装依赖，不修改依赖锁。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 本机构建 | pnpm dev:build退出0，生成dist/devctl/windows-amd64/opsweave-dev.exe，大小7,203,840字节；帮助说明已区分源码构建与二进制运行所需环境 |
+| 分发构建 | pnpm dev:package退出0，六个目标均成功编译；独立读取每个文件并重新计算SHA256，六项均匹配SHA256SUMS，Windows PE/Linux ELF/macOS Mach-O文件头已读取核对。仅Windows amd64实机运行，其余五个目标仅交叉编译 |
+| npm调用 | pnpm ops status和pnpm ops --help退出0；pnpm ops restart web退出0，Vite PID由22508变为28560，存活/就绪200/200，其他三个组件保持原PID和200/200 |
+| 菜单 | 实际pnpm ops标准输入4→0，状态/菜单显示正常并退出0；退出菜单后四组件继续运行 |
+| 运行无需Go | 从PATH移除Go后pnpm ops status仍退出0。另从仓库.tmp子目录直接运行Windows二进制，仅保留Windows系统PATH（无Go/Node），正确定位仓库并查询四组件，退出0 |
+| 失败行为 | pnpm ops invalid-command原样返回退出1。隔离空目录复制适配器后运行status，退出1并明确提示缺少当前平台产物；没有编译、下载或启动服务 |
+| Go | go -C scripts/devctl test -v ./...的12个Test入口通过（含子进程helper）；vet和fmt退出0；三个.mjs文件Node语法检查通过 |
+| 契约/领域 | pytest tests/contracts -q退出0，885项通过；复用javac参数文件入口编译纯领域并运行47个main，退出0，不等于Gradle/PG集成测试 |
+| Rust | fmt检查退出0；独立CARGO_TARGET_DIR执行cargo test --workspace --locked -j 4，41项通过；同一隔离目录执行cargo test --workspace --all-features --locked -j 4，49项通过 |
+| TypeScript/build | Node调用已安装tsc --noEmit退出0，Web目录vite build退出0；保留主包/X6/G6超过500KB的既有警告 |
+| 静态 | check_repo退出0，272个结构化文件、6个只读Tool检查通过；git diff --check及dist产物Git忽略检查通过 |
+
+中间失败如实保留：最初在默认target目录执行Rust复验，Cargo需要替换正在运行的Runtime.exe，Windows拒绝访问而退出101；没有停止现有服务，改为忽略目录.tmp/dev-checks/rust78-target进行独立构建和检查。此失败不计为测试通过，也未通过删除运行中产物规避。
+
+本轮未执行完整Java/PG/VM集成、Playwright、非Windows amd64实机运行、真实模型/IdP/TLS/人工评估、远程CI或生产部署。只改开发工具交付方式，不提高M0–M4业务验收状态。原始输出和二进制核对记录位于忽略目录.tmp/dev-checks/pack78-*，产物不提交到Git。
+
+
+## 79. 2026-10-01 本地预览自动会话与移除平台 Token 输入（追加）
+
+用户明确选择本地预览自动建立会话、打开即用。本轮为开发访问体验调整，不实施附件中的正式IAM方案，不增加业务启动单元或变更Java领域/跨语言业务Schema。开发随机Token、固定开发身份、Java逐请求tenant/对象/权限/预算检查仍保留；并未关闭后端认证。
+
+Go客户端在启动Web前读取平台实际配置，以私有环境变量给Vite派生开发凭据；该变量不使用VITE前缀，不进入浏览器或产物。serve模式的loopback桥接提供固定GET开发握手，返回短时随机nonce与有效期；业务请求只携带内存nonce，由Vite验证同源、Host、Fetch Metadata及有效期后在固定/api/v1代理中添加后端Bearer，不向独立Fixture Runtime注入。最多64份30分钟会话，满额拒绝新会话。平台页面自动会话就绪后完全隐藏会话输入区；过期/401明确重新连接，失败不隐藏重试。手动开发模式和OIDC可显式使用，生产构建不启用本地桥接。使用见[本地会话](runbooks/local-session.md)和[Go管理器](runbooks/dev-manager.md)。
+
+### 实际运行结果
+
+环境为Windows amd64、Node24.16.0、Go1.26.5、JDK21.0.11、Rust1.98.1。沿用现有锁、依赖和本地四服务，无提交或推送。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 本地桥接/传输协议 | 新增7项Node测试通过：随机nonce/不返回后端Token、无凭据401、Origin/Host/Fetch Metadata与Bearer覆盖403、固定GET/路径限制、30分钟过期、64容量机制（隔离测试缩为2）、非loopback配置拒绝、仅nonce无Cookie/Bearer、Runtime隔离、手动身份替换拒绝、会话失效取消迟到响应；与既有44项验收协议Fixture合计51项零失败 |
+| 自动会话浏览器 | 独立4175 Vite Fixture的4项Playwright通过：打开与刷新无Token栏/不持久存储nonce、握手失败显式重连、401清数据且无自动重试、确定性pagehide/pageshow恢复。最后一项是事件Fixture，不声称原生bfcache覆盖 |
+| 已有浏览器回归 | pnpm test:web实际276项全量通过，包含手动开发、OIDC协议、来源、工作流、X6/G6和控制台；与新增4项合计280项，通过不代表生产IAM验收 |
+| 实际本地浏览器 | 5173来源页面自动会话就绪，无平台Token输入。只发起GET读取既有PostgreSQL接入目录，HTTP200，读到5份已有配置、7个模型；刷新重新建立会话。浏览器请求无Authorization、携带nonce；直接Java无Bearer401、Vite无nonce401、跨Origin握手403。未确认/新建配置、未触发来源自检/手动采集或模型诊断 |
+| 凭据/构建隔离 | 使用显式fixture私有Token执行生产vite build退出0，扫描产物未包含该值；实际读取开发会话/HTTP/Vite客户端模块，未包含本机后端Token。只记录布尔结果，不输出凭据。生产构建保留既有大chunk警告 |
+| Go | 15个Test入口通过（含helper及新增配置/演示凭据/启动状态快照测试），vet和gofmt成功；同时修正queued/starting的PID0快照误标unmanaged竞态，外部进程仍不接管 |
+| 产物 | 最终重新编译Windows/Linux/macOS各amd64/arm64六份管理器，重新计算六项SHA256均匹配；仅Windows amd64实机运行，其余仅交叉编译 |
+| 契约/领域 | Python显式UTF-8执行885项契约通过；参数文件javac入口编译并实际运行47个纯领域main，退出0，未将其当成Gradle/PG集成 |
+| Rust | fmt退出0；隔离CARGO_TARGET_DIR执行默认41项与all-features49项，均通过，不覆盖运行中Runtime.exe |
+| TypeScript/静态 | 最终tsc --noEmit、vite build、check_repo与git diff --check退出0；272个结构化文件、6个只读Tool检查通过 |
+| 服务状态 | pnpm ops status与最终幂等pnpm ops start web均退出0；platform27844/runtime14620/worker28152保持原PID，Web14756，四单元存活/就绪均200/200，保留5173供使用 |
+
+中间失败保留：首次Node Host负例使用fetch，其Host被客户端规范化而未发送伪造值，改用真实HTTP request后7项通过。新增浏览器测试首次异步response监听未完成就断言会话数，改为等待观察结果后4项通过。初次契约收集受Windows默认GBK影响退出2，显式-X utf8后885项通过。实际浏览器初次因状态文本在已关闭dialog内也存在而触发locator严格匹配错误，限定可见外层匹配后通过。首次Web restart端口检查失败返回1；随后start的异步状态快照误标unmanaged返回1，但已受管Web最终完成启动，后续status/start退出0，未杀未知进程。新快照修复通过隔离测试并进入重新构建的产物；本轮保留原后台supervisor，不为替换它停止其他三个业务服务，新建supervisor时使用新版本。上述失败均不计为成功。
+
+本轮未执行完整Java/PG/VM集成、真实模型调用/IdP/TLS/人工评估、非Windows实机或远程CI、生产部署；不提高M0–M4退出状态。现有Worker继续原授权流采集，本轮未修改其配置或起点。原始输出、无Token页面截图和脱敏布尔/数量核对记录位于忽略目录.tmp/dev-checks/session79-*；凭据、浏览器业务数据、缓存和产物不提交。
+
+
+## 80. 2026-10-01 来源优先、日志/指标独立输出与工作流体验（追加）
+
+本轮完成来源先配置、工作流选择输出及相关界面优化。来源确认的target可以省略，初始模型pin与工作流为空；进入画布后显式选择ENTITY、METRIC或LOG并保存。旧实体确认及工作流JSON/摘要保持兼容。遥测格式与示例以contracts为权威，不为日志或指标伪造实体模型；实体仍要求目录权限，Zabbix Host批次不能冒充遥测输入。
+
+LOG保留正文首尾空白并校验带时区的eventTime、body、可选级别/服务/Trace字段；METRIC固定timestamp/key/value/type/unit，首版只接受GAUGE，数值有界、单位不猜测。继续复用有界样本、单链白名单算子及预览发布门禁。界面沿用React/shadcn-ui及shadcn-admin风格，增加来源/处理/输出阶段、选择卡、格式校验、节点输入输出和字段错误；无目录权限时不可选择实体模板。来源列表不从不可变回执猜测当前工作流状态。X6独立响应式viewport解决引擎inline尺寸在窗口变窄后遮挡节点的问题。
+
+环境：Windows amd64，JDK21.0.11、Node24.16.0、Rust1.98.1；复用锁与依赖。Java集成使用既有本地Docker端口和隔离数据库opsweave_checks_64，不清空运行中的平台数据库。本轮未新建服务、数据库、迁移或依赖，没有提交或推送。
+
+### 实际运行结果
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | Python显式UTF-8执行pytest tests/contracts -o addopts= -q，904项通过；覆盖来源空target/空工作流、新旧输出联合、日志/指标记录、非法字段/格式/Host组合及历史trace联合 |
+| 纯领域 | javac --release 21参数文件编译后逐一运行48个main，1391断言通过；新增WorkflowOutputSmoke27项实际覆盖source.sync-only、来源幂等、无自动草稿、日志/指标保存预览发布、UTC、正文空白、非法时间/类型及Host组合拒绝 |
+| Java/PG/VM | 先实际运行TelemetryWorkflowHttpIT、SourceSetupHttpIT、WorkflowHttpIT及两项PG工作流类；再运行platform-api与ingestion-worker完整test。XML合计258+24=282项，失败/错误/跳过均0；新HTTP测试3项包含无entity.read时遥测可用、实体仍403、Host错误400、持久trace无正文及旧确认兼容 |
+| Rust | 独立CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target执行默认41项和all-features49项，均通过；cargo fmt --all --check通过，未覆盖运行中Runtime产物 |
+| TypeScript/build | 最终tsc --noEmit和vite build退出0；保留主包/X6/G6大于500KB的既有chunk警告，没有依赖升级 |
+| 浏览器Fixture | 全量281项通过（276既有+5输出测试）。随后新增尺寸切换检查、修正viewport及页面能力提示，最终25项来源/工作流/输出/X6/G6关联测试通过，其中6项输出覆盖1440/390px、无实体目录、文本渲染、旧预览失效、发布后创建独立模板及所有节点在父viewport内。全量281之后未再次运行全部套件；增量由上述关联检查覆盖 |
+| 本地自动会话 | 独立Vite Fixture的4项Playwright及7项Node桥接/传输协议检查通过；未重跑未修改的Go单元测试或全部既有Node协议文件 |
+| 实际本地流程 | 无开发Token栏的5173浏览器经真实Java/PG确认一份[LOCALTEST]手工日志来源：200、initialTarget=null、workflow=null，抽屉无模型字段。显式保存4节点LOG草稿，1条Fixture样本通过、0拒绝、dryRun=true/writesPerformed=false；正文空白保留、UTC规范化。发布200，来源与运行明细回读成功，刷新后显式读取恢复不可变版本；持久运行详情无样本values/正文 |
+| 旧版本/布局 | 实际读取用户原source-26b50d02-ebf2-4588-a44e-6eb13dc4a783草稿：editVersion仍1、builtin.host@1、target仍digest/id/revision三字段、来源仍zabbix-local、节点仍SOURCE/MAP/TRIM/VALIDATE/OUTPUT。未保存或更改此草稿。实际390px截图及父容器边界核对：四节点完整可见、无横向溢出和pageerror；桌面与输出选择卡已视觉核对 |
+| 静态/私有资料 | check_repo及git diff --check退出0，6个只读Tool检查通过。私有审计报告仍在仓库外，实际重算SHA256与交付时一致；未复制参考代码、资源或私有报告到公开仓库 |
+| 服务 | 实际pnpm ops restart platform及status退出0；platform29984、runtime14620、worker28152、web14756，四组件存活/就绪200/200，5173保留供使用 |
+
+中间失败如实保留：首次TS检查发现JSX分支引用被缩窄为never，提取sourceKind后通过。首次契约有2项因新样例名称找不到同名Schema失败，改为匹配现有契约的样例名后904项通过。首次新增浏览器用toBeDisabled检查原生option，虽已有disabled属性仍得到enabled，改为属性检查；随后全量通过。初始尺寸测试只按X6宿主自身边界核对，实际截图发现宿主inline宽度仍超出父容器；增加独立viewport、监听实际容器及父容器边界断言后复验通过。实际页面探针首次ESM导入Playwright失败，改用已安装包的CommonJS入口；初次直接等待旧深链表单时尚未显式读取，点击读取后回查成功。这些失败均未计为通过。
+
+本轮只证明有界平面样本转换、版本管理与只读预览。没有连续日志采集/Grok/多行解析、指标写入、日志索引、存储目的地启用、可选实体关联、关联聚合、后台吞吐量/背压/游标恢复或完整IAM建设，不将Fixture样本称为真实来源接入。真实模型/IdP/TLS、非Windows实机、远程CI、生产部署及参考项目运行/性能均未验收；M0–M4退出状态不变。实际LOCALTEST来源/版本/回执保留在本地开发数据库。原始日志、脱敏核对及截图位于忽略目录.tmp/dev-checks/outputs80-*，不提交浏览器数据、凭据、缓存或构建产物。
+
+
+## 81. 2026-10-01 操作收敛与接入/流程/版本分层（追加）
+
+按用户提供的界面参考和易用性要求重做来源、工作流的操作层次，保留React/shadcn-admin风格。来源中心分为可搜索/分类的接入类型卡片和本人接入表；工作流先列流程，再列所选流程版本，最后进入编辑。只展示现有Zabbix、手工JSON和CMDB导入能力，没有添加虚构厂商连接、后台启停、吞吐量或存储按钮。默认处理区为可点击的编号步骤，X6仍可按需切换；添加算子、样本与结果、历史及说明默认收起。已发布版本隐藏保存/发布/添加步骤按钮，保留显式测试与创建下一版。字段映射显示来源字段到中文输出字段；保存不跳走当前步骤，修改测试数据要求重新预览。
+
+删除未接入的AI执行/技能占位页及公共占位组件；Fixture诊断保留开发直链但退出产品导航和搜索，当前18个可导航业务页面。AI留存策略与UUID查询按需展开，提交结果不明时仍恢复原查询入口，预览/确认/摘要/有效期边界保持不变。来源和工作流在本地自动会话就绪后读取目录；严格校验task选择深链，旧id/revision/state及sourceSetup深链保留。开发热更新重新挂载时重置页面存活标记，避免忽略新请求结果。没有改本轮业务后端、数据库、依赖、身份构造或服务端执行权限。
+
+环境为Windows amd64、Node24.16.0、JDK21.0.11、Rust1.98.1；沿用当前本地四服务、锁和已安装依赖，无提交或推送。相关说明见[来源中心](runbooks/source-center.md)、[工作流](runbooks/workflows.md)与[控制台](runbooks/admin-console.md)。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | .tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q，904项通过；最终目录分层后重跑通过 |
+| 纯领域 | 参数文件javac --release 21编译，48个纯领域main实际运行，1391断言通过。未将编译或main检查当作Gradle/PG集成 |
+| Rust | 隔离CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target执行默认41项与all-features49项，均通过；cargo fmt --all --check退出0，未覆盖运行中Runtime产物 |
+| TypeScript/build | 直接使用已安装TypeScript/Vite CLI执行最终tsc --noEmit及vite build，均退出0；保留既有主包/X6/G6大chunk警告，无依赖升级 |
+| 浏览器全量 | Playwright 292项全量通过，包含来源先确认、ENTITY/METRIC/LOG、旧发布门禁、X6/G6、导航/留存/会话及6项新增目录分层检查。1440/390px核对搜索、类型筛选、版本到只读编辑及返回路径、模板取消恢复焦点、非法/重复/混合task深链不发请求；列表/筛选/视图操作仅GET，无保存/执行或隐藏连接探测。全量后调整目录按钮样式与创建文案，最终29项来源/目录/工作流/输出关联复验通过；此后未再重跑全部292项 |
+| 自动会话 | 显式4175 Vite Fixture执行6项Playwright通过：打开/刷新无Token、失败显式重连、401清理、确定性pagehide/pageshow恢复、深链就绪自动读取、来源目录自动读取。生命周期事件Fixture不等于原生bfcache验收；临时配置只关闭重复启动并保持原testDir/用例 |
+| 实际本地页面 | 5173真实Java/PG目录读取及已有LOCALTEST发布日志版本回读成功，来源/流程/版本/编辑桌面及390px截图已视觉检查，无横向页面溢出或pageerror；编号步骤点击能切换字段配置，发布页没有保存/发布按钮。原有业务数据未因查看而执行、保存、确认来源、测试连接、采集、发布或清理 |
+| 静态/服务 | check_repo退出0，281个结构化文件和6个只读Tool检查通过；git diff --check退出0。Go产物管理器status退出0，platform29984/runtime14620/worker28152/web14756四单元存活/就绪均200/200，5173保持运行 |
+| 参考站点 | 首次参考链接显示登录页。用户随后登录后，浏览器初次绑定/读取/状态发现连续超时；恢复连接后实际核对接入搜索、创建说明面板、任务列表、任务详情及草稿/发布数据流版本表，并捕获页面截图。仅使用搜索和只读导航，没有保存、发布、启停或删除远端任务。结合用户9张截图落实交互层次，没有导出站点源码、资源或业务数据 |
+
+中间失败如实记录：删除公共占位组件后首次TS检查发现技能页仍引用，按用户删无用元素范围移除该占位页后通过。初次步骤样式被旧X6按钮规则覆盖导致卡片重叠，将旧规则限制在画布内后桌面/手机点击及顺序断言通过。首次新增本地深链用例传入不完整的state参数而被严格解析器拒绝，改用合法task目录选择后通过。首次all-features命令因PATH选择GNU link失败，显式配置已安装MSVC/SDK后49项通过。目录分层后的首轮41项关联测试中4项仍按旧展开库路径寻找新建按钮而超时，改为返回版本表→全部流程→新建后12项专项及最终292项通过。实际长时间开发浏览器受热更新已销毁标记影响，修正重新挂载标记并刷新后版本回读成功。pnpm子脚本找不到tsc shim时改为调用已安装CLI，未声称该失败命令通过。上述失败均不计为成功。
+
+本轮未执行完整Java/PG/VM集成（上轮§80的282项不计入本轮）、真实来源/模型/IdP/TLS/人工评估、非Windows实机、远程CI或生产部署；不提高M0–M4退出状态。当前仍为有界样本预览和版本管理，不提供Grok、多行解析、连续日志/指标消费或真实存储写入。私有审计文件继续在仓库外且SHA256与交付值相同。原始检查输出及本地截图仅位于忽略目录.tmp/dev-checks/studio81-*与studio82-*，不提交凭据、浏览器数据、缓存或产物。
+
+
+## 82. 2026-10-02 接入目录与流程编辑区视觉调整（追加）
+
+按用户要求调整数据源和工作流界面，采用紧凑字号、细边框、灰白工作区和蓝色主操作。继续使用仓库现有React/shadcn-admin。相关研究原件保存在仓库外，不作为本项目业务接通证明。
+
+本轮修改范围为两个页面的局部布局、样式及相关浏览器断言。来源卡片去掉重复标题，将图标、名称、已保存数量放在顶部。流程定义与主要动作合并为工具栏，编号步骤与配置区共用一个容器；紧凑步骤、明确蓝色选中标记及手机上下排列。保留原保存/预览/发布禁用条件、不可变发布只读、Fixture标记和能力边界；没有修改业务后端、契约、身份、依赖或数据库。相关说明见[控制台](runbooks/admin-console.md)、[来源中心](runbooks/source-center.md)和[工作流](runbooks/workflows.md)。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | 显式UTF-8执行pytest tests/contracts -o addopts= -q，904项通过 |
+| 纯领域 | javac --release 21参数文件编译，实际运行48个main，1391断言通过；未将其当作Gradle/PG集成 |
+| Rust | 隔离CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target执行cargo test --workspace --locked及--all-features --locked，默认41项/all-features49项通过，未覆盖运行中Runtime产物 |
+| TypeScript/build | 最终使用已安装CLI执行tsc --noEmit及vite build，退出0；保留既有大于500KB的chunk警告，无依赖升级 |
+| 浏览器关联回归 | 显式OPSWEAVE_TEST_CHROMIUM_EXECUTABLE指定本机Chrome，最终44项通过（38.3秒）；覆盖来源、目录、工作流、ENTITY/METRIC/LOG、X6/G6与导航。目录新增1024px，与1440/390px一起检查配置区容器边界、发布版本字段禁用、搜索和版本返回、列表操作仅GET；最终搜索/选中/手机状态样式调整后复验通过 |
+| 实际本地界面 | 独立后台标签页经5173真实本地Java/PG读取来源/流程/版本目录，打开已有LOCALTEST日志发布版本并切换到字段映射；字段保持禁用。桌面、390px、明暗主题截图已视觉检查，手机容器边界及桌面无横向页面溢出。没有保存、确认来源、测试连接、预览执行或发布本地业务数据 |
+| 原标签页 | HMR后只读核对原工作流名称仍为Zabbix主机接入、五个步骤及未保存标记仍在；未刷新、重新连接、放弃或保存该标签页 |
+| 静态 | scripts/check_repo.py退出0，281个结构化文件与6个只读Tool定义检查通过；git diff --check退出0 |
+| 服务 | 实际pnpm ops start all后最终pnpm ops status退出0，platform20060/runtime30464/worker19896/web27048四组件存活/就绪均200/200；保留5173供使用 |
+
+中间失败保留：首次纯领域javac参数文件使用反斜杠，路径被参数解析合并，改为正斜杠后48个main通过。首次44项浏览器命令因预期的Playwright Chromium不存在而全部在启动前失败，显式指定本机Chrome后44项通过，没有将缺失浏览器当成测试成功。实际视觉核对发现旧原生按钮规则覆盖步骤选中背景，修正局部选择样式后明暗主题截图确认标记可见。深色主题恢复时第一次使用不匹配的按钮名称而未点击，重新读取页面后用实际“切换到浅色模式”入口成功恢复。
+
+本轮未重跑完整Java/PG/VM集成、全量浏览器套件、自动会话专项、Go检查、Rust fmt、真实来源/模型/IdP/TLS、非Windows实机、远程CI或生产部署；既有章节的结果不计入本轮。保持原M0–M4退出状态，仅调整现有管理界面。原始日志与截图位于忽略目录.tmp/dev-checks/ui83-*，未提交或推送，也不提交凭据、浏览器数据、缓存和构建产物。
+
+## 83. 2026-10-02 全站界面与前端规范（追加）
+
+继续用户要求的其他页面改造，并按明确请求设置目标。将既有18个产品入口的工作区、页头、表单、目录、图形工作区和记录容器统一为紧凑后台层次。新增 `components/PageLayout.tsx` 的PageHeader、PageBody、QueryToolbar、SummaryGrid、SummaryCard；统计组有可访问名称，查询按钮组可换行。展示组件不读取会话、不发请求、不保存业务状态，原标签、处理函数、禁用条件及统计范围保留。模型、资产、指标、故障、工作流/采集记录和维护页面接入共享布局；来源和编排保留已有专用组件。没有修改依赖、业务后端、契约或数据库结构。
+
+新增[前端开发规范](development/frontend-guidelines.md)，覆盖分层、组件抽离、主题、视觉层次、状态/身份/操作门禁、可访问性、响应式、实际验证和文档交付；由Web目录AGENTS.md引用，兼容性基线与[控制台说明](runbooks/admin-console.md)同步更新。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，904项通过 |
+| 纯领域 | `javac --release 21 -encoding UTF-8`参数文件编译，并实际运行48个领域main，1391断言通过；不是Gradle/PG集成 |
+| Rust | 隔离CARGO_TARGET_DIR为`.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked`默认41项、`cargo test --workspace --all-features --locked`49项通过；不覆盖运行中Runtime产物 |
+| TypeScript/build | 已安装CLI执行`tsc --noEmit`与`vite build`退出0；保留既有大于500KB的chunk警告，没有升级依赖 |
+| 全量浏览器 | 显式指定本机Chrome执行完整Playwright套件，297项通过；新增3项遍历全部18个产品页面，分别1440/1024/390px检查明暗主题、主内容可见、整页不溢出、匿名不请求业务。既有加载数据、错误、身份变更、不可变发布、待确认回执、键盘/焦点、X6/G6行为全部回归 |
+| 实际界面 | 独立后台标签页核对18页桌面布局，及模型/资产/诊断/采集的390px、关系示意的1024px和模型明暗主题。真实Java/PG读取模型三类目录、资产列表、工作流目录和7条历史扫描记录；模型固定版本字段保持禁用。实际时序查询返回No data，保留缺失，不声称已看到新曲线。浏览器未保存、发布、导入、触发采集、执行诊断或清理现有业务 |
+| 原标签页 | 本轮开始时可用的原标签已是连接拒绝页，无法再次核对此前未保存草稿的内存状态；未刷新、导航、重新连接、保存或放弃该标签，仅操作新建检查页 |
+| 静态 | `scripts/check_repo.py`退出0，281个结构化文件、6个只读Tool定义通过；`git diff --check`退出0 |
+| 服务 | 最终`pnpm ops start all`及`pnpm ops status`退出0：platform19564/runtime15784/worker10012/web5156，存活/就绪均200/200，5173保留运行。健康检查不证明真实模型和持续采集业务成功 |
+
+中间失败保留：第一次抽离内容区时Incidents JSX闭合位置错误，TS失败，修正后通过。首轮完整浏览器290通过/7失败，都因隐藏空alert/status的样式使已有提示区域不可访问；移除该规则后297项通过。随后采集/自检按钮组接入QueryToolbar以及统计组可访问语义完善后，重新构建并再次完整回归。失败命令不计为成功。
+
+本轮服务首次启动时平台因PG迁移连接失败退出，Worker因VM不可达退出。Docker Desktop自身启动失败，实际日志定位到残留AF_UNIX运行socket，与[Docker问题记录](https://github.com/docker/desktop-feedback/issues/460)相符。停止本轮启动的失败实例后，将只含零字节运行socket的`Docker/run`、`docker-secrets-engine`目录分别保留为`*.opsweave83-stale`/`*.opsweave83-stale-b`备份，再启动成功；未执行工厂重置、删除数据卷、迁移容器数据或改配置。原有PG/VM/Zabbix容器恢复运行，再由管理器启动平台与Worker。第一次仅替换run目录时仍在secrets-engine失败，后续两个目录一起处理后恢复，未将早期超时探针或失败启动计为就绪。
+
+本轮未执行完整Java/PG/VM集成套件、本地自动会话专项、Go测试/vet、Rust fmt、真实模型/IdP/TLS、非Windows实机、远程CI或生产部署；已有章节结果不计入本轮。不提高M0–M4退出状态，持续日志/指标消费、关系实例写入等原待办仍以路线图为准。原始输出与截图仅在忽略目录`.tmp/dev-checks/console83-*`，不提交凭据、浏览器数据、缓存或构建产物；本轮未提交或推送。
+
+
+## 84. 2026-10-02 接入工作流编辑器调整
+
+本轮按用户要求调整接入、任务版本和工作流编辑器。研究原件保存在仓库外；以下仅记录本项目实现和实际检查。
+
+来源保存后直接进入X6画布并准备未保存的本地流程，移除“选择要生成的数据”前置卡片；默认画布、浅灰工作区、紧凑节点、细连线与当前节点配置面板，输出类型和固定模型版本由输出节点配置。日志/指标模板保留，Zabbix Host仍仅实体，Fixture来源明确标注。新增WorkflowEditorToolbar与WorkflowOutputConfig展示组件，清除旧X6节点定位/尺寸样式，保留名称编辑、撤销/重做、拖动、步骤视图、输入/输出与逐条校验、保存/预览/发布、只读版本及原鉴权/契约/并发门禁。没有修改后端、依赖、数据库或跨语言契约，没有复制厂商运行流量、启停或额外接入能力。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | 显式UTF-8执行pytest tests/contracts -o addopts= -q，904项通过 |
+| 纯领域 | javac --release 21参数文件编译，实际运行48个main，1391断言通过；不是Gradle/PG集成 |
+| Rust | 隔离CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target执行cargo test --workspace --locked -j 4及--all-features --locked -j 4，默认41/all-features49项通过 |
+| TypeScript/build | pnpm typecheck:web与pnpm build:web退出0；最终浏览器入口再执行tsc/Vite构建。保留既有大于500KB的chunk警告，无依赖升级 |
+| 浏览器 | 显式指定本机Chrome；全量298项通过（3.3分钟）。后续1024px布局修正、说明文案更新及面板纵向位置断言后，导航/来源/流程列表/工作流/输出/X6/G6最终48项通过（52.5秒）。新增来源跳转用例确认只发送显式来源确认，不自动保存或执行工作流，实体限制与Fixture标记保持 |
+| 实际界面 | 独立检查页经5173真实本地Java/PG读取已有Zabbix来源与模型，直接打开五节点本地草稿；核对1440/1024/390px、明暗主题、节点/字段映射/输出设置，窄屏不横向溢出。未保存、预览、发布、触发采集或写入现有业务 |
+| 热更新 | 在独立检查页修改本地名称与映射，热更新画布模块后实际回读名称UI REVIEW 热更新检查、映射review_hostname、ready与5个节点均保留；未提交草稿，随后恢复检查页原字段。未导航、刷新、保存或放弃用户原标签页 |
+| 静态 | scripts/check_repo.py退出0，281个结构化文件/6个只读Tool定义通过；git diff --check退出0 |
+| 服务 | pnpm ops status退出0：platform19564、runtime15784、worker10012、web5156，存活/就绪均200/200，5173继续运行 |
+
+中间失败保留：第一次关联套件28通过/3失败，三个仍断言默认步骤卡的用例与新的默认画布不符；更新为实际画布及只读节点操作后通过。实际截图发现旧原生按钮选择器覆盖节点尺寸、造成内容截断，移除冲突规则；热更新重建图实例时refs保留但新图无节点，触发null.position并使页面空白，改为缺少cell时重建并同步尺寸后恢复，未通过刷新用户标签页绕过。1024px实际截图还发现旧grid-column使配置区落到下一行，显式恢复当前组件列位置并加入桌面并排/手机上下的边界断言，最终48项通过。独立检查页本地会话过期后按现有入口显式重新连接，没有绕过认证或静默回退。
+
+本轮未执行完整Java/PG/VM集成、本地自动会话专项、Go测试/vet、Rust fmt、真实模型/IdP/TLS、远程CI或生产部署，不提高M0–M4退出状态。前端规范、操作说明、ADR-060的UI修订、实现状态与路线图同步更新。原始输出/截图只在仓库外本机历史验证材料，不提交凭据、浏览器数据、缓存或构建产物；未提交或推送。
+
+
+## 85. 2026-10-02 接入组件收尾与本地预览恢复
+
+继续用户要求的界面实现，在第84节画布改版基础上抽离SourceCatalog、SourceTaskList和IntegrationSearchField；来源页与工作流列表共用搜索框。静态名称/分类/图标放在source-catalog.ts，与React组件导出分开。保持原DOM类名、标签、Fixture/来源标记、事件、禁用条件和列表范围；页面继续管理请求取消、可信身份、不可变创建快照、待确认回执、确认与跳转。来源快照说明统一为输出节点配置，没有增加前置输出选择、业务后端、依赖或契约。前端规范与来源使用说明同步更新。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | 显式UTF-8运行pytest tests/contracts -o addopts= -q，904项通过（5.72秒） |
+| 纯领域 | javac --release 21 -encoding UTF-8参数文件编译，实际运行48个领域main；日志汇总1391断言通过，不等于Gradle/PG集成测试 |
+| Rust | 隔离CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target，cargo test --workspace --locked -j 4默认41项，--all-features --locked -j 4共49项通过 |
+| TypeScript/build | pnpm typecheck:web、pnpm build:web退出0；最终浏览器命令也实际执行tsc --noEmit与Vite构建。保留既有大于500KB的chunk警告，无依赖升级 |
+| 浏览器 | 显式本机Chrome，导航/来源/列表/工作流/输出/图形48项通过（54.9秒）；静态分类模块分离后，来源和列表最终17项通过（23.6秒）。覆盖来源确认不隐式保存/执行流程、身份清理、同请求重试、发布只读、搜索/分类、焦点和1440/1024/390px容器边界，未新增镜像实现的测试 |
+| 实际界面 | 独立检查页通过5173真实Java/PG读取原12份接入配置、日志来源创建快照、已发布v1及当前Zabbix来源本地画布。创建快照名称/说明和发布输出保持禁用；未点击保存、确认新来源、预览、发布、版本测试或手动采集。1440/1024/390px及明暗主题截图核对；1024配置区与画布并排，390配置区在画布下方，任务宽表在自身容器滚动，整页不横向溢出。尺寸和浅色主题恢复，保留独立可用预览；未刷新或导航用户原连接失败标签页 |
+| 静态 | scripts/check_repo.py退出0，281个结构化文件及6个只读Tool定义通过；git diff --check退出0 |
+| 服务 | pnpm ops start all最终退出0，platform24176/runtime20908/worker25396/web2540存活/就绪200/200，保留5173。使用原dev/postgres/jsonrpc、platform-dev/rig-openai及history=true配置，未调用模型。Worker按原已启用流恢复轮询并确认批次，不将健康状态当作全链验收 |
+
+本轮开始实际pnpm ops status显示四组件停止，Docker API不可用；首次start all中Runtime/Web启动，平台因PG迁移连接失败退出，Worker依赖不可用退出，均未计为成功或切到Mock。docker desktop start进入后端异常状态，实际日志先定位Docker/run/dockerInference残留AF_UNIX socket，再定位LOCALAPPDATA/docker-secrets-engine/engine.sock。仅停止本轮启动的Docker进程；每次移动前验证绝对路径和目录中仅有零字节socket，使用原生PowerShell Move-Item保留run.opsweave85-stale、run.opsweave85-stale-b及docker-secrets-engine.opsweave85-stale备份。没有删除卷、重置Docker、迁移容器数据或更改配置。单次合并修复命令返回-1且无输出，核对原路径与进程均未改变后拆开执行成功；未将该命令计为成功。依赖原容器恢复后，显式重新启动失败应用，最终四组件就绪；独立浏览器最初的502通过服务恢复及显式读取解决，没有隐藏重试。
+
+本轮未执行全量浏览器套件、完整Java/PG/VM集成、Go专项、本地自动会话专项、Rust fmt、真实模型/IdP/TLS、非Windows实机、远程CI或生产部署。第84节298项结果仅属于前轮，不计入本轮。保持原M0–M4退出状态，不新增连续日志/指标写入、关系实例或厂商启停能力。原始输出和截图仅在仓库外本机历史验证材料；未提交或推送，不提交凭据、业务正文、缓存或构建产物。
+
+## 86. 2026-10-02 全站导航优化
+
+本轮按用户要求优化分组、选中页、页头与折叠布局。研究原件保存在仓库外；以下仅记录本项目实现和实际检查。
+
+侧栏采用浅蓝灰背景、36px一级图标/文字、32px纯文字子菜单与实心蓝色当前页；桌面宽200px，窄桌面192px，折叠64px。收起按钮移到底部，折叠后七个分类通过浮层访问原18个页面，支持悬停/点击、方向键进入、Tab访问、Esc关闭并返回分类、离开/外部关闭，以及实际浮层高度和窗口边界；尺寸变化关闭浮层。手机使用独立抽屉，不继承桌面折叠状态。页头收紧为48px，保留语义当前位置、页面搜索、主题和实际环境标记。抽离SidebarFooter展示组件，所有导航规则统一到navigation.css并清除app/admin/workspace中的旧冲突样式；前端规范、导航说明、实现状态与路线图同步更新。没有修改依赖、后端、契约、认证或执行权限。
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| 契约 | 显式UTF-8运行pytest tests/contracts -o addopts= -q，904项通过（5.55秒） |
+| 纯领域 | javac --release 21 -encoding UTF-8参数文件编译，实际运行48个main，1391断言通过；不是Gradle/PG集成测试 |
+| Rust | 隔离CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target，cargo test --workspace --locked -j 4默认41项，--all-features --locked -j 4共49项通过 |
+| TypeScript/build | 最终pnpm typecheck:web与pnpm build:web退出0；浏览器入口另实际运行tsc/Vite构建。保留既有大于500KB的chunk警告，没有升级依赖 |
+| 浏览器 | 显式指定本机Chrome；最终导航14项通过（21.6秒），随后完整pnpm test:web共301项通过（3.3分钟）。覆盖18页1440/1024/390px明暗主题、导航/搜索匿名不请求业务、折叠分类全部入口、短视口边界、浮层键盘/关闭/焦点、独立手机抽屉及原有权限、只读、身份清理和保存/预览/发布门禁 |
+| 实际界面 | 独立检查页经5173真实Java/PG读取原12份接入配置与当前Zabbix来源，准备本地未保存的五节点流程。核对1440/1024/390px、明暗主题、展开/折叠/手机抽屉及键盘焦点；手机整页宽390px、抽屉272px，无整页横向溢出。未保存、预览、发布、确认新来源或手动采集 |
+| 编辑保留 | 独立检查页折叠、键盘打开/关闭分类及展开后，工作流名称、name/ip/空os映射、5个节点均保留；导航模块热更新后再次读回相同字段和节点。未刷新、导航或修改用户原标签页。恢复浅色主题与临时尺寸，保留独立工作流预览 |
+| 静态 | scripts/check_repo.py结构化文件与6个只读Tool定义检查退出0；git diff --check退出0 |
+| 服务 | pnpm ops status退出0，platform24176/runtime20908/worker25396/web2540存活/就绪200/200，保留原dev/postgres/jsonrpc、platform-dev/rig-openai及history=true配置。本轮未重启服务、改Docker或调用模型 |
+
+中间失败保留：第一次导航13通过/1失败，测试写成“指标模型”而实际页面为“指标定义”，修正名称。第一次全量300通过/1失败，外部关闭用例点击的标题被浮层覆盖，改用右上角实际主题按钮验证外部关闭，未强制点击遮挡元素。后续导航13通过/1失败，方向键打开菜单后异步requestAnimationFrame焦点设置与连续Tab存在时序竞争；改为渲染完成后的useLayoutEffect同步聚焦，已打开菜单立即聚焦，并明确等待实际首项焦点后验证Tab离开。最终14项和完整301项均退出0；失败运行不计为通过。
+
+本轮未执行完整Java/PG/VM集成、本地自动会话专项、Go专项、Rust fmt、真实模型/IdP/TLS、非Windows实机、远程CI或生产部署；前轮结果不计入本轮。保持原M0–M4退出状态，不新增持续日志/指标写入、关系实例或厂商后台能力。原始输出和截图仅在忽略目录.tmp/dev-checks/nav86-*，未提交或推送，不提交凭据、业务正文、缓存或构建产物。
+
+## 87. 页面容器、标准/多页签布局与新增能力规范（2026-10-02）
+
+用户要求继续优化页面容器，提供浏览器式多页面布局与主题组合，并说明新增能力的组件架构。沿用既有导航与ETL操作层次；视觉布局不构成业务接通证明。
+
+实现：PageWorkspace管理统一外壳、地址和内存页面；WorkspaceTabs、LayoutSettings独立展示；page-registry按RouteName完整登记组件，删除App里的逐页条件分支。固定48px页头、40px页签（手机38px）与底栏，内容视口独立滚动；统一外/内间距，去掉正文重复外边框与接入目录旧最小高度。标准与多页签可切换，均支持既有浅/深主题。新标签页默认标准；启用页签后每个已登记路由最多一份，切回标准保留已有页面；刷新只从当前地址重新打开一页。仅持久化布局枚举与既有主题偏好，不保存页签列表、查询地址、Token或业务正文。
+
+非活动页面hidden/inert，保留身份订阅；身份变化释放后台实例并执行当前页原清理协议。活动上下文限制地址恢复、自动读取与后台请求跳转，切回同一地址不自动覆盖草稿或未应用筛选。业务页显式上报dirty、处理中和待确认回执；关闭、关闭其他、关闭所有使用同一门禁，默认保留未保存页，待确认回执不能通过关闭丢弃。最后关闭回到新工作台；支持方向键/Home/End/Delete与关闭后焦点。
+
+[新增能力规范](development/adding-a-capability.md)区分React组件、Java领域/应用模块、Connector和Rust受控执行。已存在API的新展示可只扩展Web；新业务需契约、服务端规则/权限/适配器及实际验证，四启动单元不变，没有新增数据库、微服务、任意动态插件或代码执行。
+
+| 实际检查 | 结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，904通过，6.61s，退出0 |
+| Java纯领域 | `javac @.tmp/dev-checks/ui83-domain.args`，随后实际运行48个main，共1391个checks passed，退出0；编译有既有unchecked提示，领域失败路径的预期日志不是运行失败 |
+| Rust默认 | `CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target cargo test --workspace --locked -j4`，7+9+25=41通过，退出0 |
+| Rust all-features | 同目标目录`cargo test --workspace --all-features --locked -j4`，15+9+25=49通过，退出0 |
+| Web | 最终`pnpm typecheck:web`与`pnpm build:web`实际退出0；保留Vite已有大chunk提示，不据此宣称完成分包优化 |
+| 浏览器专项 | 初轮导航与布局26通过；新增隐藏页迟到响应和待确认清理回执后，最终完整套件包含13项workspace-layout、1项新增retention关闭回执及1项source-center抽屉/浏览器历史检查；显式输出配置位置复验19项通过，抽屉专项1项通过 |
+| 完整浏览器 | 显式使用本机Chrome，`pnpm test:web`315通过，3.8m；移除旧接入页最小高度后再次执行，第二次315通过，3.7m；对话框居中与抽屉生命周期修正后的最终完整套件316通过，3.7m，退出0。覆盖标准/多页签、18产品页、1440/1024/390px、浅深主题、草稿与布局切换、查询/历史、滚动、键盘/关闭门禁、身份与迟到响应。原X6拖动检查改测实际main滚动容器，继续验证节点相对坐标和保存布局 |
+| 本地自动会话 | `pnpm --filter @opsweave/web-console exec playwright test -c playwright.local.config.ts`，初次6通过，12.8s；最终抽屉生命周期修正后再次6通过，11.6s，退出0。工作流深链和来源自动读取仍受真实Vite会话中间件检查，业务响应为显式Fixture |
+| 实际视觉 | 独立浏览器预览页核对1440/1024/390px、两种布局与浅深主题；读取现有PostgreSQL资产3条和已有来源配置12条。只读导航/GET，未保存、发布、采集、清理或调用模型。修改独立预览中的本地工作流名称，跨页面、布局、主题与CSS热更新后读回相同名称、name/ip/空os映射及5节点，关闭提示默认保留；原用户标签页未通过浏览器刷新、导航或输入；开发代码由Vite热更新分发。1440标准目录实际main高度822/scrollHeight822，无横向溢出；后续实际观察短时本地会话到期后旧草稿和隐藏页被清理，显式重新连接只重新准备默认草稿；补验配置抽屉中的本地名称跨浏览器返回/前进恢复，未保存。恢复浅色主题及临时尺寸，保留独立多页签预览 |
+| 静态 | `scripts/check_repo.py`初次退出0，280结构化文件；文档收尾后实际复验退出0，281结构化文件及6只读Tool定义；`git diff --check`退出0 |
+| 服务 | `pnpm ops status`退出0，platform24176/runtime20908/worker25396/web2540均200/200，保持dev/postgres/jsonrpc、platform-dev/rig-openai与history=true。未重启服务或修改Docker |
+
+中间失败如实保留：关闭guard首次放在SourceSnapshots的pending声明前，TypeScript报告声明/赋值顺序错误，移到状态声明后修复。第二组专项23通过/1失败，新增清理回执Fixture误匹配`/requests/`而实际契约是`/runs/`，修正Fixture路径；没有以空回执、隐藏重试或修改业务门禁解决，最终完整315通过。去除目录旧最小高度后再次完整315通过。截图发现新对话框受基础样式影响位于左上，修正为居中并补几何断言；随后完整311通过/4失败，旧输出用例假定发布后仍选中输出节点，实际页面回到输入节点。改为等待工作流名称不可编辑并显式打开输出配置，继续验证输出类型不可修改，定点19通过。实际浏览器返回发现隐藏原生modal仍使文档inert；外壳暂停/恢复dialog展示并监测后台新打开的modal，保留字段，抽屉专项1通过；最终316全量通过。所有失败未计为通过。
+
+本轮未执行完整Java/PG/VM集成、Go专项、Rust fmt、真实模型/IdP/TLS、非Windows实机、远程CI或生产部署；纯领域与浏览器Fixture不替代这些检查。保持原M0–M4退出状态及业务边界。本轮日志/截图在忽略目录`.tmp/dev-checks/layout87-*`，Playwright错误上下文在忽略的test-results目录，不提交业务正文、凭据、缓存、截图或构建产物；未提交或推送。
+
+## 88. 页签与面包屑层级优化（2026-10-02）
+
+按用户确认的顺序调整为顶部工具栏→页签→面包屑→页面内容；标准布局省略页签。搜索移到工具栏左侧，主题、布局设置和实际会话模式保留右侧。PageBreadcrumb为独立展示组件，使用现有路由目录、nav/ol与aria-current；面包屑桌面36px、手机32px，11px正常字重，与内容容器左边缘对齐。删除旧导航样式的面包屑覆盖，内容顶部间距由面包屑承担。正文独立滚动时位置仍可见；未修改依赖、后端、契约、身份或关闭门禁。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，904通过，12.35s，退出0 |
+| Java纯领域 | `javac @.tmp/dev-checks/ui83-domain.args`，随后实际运行rg定位的48个main，1391 checks passed，退出0；既有unchecked编译提示与失败路径预期日志保留，不等于完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41通过，`--all-features`15+9+25=49通过，均退出0 |
+| TypeScript/构建 | `pnpm typecheck:web`退出0；`pnpm test:web`入口实际运行`pnpm build`（tsc --noEmit + Vite生产构建）成功后启动4173预览，保留既有大chunk警告，无依赖升级 |
+| 完整浏览器 | 显式本机Chrome路径，`pnpm test:web`316通过，4.1m，退出0。增强原导航与布局用例，验证18产品页、标准/多页签、浅深主题及1440/1024/390px的工具栏/页签/面包屑/内容几何顺序、左边缘、紧凑高度和当前页语义；滚动与切回草稿时面包屑仍可见。原草稿、查询、历史、键盘、关闭、身份、待确认及业务门禁回归均通过 |
+| 本地自动会话 | 显式本机Chrome，`pnpm test:web-local`6通过，11.6s，退出0；业务响应为显式Fixture，不替代真实集成验收 |
+| 实际界面 | 复用独立预览页，经真实5173本地会话读取已有12份来源配置；切到资产再用页签返回，当前位置同步。保存并核对两种布局、三种宽度、浅深主题截图，无整页横向溢出；桌面实际工具栏48px、页签40px、面包屑36px，手机标准面包屑32px、内容起点80px。只读/GET及界面偏好检查，没有保存、发布、采集、清理或调用模型。原用户页未通过浏览器刷新、导航或输入，Vite正常分发热更新；不据此宣称未保存字段跨代码热更新验证。恢复浅色多页签与临时视口，保留预览 |
+| 服务 | `pnpm ops status`退出0，platform24176/runtime20908/worker25396/web2540均存活/就绪200/200，原dev/postgres/jsonrpc、platform-dev/rig-openai、history=true配置不变；未重启服务或改Docker |
+| 静态 | 文档同步后实际执行`scripts/check_repo.py`，281个结构化文件及6个只读Tool定义通过；`git diff --check`退出0 |
+
+本轮未执行完整Java/PG/VM集成、Go专项、Rust fmt、真实模型/IdP/TLS、非Windows实机、远程CI或生产部署，不提高M0–M4退出状态。前端规范、控制台说明、实现状态及路线图同步。日志/截图仅在忽略目录`.tmp/dev-checks/layout88-*`；不提交业务正文、凭据、缓存、截图或构建产物，未提交或推送。
+
+## 89. 可编辑DAG画布、实体执行与任务启停（2026-10-02）
+
+按用户要求继续实现可拖入节点、连线、分支合流和运行管理。编辑、发布、运行分别管理；没有新增消息集群或流处理基础设施。研究原件保存在仓库外。
+
+图定义兼容旧单链，支持最多16节点、32边，固定SOURCE→MAP与VALIDATE→OUTPUT；普通算子单输入、多输出，MERGE显式合流。过滤分支跳过，字段冲突或任意分支错误拒绝整条记录；服务端检查端点、环、重复、可达性及预算。前端统一定义/布局状态，X6只显示和上报事件；抽离WorkflowOperatorPalette、WorkflowConnections、WorkflowRuntimePanel及WorkflowRuntimeSection。拖入、按钮添加、端口连线、可访问连接表单、删除、撤销和重排共用状态，发布版本只读，修改需创建下一版。
+
+Java平台提供固定ENTITY版本运行，先取得只读RUN回执，再显式写入实体。服务端核对15分钟有效期、版本/模型/输入摘要、完整批次、来源及每个实体的权限；原回执UUID为幂等键，改输入/设置拒绝。独立workflow来源按稳定输入标识构造实体ID，不按名称/IP合并Zabbix资产。资产记录source、sourceInstanceId、明确dataMode、lastSeen、固定流程pin及执行引用。库存与执行回执事务独立，部分失败只记录已确认写入，超时保留原键供显式确认，禁止隐藏重试。
+
+任务仅loopback/dev/PostgreSQL启用，调度器通过配置的可信PrincipalResolver重新授权，不存浏览器Token或从任务构造身份。ZABBIX_HOST发布版本可显式启停，每5秒消费启动后新完成的已有批次，按completedAt/id游标最老优先；不发起采集、不回放历史。超过5条、不完整、截断、Raw缺失、来源失败或授权撤销持久标记FAILED；重启恢复RUNNING，失败需显式重启。CAS generation与租户事务锁覆盖控制/执行；停止等待已开始批次完成后返回。共享并发2、每用户20任务/200回执和50待处理批次上限。V032–034依次迁移并提供人工逆序回滚，受限运行角色只获必要表权限；回滚不截断超限trace。不是分布式租约或HA工作流引擎。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，最终916通过，5.22s，退出0；覆盖MERGE、DAG及闭集运行请求/任务/执行契约 |
+| Java纯领域 | `scripts/check_java_domain.py`使用Java21参数文件编译并实际运行50个main，1440 checks passed，退出0；新增WorkflowGraphSmoke 19项、WorkflowRuntimeSmoke 30项。修复Windows过长javac命令，未添加业务Python后端 |
+| 完整Java/PG/VM | 原本机PG15439、VictoriaMetrics18428就绪后，`gradlew.bat :apps:platform-api:test :apps:ingestion-worker:test :apps:platform-api:bootJar :apps:ingestion-worker:bootJar --offline --console=plain --rerun-tasks`最终成功，2m14s。实际XML汇总平台261+Worker24=285，failures/errors/skipped均0；包含3项新WorkflowRuntimeHttpIT，实际写入/来源元数据、租户隔离、完成游标、任务启动/停止/下一批不执行。HTTP来源批次为显式合成Fixture，不冒充真实厂商任务整链 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41通过；`--all-features --locked -j 4`共15+9+25=49通过，均退出0。其后仅修改Java/TS与文档，未修改Rust |
+| TypeScript/生产构建 | 最终`pnpm typecheck:web`退出0；`pnpm test:web`入口实际执行tsc/Vite生产构建后测试。保留既有大chunk提示，未升级依赖 |
+| 完整浏览器 | 显式本机Chrome，最终`pnpm test:web`322通过，4.4m，退出0。覆盖原316项与拖入算子、实际X6端口鼠标连接、分支配置/保存/预览/发布、执行回执、任务CAS启停、待确认原键及身份迟到响应清理；接口响应为显式Fixture。此前全量322通过后，最终路由/来源标签/迟到响应修正又全量322通过，后一次为交付结果 |
+| 真实本地执行 | 浏览器经5173真实会话→Java→PG，保存、预览、发布`[LOCALTEST] 可编辑画布与实体运行`六节点/六边的分支合流v1（flow-f35a4e06），手工执行确认写入1条Service。服务恢复后发布图及第一份执行回执仍可读；补齐来源字段后再次显式执行，资产页按标记名称查询只有1条，稳定ID `536897e3-67c4-3b0e-97b7-013213b856e1`、ACTIVE、版本2、workflow.flow-f35a4e06/MANUAL_SAMPLE、固定版本摘要及新执行引用均读回。测试记录明确LOCALTEST，没有执行用户原流程或调用模型 |
+| 视觉/组件 | 独立检查页核对1440/1024/390px与浅深主题，实际body宽与视口一致，main无横向溢出；沿用页签在面包屑之上的布局。资产查询、图与运行面板跨页签字段/结果保留，恢复浅色主题和默认视口，保留独立预览。截图仅放忽略目录；应用重启期间旧浏览器标签消失，后续新建独立检查页，不宣称原未保存页跨应用重启恢复 |
+| 服务 | Docker原容器恢复后`pnpm ops start all`退出0；交付前`pnpm ops status`再次退出0，platform8308/runtime15556/worker19428/web26000均存活/就绪200/200。保留dev/postgres/jsonrpc、platform-dev/rig-openai和history=true；Worker恢复原启用流，不将探针就绪等同真实模型/任务整链验收 |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件及6个只读Tool定义通过；`git diff --check`退出0，只有既有CRLF转换提示 |
+
+中间失败保留：领域编译曾缺TenantId import，修正后通过；游标测试在Windows同一时钟刻度构造旧批次导致失败，明确旧批次完成后再启动，并以最大UUID排除启动时刻旧记录。实际UI发现旧`.workflow-connections`全覆盖样式与连接编辑区重名，改用独立组件类名；早期相关浏览器用例沿用旧默认节点/只读状态假设，修正操作顺序并完成最终322项。早期完整Java运行误用VictoriaMetrics8428导致失败，改为原18428后通过；续作时Docker与四应用均停止，Java依赖检查失败5m13s，不计为通过。恢复依赖后强制重跑全部Java测试得到上述285项零跳过结果。
+
+环境恢复：官方Docker Desktop启动日志定位run/dockerInference与docker-secrets-engine/engine.sock残留零字节AF_UNIX socket。只停止本轮失败启动的进程；原生PowerShell移动前检查两个绝对目录、无目录链接且仅零字节socket，保留`run.opsweave89-stale`和`docker-secrets-engine.opsweave89-stale`备份。合并修复命令返回-1且无输出，核对未改变后拆开执行成功；没有重置Docker、删除卷、迁移容器数据或更换凭据。原PG/VM/Zabbix容器恢复，随后启动四应用，未静默回退Mock。
+
+本轮未执行迁移人工回滚、受限数据库角色专项拒绝测试、Go专项、本地自动会话专项、Rust fmt、真实Zabbix连续任务整链、模型/IdP/TLS、非Windows实机、远程CI、生产部署或压测。仅本地开发实体运行完成；持续日志/指标写入、关系输出、生产身份委托和分布式租约仍待实现，不提高M0–M4退出状态。契约、ADR-061、前端规范、操作说明、架构、实现状态与路线图同步。原始日志/截图在忽略目录`.tmp/dev-checks/workflow89-*`，不提交凭据、业务正文、缓存或构建产物；未提交或推送。
+
+## 90. 默认节点间距与端口连线修正（2026-10-02）
+
+用户反馈默认线挤在一起。实际读取当前来源草稿和SVG路径，发现96px节点使用116px行距，20px空隙小于两侧端口圆点及路由padding的膨胀范围，orth路由生成短回折；默认boundary连接点还从圆点侧边裁切。改为160px行距、64px空隙，分支行围绕主干居中；连接对齐端口中心，输入端留6px箭头空间，旧单链padding降至4px避免20px间距回折。DAG Manhattan限定下出上入、关闭perpendicular偏移，实际绕过中间节点。默认排列不会自动替换已保存或手动坐标，显式排列仍可撤销；定义、权限、数据请求与固定版本门禁保持。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，11.66s，退出0；本轮没有契约改动 |
+| Java纯领域 | `scripts/check_java_domain.py`实际编译运行50个main，1440 checks passed，退出0；不是完整Java/PG测试 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`运行默认及all-features `cargo test --workspace --locked -j 4`，默认7+9+25=41、all-features15+9+25=49通过，均退出0 |
+| TypeScript/生产构建 | 最终`pnpm typecheck:web`退出0；关联浏览器入口实际运行tsc/Vite生产构建，保留已有大chunk警告，未升级依赖 |
+| 关联浏览器 | 显式本机Chrome，`pnpm test:web workflows.spec.ts workflow-outputs.spec.ts graph-workspace.spec.ts`最终30通过，35.0s，退出0。新增1440/1024/390px明暗主题的实际节点空隙、直线路径、页面宽度及无隐式请求检查，另检验合流旁路按显示端点定位，采样真实SVG路径不穿过中间节点；原拖入/端口连接、坐标保存、键盘、撤销、发布只读、执行/任务/身份及输出回归通过。接口为显式Fixture |
+| 真实界面 | 原用户页只读核对，热更新后名称“Zabbix 主机接入”、五节点及手动坐标逐项保持，没有刷新、导航、重排、保存或执行。独立来源预览实际读取同一PG来源，核对新默认五节点的四条SVG路径均垂直无回折，1440/1024/390px与浅深主题无整页横向溢出；手机实际空隙约34px。独立页添加未保存MERGE/旁路，仅内存编辑，SVG外侧绕线可见。恢复浅色主题与原视口并关闭检查页，不产生来源/工作流/资产写入或模型调用 |
+| 静态/服务 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件/6个只读Tool定义通过；`git diff --check`退出0，只有既有CRLF提示。`pnpm ops status`退出0，platform8308/runtime15556/worker19428/web26000均存活/就绪200/200；本轮未重启服务或修改Docker |
+
+中间失败如实保留：第一轮26通过/3失败，新增检查引用Fixture调用记录中不存在的method字段，改查实际唯一目录请求后通过。随后两轮各29通过/1失败，旁路检查先用SVG最后一条、再假定edge-5；实际orderGraph按拓扑排序，旁路为较前边。改为通过连接表中显示的端点定位相应SVG路径，保留原不穿节点及外侧绕行的几何断言，最终30项通过。CUA只读DOM包装不提供getBBox，用可用的getBoundingClientRect读取实际直线路径宽度；浏览器回归中仍使用原生SVG几何API。失败运行不计为通过。
+
+本轮没有后端、契约或依赖改动，未执行完整Java/PG/VM、全量浏览器套件、本地会话专项、Go专项、Rust fmt、实际采集/模型/IdP/TLS、非Windows实机、远程CI或生产部署，不把第89节结果计作本轮检查。同步前端规范、工作流说明、实现状态与路线图，M0–M4退出状态不变。输出和截图仅在忽略目录`.tmp/dev-checks/workflow90-*`；未提交或推送。
+
+## 91. 画布底部精简与响应式配置面板（2026-10-02）
+
+用户反馈画布下方内容堆积。移除编辑器里的重复工作流库、重复输出摘要与全局执行说明；列表与版本继续由顶部返回入口访问，真实能力限制仍在输出节点/运行操作附近。添加步骤和连接管理移至工具栏，测试区保留紧凑折叠入口；发布ENTITY后的运行管理保留。新增WorkflowInspector展示组件：桌面内联右侧，760px及以下用原生非模态Popover侧面板，点击节点或添加算子打开；Esc/关闭及外部点击收起，字段由页面持有。连接管理用独立Popover，切离页签关闭顶层浮层。X6重建HTML节点后按节点ID返回当前按钮焦点。HMR同地址、已有读取或dirty草稿不再自动发送加载请求。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，9.01s，退出0；没有契约修改 |
+| Java纯领域 | `scripts/check_java_domain.py`实际运行50个main，1440 checks passed，退出0；不是完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`；`cargo test --workspace --locked -j 4`默认7+9+25=41，`--all-features --locked -j 4`15+9+25=49通过，均退出0 |
+| TypeScript/生产构建 | 最终`pnpm typecheck:web`退出0；最终浏览器复验入口实际执行tsc/Vite生产构建后测试，保留既有大chunk警告，未升级依赖 |
+| 关联浏览器 | 显式本机Chrome，`pnpm test:web workflows.spec.ts workflow-outputs.spec.ts integration-lists.spec.ts graph-workspace.spec.ts workspace-layout.spec.ts source-center.spec.ts`最终65通过，1.4m，退出0；包含三个尺寸、明暗主题、配置/样本保留、Esc/焦点、添加节点、图操作、来源、列表/版本、保存/预览/发布只读与运行/任务/身份门禁、页签/迟到响应及非活动Popover关闭。响应明确Fixture |
+| 最终样式复验 | 紧凑测试/运行行及手机连接浮层边距调整后，`pnpm test:web workflows.spec.ts workspace-layout.spec.ts`加`--grep`选择配置、跨页浮层、实体执行及来源任务启停，实际7通过，14.2s，退出0；重新生产构建成功 |
+| 实际界面 | 独立本地来源检查页通过真实5173→Java→PG只读载入原Zabbix来源，核对1440/1024/390px、浅深主题、右侧/窄屏配置与连接浮层、Esc返回焦点、紧凑测试入口；实际页面宽等于视口，重复库/输出摘要为0。没有保存、预览、发布、采集、实体写入或模型调用；未把Fixture回归当真实运行验收。原用户标签页未刷新/导航，本轮初次Hook结构调整触发热更新重建来源本地模板，因此不宣称既有手工编辑跨该次HMR保留；后续修复同地址Effect的重复加载。独立检查页恢复浅色与默认视口并关闭 |
+| 服务 | `pnpm ops status`退出0，platform8308/runtime15556/worker19428/web26000存活/就绪200/200，原dev/PG/jsonrpc、rig-openai及history=true保持；本轮没有重启服务或操作Docker |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件/6个只读Tool定义通过；`git diff --check`退出0，仅有既有CRLF提示 |
+
+中间失败如实保留：首轮64项中60通过/4失败，发现X6字段变更重绘后旧触发按钮已脱离DOM，以及窄屏新增节点未打开配置；已修复。旧回归仍在抽屉覆盖时直接点击保存、在已移除的编辑内历史区查版本测试，调整为收起配置再操作，并到原版本列表核验历史。随后64项通过；新增跨页Popover关闭/字段保留及Effect加载保护后65项通过，最终样式7项复验通过。CUA检查阶段一次关闭控件点击因热更新已收起面板而未匹配，读取新状态后继续检查，未强制刷新用户页。交付前原用户页的本地会话到期，身份订阅按设计清理了本地画布；显式点击“重新连接”后，原来源地址重新读取并准备Zabbix主机五节点本地草稿，保存按钮可用，未执行工作流写入。
+
+前端规范、工作流说明、实现状态与路线图同步。未改后端/契约/依赖，未运行完整Java/PG/VM、全量浏览器、本地会话专项、Rust fmt、Go专项、真实持续采集/写入/模型/IdP/TLS、非Windows实机、远程CI或生产部署；不把旧检查计作本轮，不改变M0–M4退出状态。日志/截图仅在忽略目录`.tmp/dev-checks/workflow91-*`，未提交或推送。
+
+## 92. 节点按需配置抽屉与右键菜单（2026-10-02）
+
+用户要求右侧配置在点击节点时打开，或由右键菜单选择编辑后打开。WorkflowInspector移除桌面常驻列及窄屏专用判断，所有尺寸默认关闭；显式节点/输出/添加操作打开原生非模态Popover抽屉，Esc、关闭与外部点击收起，页面持有字段状态。抽屉宽度受视口约束，内部配置独立滚动。抽离WorkflowNodeMenu供X6画布与步骤视图共用：右键仅打开菜单，不直接打开配置；Shift+F10/ContextMenu键和Enter可完成编辑，发布/忙碌状态显示查看，既有字段锁定不变。菜单位置限制在视口内，切离缓存页关闭浮层；配置关闭后返回当前节点按钮，兼容X6字段修改后重建HTML与已隐藏的菜单触发项。不新增业务请求、执行类型、契约或依赖。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，7.62s，退出0；没有契约修改 |
+| Java纯领域 | `scripts/check_java_domain.py`实际运行50个main，合计1440 checks passed，退出0；不是完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`；`cargo test --workspace --locked -j 4`默认7+9+25=41，`--all-features --locked -j 4`15+9+25=49通过，均退出0 |
+| TypeScript/生产构建 | `pnpm typecheck:web`退出0；最终浏览器入口实际执行tsc/Vite生产构建，保留既有大chunk警告，没有依赖升级 |
+| 关联浏览器 | 显式本机Chrome，`pnpm test:web workflows.spec.ts workflow-outputs.spec.ts integration-lists.spec.ts graph-workspace.spec.ts workspace-layout.spec.ts source-center.spec.ts`最终71通过，1.6m，退出0。新增1440/1024/390px×画布/步骤共6项，均覆盖明暗主题、左键/右键/键盘、默认关闭、字段修改保留、Esc返回新节点按钮、视口与无隐式请求；原发布只读、拖拽/连线/保存、执行/任务/身份门禁、来源/版本列表与缓存页回归通过。接口为显式Fixture |
+| 实际界面 | 独立检查页实际读取5173→Java→PG的来源配置，核对桌面完整画布、右键编辑抽屉、Esc返回节点焦点、1024px步骤视图及390px明暗主题；面板边界均在视口内，整页无横向溢出。未保存、预览、发布、启动采集、写入实体或调用模型；没有把Fixture执行回归称为真实运行验收。原用户缓存草稿未刷新、导航或替换；其已有“请先保存当前修改”提示保留，未绕过保护。检查页恢复浅色与原视口并关闭 |
+| 服务 | `pnpm ops status`退出0，platform8308/runtime15556/worker19428/web26000均存活/就绪200/200，原模式保持；本轮没有重启服务或操作Docker |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件/6个只读Tool定义通过；`git diff --check`退出0，仅有既有CRLF提示 |
+
+中间失败如实保留：首轮71项中69通过、2失败。两条旧用例在新抽屉/既有连接浮层仍打开时点击被遮挡的底层按钮，分别补上显式关闭配置、Esc收起连接管理；保留日志输出/XSS与旁路绕线的原断言，最终71项通过。不计失败运行为通过。
+
+同步前端规范、工作流说明、实现状态及路线图。本轮未修改后端/契约/依赖，未执行完整Java/PG/VM、全量浏览器、本地会话专项、Rust fmt、Go专项、真实持续采集/写入/模型/IdP/TLS、非Windows实机、远程CI或生产部署；不把旧检查计作本轮，不改变M0–M4退出状态。日志/截图仅在忽略目录`.tmp/dev-checks/workflow92-*`，未提交或推送。
+
+## 93. 创建接入的配置、字段、指标目录与教程（2026-10-02）
+
+用户要求优化创建接入中的指标字段与教程。来源介绍、配置、指标表与分步说明分别管理；研究原件保存在仓库外，不能把设计核对作为本项目采集验收。
+
+新增`SourceSetupDrawer`，默认配置，另设数据字段、监控指标和接入教程；桌面基本信息/来源双列，窄屏单列，头部和操作底栏固定、正文独立滚动。名称、说明及来源确认仍由页面持有，切页签不清空，方向键/Home/End及Esc/焦点返回保留。`SourceFieldReference`复用现有模型与telemetryFields，Host只列当前后端提供的name/ip/lifecycle/entity_id，手工样本可查实体/指标/日志格式、要求与Fixture例子，不改变确认命令或流程输出。`SourceSetupGuide`按来源能力给出保存、映射、预览、发布步骤及常见问题。输出选择仍在画布输出节点。
+
+`SourceMetricCatalog`是页面请求容器，经现有可信会话和`readCatalog`显式读取授权目录，无新API。展示指标名称/键、来源字段、单位、类型和固定映射版本，支持搜索；区分未读取、失败、空目录与无匹配。关闭/切离/身份变化取消请求，迟到响应不恢复旧主体；没有自动重试或Mock回退。该目录为定义，不能当当前来源已启用的指标、在线状态或连续采样验收。样式集中`source-setup.css`，不改变共享页面外壳。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，9.13s，退出0；本轮无契约改动 |
+| Java纯领域 | `scripts/check_java_domain.py`实际编译运行50个main，合计1440 checks passed，退出0；不是完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41，`--all-features --locked -j 4`15+9+25=49通过，均退出0 |
+| TypeScript/生产构建 | 最终`pnpm typecheck:web`退出0；关联浏览器入口实际执行tsc/Vite生产构建，保留已有大chunk警告，未升级依赖 |
+| 关联浏览器 | 显式本机Chrome，`pnpm test:web source-center.spec.ts integration-lists.spec.ts workflows.spec.ts workflow-outputs.spec.ts graph-workspace.spec.ts workspace-layout.spec.ts model-catalog.spec.ts`实际85通过，2.0m，退出0。覆盖三种尺寸、明暗主题、字段/样本/名称保留、键盘、保存恢复、只读/发布/身份和图操作门禁，以及指标目录失败、显式重试、关闭后迟到响应取消；接口明确Fixture |
+| 最终复验 | 最后调整页签/字段格式按钮样式并增加选中背景断言后，`pnpm test:web source-center.spec.ts integration-lists.spec.ts`实际26通过，32.4s，退出0；入口重新生产构建。包含1440/1024/390px×Host/JSON的明暗主题、四页签、格式/搜索、无隐式目录请求、错误及焦点保留。没有重跑全量浏览器 |
+| 真实界面 | 原用户来源页未刷新或导航。独立检查页读取真实5173→Java→PG来源目录，创建抽屉仅内存查看，实际读取平台目录的3项指标定义；核对1440/1024/390px、浅深主题、双列配置、字段表、教程和固定底栏，无整页横向溢出。未保存、测试连接、预览、发布、启停采集、写入实体或调用模型。原始截图在忽略目录source93-config.png/source93-fields.png |
+| 服务 | 首次状态退出0、四服务200/200；续作复查时均已停止。依赖恢复后第二次`pnpm ops start all`退出0，最终`pnpm ops status`退出0，platform18224/runtime11420/worker24076/web7708均存活/就绪200/200，原dev/PG/jsonrpc、rig-openai及history=true配置保持。恢复过程另记下文，不把探针当完整运行验收 |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件和6个只读Tool定义通过；`git diff --check`退出0，仅有既有CRLF提示 |
+
+实际视觉检查发现遗留接入页通用按钮规则覆盖专用页签和格式按钮，造成块状页签及弱选中态；专用原生按钮添加data-slot标记避开该规则，改为紧凑下划线页签与清晰的格式选中背景，真实界面复核和最终26项通过。两轮浏览器检查均通过，没有将编写用例等同测试通过。远端绑定曾两次超时，恢复后只读确认登录/验证码，不用工具超时推断其业务页面布局。
+
+续作服务恢复：四单元及Docker均未运行，第一次`pnpm ops start all`退出1，平台报数据库迁移连接失败、Worker报VictoriaMetrics的SINK_FAILED，Runtime和Web启动成功；该失败不计为就绪。现有Docker Desktop隐藏启动后，官方日志依次定位`AppData/Local/Docker/run/dockerInference`与`AppData/Local/docker-secrets-engine/engine.sock`残留运行socket。通过官方`docker desktop stop --force --timeout 10`停止本轮启动的Docker，检查绝对目录无目录链接、内容仅已核对的零字节运行socket，以原生PowerShell移动同级目录并保留`run.opsweave93-stale`、`run.opsweave93-retry`、`docker-secrets-engine.opsweave93-stale`备份；没有删除卷、重置Docker或修改配置。首次合并命令返回-1且无输出，复核未改变后拆开执行退出0；fsutil查询返回1920，不将查询失败当检查通过。重新启动后，原PG/VM及Zabbix六个容器恢复，`docker ps -a`退出0，PG与Zabbix Web健康。
+
+浏览器中断后本轮临时检查页已自动关闭，视口reset成功后读取原错误页被浏览器URL协议策略拒绝；没有通过其他浏览器或API绕过该读取限制，也未强制刷新原用户页。真实界面截图和上述交互检查来自服务恢复前的实际页面，不将状态探针当作完整浏览器/采集验收。
+
+同步前端规范、来源操作说明、实现状态与路线图。没有后端、契约或依赖变更，未执行完整Java/PG/VM、全量浏览器、本地会话专项、Go专项、Rust fmt、真实连续采集/存储/模型/IdP/TLS专项验收、非Windows实机、远程CI或生产部署，不提高M0–M4退出状态。服务恢复后未重跑85项浏览器，不将恢复前检查称为恢复后的重验。日志/截图仅在忽略目录`.tmp/dev-checks/source93-*`，未提交或推送。
+
+## 94. 左侧节点库、精简操作与完整指标定义（2026-10-02–03）
+
+按用户要求浏览[Node-RED官方节点库说明](https://nodered.org/docs/user-guide/editor/palette/)与[React Flow官方侧栏拖入示例](https://reactflow.dev/examples/interaction/drag-and-drop)，采用分类/搜索的左侧节点库和拖入/点击两种添加方式，继续使用已有X6适配器。WorkflowOperatorPalette只列7个已实现算子；桌面默认展开210px，≤1000px按需浮层，跨入窄屏收起，步骤视图共用。搜索中文名称、说明或算子ID，Esc和关闭返回添加入口；节点库事件不抢节点菜单/连接面板焦点。拖入创建待连接节点，点击沿用原插入和16节点门禁。
+
+编辑工具栏仅保留保存、预览、发布，次要操作抽离WorkflowMoreActions；菜单按触发按钮及视口定位，禁用条件和业务事件继续由页面持有。WorkflowInspector贴右、全高、无居中圆角窗，仍为按需非模态Popover；默认关闭、节点点击/右键编辑、发布只读和字段保留不变。显示节点标识/算子版本，说明TRIM全部文本且无额外参数、MERGE冲突拒绝；实体字段完整显示模型ID+字段ID，实际短字段ID和命令不变。
+
+SourceMetricCatalog完整指标键链接到MetricDefinitionsPage，通过既有可信会话/readCatalog读取授权元数据，MetricDefinitionDetail只展示8项返回定义属性，支持搜索、精确选择、非法/缺失/失败状态及身份/非活动请求取消；特定定义链接只自动读取一次，失败显式重试。返回目录采用显式空选择，兼容多页签地址记忆和浏览器历史；没有修改共享页面外壳。5项指标记录格式与指标种类数明确区分，当前内置目录实际3项，不虚构更多定义或已启用连续采样。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，5.90s，退出0 |
+| Java纯领域 | `scripts/check_java_domain.py`实际编译运行50个main，输出合计1440 checks passed，退出0；未计作完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41，`--all-features --locked -j 4`15+9+25=49通过，均退出0 |
+| TypeScript/生产构建 | 最后`pnpm typecheck:web`退出0；最终浏览器入口重新实际执行`tsc --noEmit && vite build`，已有大chunk警告保留，无依赖升级 |
+| 最终关联浏览器 | 显式本机Chrome，`pnpm test:web workflows.spec.ts workspace-layout.spec.ts model-catalog.spec.ts source-center.spec.ts integration-lists.spec.ts workflow-outputs.spec.ts graph-workspace.spec.ts`实际95通过，2.0m，退出0。覆盖1440/1024/390px、明暗主题、搜索/清除/关闭焦点、拖入/连接/插入、全高抽屉、保存/发布/执行/身份门禁、完整指标链接/精确定义/缺失/无效/503显式重试及标准/多页签历史返回；接口明确Fixture |
+| 复验过程 | 修正Esc及跨断点遮挡后94项通过；指标多页签返回修复后45项通过，1.0m；删除旧节点库冲突样式后最终95项重验通过。测试源码存在不计作通过 |
+| 实际界面 | 独立5173检查页经Java/PG只读来源与工作流目录，核对三种宽度和浅深主题的左侧节点库、搜索、更多菜单、映射全高抽屉及完整字段名。实际指标链接显示CPU定义的host.cpu.usage.user、system.cpu.util[,user]、percent-to-ratio和固定映射版本，返回真实3项目录成功。未保存、预览、发布、探测连接、启停/采集、写入或调用模型。本地检查会话到期后显式重新连接恢复只读来源画布；未刷新/导航原用户页。截图仅忽略目录workflow94-*.png，临时视口与主题恢复、检查页关闭 |
+| 服务 | `pnpm dev:status`退出0，platform18224/runtime11420/worker24076/web7708均存活/就绪200/200；本轮没有重启服务或操作Docker |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件/6个只读Tool定义通过；`git diff --check`退出0，仅既有CRLF提示。收尾跨本地日期，§94状态记录以2026-10-03为完成日 |
+
+中间失败如实保留：首轮90项84通过/6失败，修正新增测试的textbox角色与顶层工具按钮选择；第二轮89通过/1失败，更新旧的桌面节点库隐藏断言。补焦点后94项88通过/6失败，发现整段流程的Esc处理抢走节点菜单/连接浮层焦点，限制到节点库自身；随后92通过/2失败，桌面展开库在切手机时遮挡节点，补跨窄屏自动收起。真实多页签检查另外发现返回目录被缓存地址拦截，使用显式空选择并补浏览器历史测试。上述失败不计通过，最终完整95项通过。
+
+同步Web AGENTS、前端规范、工作流/来源说明、实现状态及路线图。本轮无后端、契约或依赖变更，未执行完整Java/PG/VM、全量浏览器、本地会话专项、Go专项、Rust fmt、真实连续采集/存储/模型/IdP/TLS、非Windows实机、远程CI或生产部署；不提高M0–M4退出状态。原始输出/截图仅`.tmp/dev-checks/workflow94-*`，未提交或推送。
+
+
+## 95. 删除重复文案、规范输出节点与图标对齐（2026-10-03）
+
+输出节点按实际类别和配置参数展示，不给没有参数的算子添加通用表单。输出类型与目标模型由本项目契约约束；研究原件保存在仓库外。
+
+删除流程页常驻点击/拖拽说明、节点库实现范围说明、模板成功后的重复教程、重复保存/预览提示和已有侧栏的来源返回入口；保留实际请求回执、错误、Fixture、未保存、只读发布与执行能力边界。悬浮字符加号改为画布工具行的SVG节点库入口，缩放及默认值加号使用现有图标库。修正高特异性通用按钮样式覆盖，实际矩形中心偏移由2px修正为0px；节点库收起/清除图标居中，输出选中状态在明暗主题可区分。
+
+WorkflowOperatorPalette显示3类输出入口；当前类别再次点击打开配置，另一类别调用既有chooseOutput，重建默认映射/处理链并记录撤销。WorkflowOutputConfig仅实体显示完整模型ID及固定revision，日志/指标展示实际记录格式；Canvas/Sequence/Inspector统一具体输出名称。沿用契约中单一固定OUTPUT，不增加独立输出端点；Zabbix Host日志/指标禁用、实体目录缺失禁用实体、发布版本禁用编辑，保存/有效预览/发布与来源认证边界不变。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，7.27s，退出0 |
+| Java纯领域 | `scripts/check_java_domain.py`实际编译运行50个main，输出合计1440 checks passed，退出0；不是完整Java/PG集成 |
+| Rust | 复用隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41、`--all-features --locked -j 4`15+9+25=49，均退出0 |
+| TypeScript/生产构建 | 最后`pnpm typecheck:web`退出0；最终浏览器入口实际执行`tsc --noEmit && vite build`，退出0，已有大chunk警告保留 |
+| 关联浏览器 | 显式本机Chrome，`pnpm test:web workflows.spec.ts workspace-layout.spec.ts model-catalog.spec.ts source-center.spec.ts integration-lists.spec.ts workflow-outputs.spec.ts graph-workspace.spec.ts`95通过，2.0m，退出0；1440/1024/390px和明暗主题，清理文案/入口、图标中心、节点分类搜索/焦点、实体目录缺失、Zabbix限制、单一输出切换/撤销且不额外写请求、过期预览清除、发布只读和来源/指标/多页签行为；接口明确Fixture |
+| 最终样式复验 | 95项通过后修正输出选中背景及节点库图标被基础按钮样式覆盖，执行`pnpm test:web workflows.spec.ts workflow-outputs.spec.ts --grep 'node library\|typed .*workflow\|changing output\|resizing the canvas'`，实际9项通过，19.8s，退出0；重新构建，包含三种宽度及明暗主题的输出选中背景差异和图标中心、输出切换与撤销。此后未再跑完整95项 |
+| 实际页面 | 独立5173检查页只读实际Java/PG工作流目录，再准备未保存的模板。核对桌面1440px与手机390px、浅深主题、输出节点库、指标抽屉、无通用输出选择和手机无横向溢出；未点击保存、预览、发布、连接探测、启停、采集/执行或模型调用。原用户页未刷新或导航；截图仅忽略目录workflow95-*.png，检查视口/主题恢复、临时页关闭 |
+| 服务 | `pnpm dev:status`退出0，platform18224/runtime11420/worker24076/web7708存活/就绪200/200，本轮未重启服务或操作Docker |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件及6个只读Tool定义通过；`git diff --check`退出0，既有CRLF提示保留 |
+
+中间失败如实保留：首轮95项91通过/4失败，手机端旧返回路径改用侧栏后缺少展开步骤；三个尺寸的图标中心断言均发现通用按钮样式覆盖造成2px垂直偏移。加入输出撤销检查后第二轮仍91通过/4失败，前述修复未进入该轮产物。修正CSS选择器及手机导航后完整95项通过，再对最终输出选中背景/节点库小图标完成9项复验；失败不计作通过。
+
+同步Web AGENTS、前端规范、工作流/来源说明、实现状态及路线图。本轮没有后端、契约、数据库或依赖变更，未执行完整Java/PG/VM、全量浏览器、本地会话专项、Go专项、Rust fmt、真实连续采集/存储/模型/IdP/TLS、非Windows实机、远程CI或生产部署；不提高M0–M4退出状态。日志和截图仅`.tmp/dev-checks/workflow95-*`，未提交或推送。
+
+## 96. 指标定义列表、模型目录自动读取与隐藏接入维护（2026-10-03）
+
+用户要求先隐藏接入维护、指标改列表并默认读取，还询问一级菜单是否对应前后端组件。采用表格/详情组合和授权后初始请求，不增加未接通的收藏、编辑、分页或错误转空行为。研究原件保存在仓库外。
+
+三个旧维护路由设置navigation=false，导航/搜索共用过滤，无可见子页的接入维护分组不显示，保留原直接地址和权限。MetricDefinitionList只展示表格：名称/完整指标标识、实体类型、单位、类型、完整来源键；名称和指标键链接原授权详情。搜索仅筛选已返回目录，表格自身滚动；只有当前3项固定映射定义，不生成额外指标或样本。
+
+useInitialPageRead在实体、关系和指标目录的活动页会话就绪后读取一次；未授权、后台和非法指标地址不请求。成功缓存切回不重读，身份变化清理旧结果并允许新有效会话读取；初次请求取消后返回可以完成读取，失败保留错误且需显式重试。403事件不会重置首次尝试门禁，避免凭据仍有效时循环重试。其余页面保持既有读取策略，保存/发布/采集/执行不自动触发。扩展指南明确一级菜单只是导航分组，React页面在静态注册表登记，Java业务模块可支撑多个页面；新增业务仍须契约/用例/API/权限等，四启动单元不变。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，916通过，8.41s，退出0 |
+| Java纯领域 | `scripts/check_java_domain.py`实际编译运行50个main，输出合计1440 checks passed，退出0；不是完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41，`--all-features --locked -j 4`15+9+25=49，均退出0 |
+| TypeScript/生产构建 | `pnpm typecheck:web`退出0；全量及最终浏览器入口实际执行`tsc --noEmit && vite build`，成功，既有大chunk警告保留 |
+| 最终全量浏览器 | 显式本机Chrome，`pnpm test:web`，360通过，4.5m，退出0；包含三种宽度、明暗主题、15页/6分组、隐藏菜单直接地址、自动读取/本地筛选/缓存返回/身份变化/503和403显式重试/空目录/XSS/非法链接，以及全站原业务门禁；接口为显式Fixture |
+| 帮助文案后复验 | 360项通过后仅修改模型中心PageGuide自动加载/点击定义说明，`pnpm test:web model-catalog.spec.ts metric-definition-list.spec.ts`，19通过，20.0s，退出0，重新构建；此后未再跑完整360项 |
+| 实际页面 | 独立5173检查页使用已有本地会话，只读真实Java/PG；指标列表进入自动显示3项，点击CPU名称、内存完整键、运行时间名称并返回，实体和关系目录进入自动显示已存目录；核对1440/1024/390px与明暗主题，手机整页scrollWidth=390，默认桌面恢复1280且无整页溢出，控制台error列表为空。一次模型卡片等待器报告不可见，随后DOM快照明确显示授权目录；未把等待器失败计作通过。最终截图仅忽略目录catalog96-list-final.png，临时检查页关闭，用户原页未导航或刷新 |
+| 服务 | `pnpm dev:status`退出0，platform18224/runtime11420/worker24076/web7708存活/就绪200/200，无重启/Docker操作 |
+| 静态 | 文档同步后`scripts/check_repo.py`退出0，287个结构化文件及6个只读Tool定义通过；`git diff --check`退出0，既有CRLF提示保留 |
+
+中间失败分开记录：第一轮关联浏览器38通过/4失败，均为导航仍断言18入口/7分组；修正为15/6。首轮全量356通过/4失败：新403用例错误期待数字状态码，而产品显示明确权限提示，另三项页签布局仍按旧18页断言；修正断言后完整360项通过。失败不计作通过。
+
+同步Web AGENTS、前端规范、能力扩展与模型/导航/控制台说明、实现状态及路线图。没有后端、契约、数据库或依赖变更，未执行完整Java/PG/VM、本地会话专项、Go专项、Rust fmt、真实连续采集/存储/模型/IdP/TLS、非Windows实机、远程CI或生产部署；不提高M0–M4退出状态。日志和截图仅`.tmp/dev-checks/catalog96-*`，未提交或推送。
+
+## 97. 本机产品审查资料与通用来源隔离规则（2026-10-03）
+
+按用户要求完成仓库外本机产品审查稿与合成交互设计稿，内容覆盖对象/范围、UI/交互、组件分层、契约/版本/运行、验收、实施顺序和审查决策。资料、原始证据、截图、日志与私有词表均不进入仓库；待用户审查后再实施目标功能。仓库记录只保留本项目实现、通用规则和实际检查；历史逐项研究记录移到仓库外，历史检查数量与结果保留。
+
+根AGENTS增加通用来源隔离要求；前端规范改为本项目布局、组件和能力边界。新增`scripts/check_reference_boundary.py`：私有词表必须在仓库外，检查Git跟踪/未忽略提交候选的文件路径及内容，规范化大小写和兼容字符；路径越界、大文件或私有策略错误使检查失败，不输出命中正文或词表。11项测试覆盖词表约束、规范化、忽略/强制暂存、路径保护和扫描上限。没有编码隐藏来源身份、改写Git历史或扫描第三方缓存；CI尚未接入私有词表，不能声称已在CI强制。
+
+| 实际检查 | 本轮结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，927通过，20.60s，退出0，包含11项检查器测试 |
+| Java纯领域 | `scripts/check_java_domain.py`实际编译运行50个main，合计1440 checks passed，退出0；不是完整Java/PG集成 |
+| Rust | 隔离`CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j 4`默认7+9+25=41，`--all-features --locked -j 4`15+9+25=49，均退出0 |
+| TypeScript / 生产构建 | `pnpm typecheck:web`和`pnpm build:web`退出0，构建1.68s；保留既有大chunk警告，无依赖升级 |
+| 静态结构 | `scripts/check_repo.py`，289结构化文件/6只读Tool定义通过，退出0 |
+| 差异 / 来源隔离 | `git diff --check`退出0；私有策略扫描最终2057个候选通过，退出0；原始输出只在仓库外 |
+| 合成设计稿 / 本机文档 | 实际浏览器检查1440/1024/390px、浅深主题、标准/多页签、创建字段/指标/教程与必填、节点非模态抽屉、预览、完整指标定义和任务/质量展示；没有真实服务连接。25项文档资产、205处本机链接及原型JS语法检查通过 |
+
+首次扩展私有词表误命中无关的通用技术术语，来源检查退出1；收窄词表后实际重跑通过，失败输出保留在仓库外，不计通过。文档展示与合成设计稿不是当前产品全量浏览器E2E或真实执行验收。
+
+本轮无新产品运行能力、依赖/数据库/业务契约变更，未执行完整Java/PG/VM、全量项目浏览器、本地会话专项、Go专项、Rust fmt、真实连续采集/存储/模型/IdP/TLS、多副本故障、非Windows实机、远程CI或生产部署。未重启项目四服务，没有远端保存/发布/启停业务，未提交或推送；M0–M4退出状态保持。
+
+
+## 98. 接入列表、可见目录与最新版本导航（2026-10-03）
+
+按开始实施指令落地配置与预览体验：未设置偏好默认多页签，保留明确标准偏好；数据源默认已配置表，类型目录为第二页签，紧凑卡片、键盘分类导航、不同列表状态、Fixture/样本与截断标记。SourceSetupDrawer收窄至760px；指标参考实际可见后自动读一次，切换页签保留筛选和结果，关闭/身份变化取消。工作流列表也在活动授权会话首次自动读取，失败/403/缓存返回不重复，dirty与非法深链接门禁保留。
+
+新增source-setup-continuation Schema/样例/受控只读接口，先授权并读取本人创建记录，再选择本人草稿与租户可读发布版中的最高revision，同版优先发布；不含他人私有草稿，不修改旧初版查询/不可变回执。客户端校验setupId与工作流绑定，跳转固定id/revision/state并重新读取。服务端旧式初版坐标同步160px行距。来源确认结果成功或原请求查询核对一致后更新有界列表并解除待确认门禁；不一致保留原命令，禁止自动写重试。
+
+| 实际运行检查 | 结果与范围 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，934通过，23.16s，退出0；包含新响应Schema、样例和拒绝身份/远端字段 |
+| Java纯领域 | `scripts/check_java_domain.py`编译运行50个main，1449 checks passed，退出0；SourceSetupSmoke 31项覆盖新草稿/发布选择、保持初版、跨主体/租户、权限、他人私有草稿、无版本 |
+| 实际HTTP | `gradlew :apps:platform-api:test --tests '*SourceContinuationHttpIT' --no-daemon --console=plain`，1项、0失败/跳过，44s，退出0；真实loopback Spring HTTP，明确memory/Fixture，验证v2草稿选择、旧回执未变、401/404/未知查询400/no-store/无版本。不是PG验证 |
+| Rust | `CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`下默认与all-features locked测试，分别41/49通过，退出0 |
+| TypeScript / 生产构建 | 独立`pnpm typecheck:web`、`pnpm build:web`与浏览器套件前构建实际通过，固定依赖；既有大chunk警告保留 |
+| 全量浏览器 | 本机Chrome，`pnpm test:web`，365通过，4.7m，退出0；1440/1024/390px、浅深主题、标准/多页签、缓存/键盘/隐藏身份与现有功能。该次在最后确认收尾及新增2项恢复测试之前 |
+| 最终相关浏览器 | 确认缓存/门禁、响应核对和表格宽度收尾后，source-center/integration-initial-read/integration-lists三文件33通过，36.8s，退出0；含确认未知原回执恢复与不一致拒绝，仅一次POST，无隐藏探测/保存/执行，最新版本精确跳转 |
+| 静态 / 候选边界 | 291结构化文件/6只读Tool静态检查通过；git diff --check退出0；仓库外私有词表扫描2062个提交候选通过，退出0 |
+
+首次相关46项：42通过/4失败（重复按钮可访问名称、默认偏好存储断言、关闭页后重新打开自动GET断言）；修正后全量首轮362通过/3失败（原先单页卸载测试、隐藏帮助定位、标准偏好存储断言），再修正后全量365通过。上述失败不计通过。最终33项新增两种原请求回执核对恢复测试；没有把编写测试计作通过。
+
+本机浏览器实际查看5173页面的多页签/面包屑与接入目录，截图保存在仓库外。真实四服务启动尝试失败：Docker Desktop临时运行套接字异常，PG不可达，platform迁移初始化与worker存储初始化失败；web和runtime启动。自动审批拒绝清理Docker临时套接字文件，仅返回blocked by policy，没有绕过、重置数据或静默切成memory/Fixture。最终dev:status：web(5173)、runtime(8090)为200/200，platform(8080)、worker(8081)为failed；相关PG测试未在本轮运行。停止了本轮无响应的Docker只读清单命令，没有停止其他容器或删除数据。
+
+无实例地址/凭据CRUD、生产后台身份委托/调度、连续日志/指标运行或多副本可靠性新增；现有运行权限/固定版本/幂等与unknown保留。未执行完整Java/PG/VM、真实来源持续写入/模型调用/IdP/TLS、非Windows实机、远程CI或生产部署。没有提交、推送或增加启动单元/数据库。前端规范和操作说明同步，后端实质缺口仍在实施路线中。
+
+### Docker恢复后的补验（2026-10-03）
+
+用户重启Docker后，实际容器清单显示原本机PostgreSQL健康，遥测存储及既有来源容器运行。读取原本机配置，仅启动先前失败的platform与worker；未改存储模式、重置数据、创建容器/数据库或清理被拒绝的临时文件。原web/runtime保持运行。
+
+| 实际运行检查 | 结果与范围 |
+|---|---|
+| 四启动单元 | `pnpm ops start platform`、`pnpm ops start worker`及`pnpm dev:status`退出0。platform(8080，PID28128，dev/postgres/jsonrpc)、runtime(8090，PID9152，platform-dev/rig-openai)、worker(8081，PID21872，history=true)、web(5173，PID21120)均存活/就绪200/200 |
+| PostgreSQL与实际HTTP | 从已有私有本机配置传入loopback JDBC测试环境，未输出凭据。`gradlew.bat :apps:platform-api:test --tests '*SourceSetupHttpIT' --tests '*PostgresSourceSetupIT' --tests '*WorkflowHttpIT' --tests '*PostgresWorkflowIT' --no-daemon --console=plain`退出0，41s；JUnit XML核对SourceSetupHttpIT 4、PostgresSourceSetupIT 3、WorkflowHttpIT 3、TelemetryWorkflowHttpIT 3（由通配符选中）、PostgresWorkflowIT 5，共18项，0失败/错误/跳过。覆盖来源确认/回执与继续编排授权、持久化/隔离/幂等/回滚、草稿CAS、预览/发布/运行回执和显式日志/指标样本输出；使用随机测试tenant和明确Fixture来源，不自动执行真实采集或模型 |
+| 实际浏览器 | 新建后台5173检查页，授权后自动显示18份已有配置；没有点击刷新列表。核对页签返回列表和继续编排：没有保存版本的来源准备本地未保存流程，既有样本来源定位`revision=1&state=PUBLISHED`并显示4个节点、发布只读与6个映射字段。未保存/发布/运行/探测连接/调用模型；仅丢弃本轮检查页生成的未保存模板。检查页控制台error为空，截图留在仓库外；临时页关闭，原用户页未刷新或导航 |
+| 静态与来源边界 | 恢复记录同步后，`scripts/check_repo.py`退出0，291结构化文件/6只读Tool定义通过；`git diff --check`退出0，保留既有CRLF提示；仓库外私有词表检查2062个提交候选通过，退出0 |
+
+本次仅恢复原服务及补验并更新状态文档，没有新的产品代码、契约、依赖或数据库变更；不将此前契约/领域/Rust/TypeScript和浏览器套件称为本次重跑。未重跑完整Java/PG/VM、全量浏览器、真实来源持续写入/模型调用/IdP/TLS、非Windows实机、远程CI或生产部署。测试输出仅`.tmp/dev-checks/config98-pg-recovery.log`和既有JUnit报告目录；未提交或推送，M0–M4退出状态保持。
+
+## 99. 接入实例维护与配置历史基础（2026-10-03）
+
+后续目标已建立并保持active。落地S2的实例维护基础，不将本切片等同完整S2–S7：SourceInstance与v2封闭契约/API、V035及受限运行授权、元数据CAS、配置历史、归档恢复、原维护命令回执查询。旧SourceSetup初版只读投影，首次修改事务保存初始配置、当前状态与回执；名称变更不增加配置版本，显式采用当前可信连接摘要才增加配置版本；不覆盖旧回执或工作流。创建ID租户内跨主体冲突拒绝，当前配置/完整历史不一致时失败。UI独立实例页签及请求容器、表格、抽屉；未知结果核对原命令，冲突保留本地输入，读取不暗中探测或运行。
+
+| 实际运行检查 | 结果与范围 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，971通过，21.89s；新增37项封闭字段、来源模式与容量检查 |
+| Java纯领域 | `scripts/check_java_domain.py`，最终51个main实际编译运行，1480 checks passed，退出0；包括30项实例维护和32项来源确认，不把main检查算作PG集成 |
+| PostgreSQL / 实际HTTP | 原私有本机配置仅传入loopback JDBC测试环境。`gradlew.bat :apps:platform-api:test --tests '*SourceInstanceHttpIT' --tests '*PostgresSourceInstanceIT' --tests '*SourceSetupHttpIT' --tests '*PostgresSourceSetupIT' --tests '*SourceContinuationHttpIT' --no-daemon --console=plain --max-workers=2`最终退出0，47s。JUnit XML：4+3+3+4+1共15项，0失败/错误/跳过。验证4写者CAS一胜、重建适配器历史/原回执、配置损坏拒绝、跨主体/租户/ID冲突、回滚、闭合请求、真实loopback HTTP授权与归档恢复。随机测试租户、明确Fixture来源，未调用实际来源采集或模型 |
+| Rust | 隔离`.tmp/dev-checks/rust78-target`，默认和all-features的workspace locked测试使用-j2，实际41/49通过，退出0 |
+| TypeScript / build | `pnpm typecheck:web`与`pnpm build:web`退出0，最终生产构建1.20s；既有大chunk警告保留，未升级依赖 |
+| 全量浏览器 | 本机Chrome，`pnpm test:web`，最终377项全量通过，6.1m，退出0；新实例维护10项覆盖1440/1024/390px、浅深主题、历史/归档/恢复、未知回执不重复PATCH、错配拒绝、CAS显式重读及403不循环。共享传输仅新增受控v2路径及PATCH，保留其他路径拒绝 |
+| 本地会话桥接 | `pnpm test:dev-session`，7项通过，386ms；仅v2 data-sources白名单，其他v2路径拒绝，bootstrap不允许PATCH；浏览器不能提交可信身份 |
+| 静态 / 来源边界 | `scripts/check_repo.py`退出0，303结构化文件/6只读Tool定义通过；`git diff --check`退出0，保留既有CRLF提示；仓库外私有词表检查2091个提交候选通过，退出0 |
+| 四启动单元 / 实际UI | `pnpm ops restart platform`退出0，平台加载V035；platform29480/runtime9152/worker21872/web21120存活/就绪均200/200。新建后台5173页自动读取18份本人实例，旧初版配置历史与当前部署地址/凭据引用显示；无凭据正文。1440/1024/390px检查无整页溢出，浅深主题可读，页面console error为空，截图在仓库外。只读操作，没有修改已有实例/工作流、探测/采集/发布/运行；临时页关闭、尺寸和主题恢复，原用户页未导航或刷新 |
+
+中间失败保留：首次PG测试编译因泛型Boolean断言重载歧义失败，修正后14项通过；增加完整性与跨主体ID测试后15项首轮14通过/1失败，测试使用已失效的旧连接摘要先触发SOURCE_UNAVAILABLE，改用当前摘要验证ID冲突后最终15通过。浏览器首次相关运行提前结束，无完成报告不算通过；第二轮34通过/1失败为旧抽屉选择器同时命中两个dialog，精确定位后全量377通过。首次Rust启动因Windows提交内存资源不足失败，没有执行测试；之后-j2成功。失败不计通过。
+
+完整地址/凭据配置、凭据轮换固定版本、配置版本绑定的连接测试和真实发现快照尚未实现；新历史仅保存摘要/模式/时间，当前部署env引用不是版本化密钥。实例归档不隐式停止其他任务或删除发布版本，现有任务绑定仍需后续pin完善。实例管理当前为独立页签，旧创建表保持兼容，不能宣称可编辑多条真实连接已完成。
+
+未运行完整Java/PG/VM套件、运行角色最小权限实测、真实来源持续写入/模型/IdP/TLS、生产后台委托、多副本故障/容量、非Windows实机、远程CI或生产部署，Rust fmt本轮未跑。四启动单元和数据库数不变，没有提交推送；M0–M4退出状态不提升。相关契约、ADR、运行说明与前端规范同步。
+
+## 100. 固定配置检查与有界字段发现（2026-10-03）
+
+完成S2的检查/发现切片：SourceInspection纯业务Schema、封闭v2命令/读取契约、持久化PENDING先认领与终态条件更新、V036、原请求幂等回读、版本变更/归档/期限与未知保护。来源IO在事务外，仅调用已有登记Host连接器，TEST匿名版本探测后必须授权读取；DISCOVER最多读取首个5条主机，保存固定5个原始字段的类型、缺失与指纹，不存字段值。记录只读校验原始配置历史，损坏失败。结果接受期限65秒、完成记录有效15分钟、每主体最多200回执、最近20份读取；进程并发2不等同多副本预算/接管。真实env凭据未版本化时仍UNVERIFIED，即使本次READ_VERIFIED也不冒充可复用发布pin。
+
+SourceInstancePanel管理请求/身份/未知结果，SourceInspectionResults纯展示，维护抽屉增加「连接与字段」。历史首次可见读一次，检查均显式POST；失败显式刷新、403清空缓存并关闭抽屉、未知结果保持原请求且无轮询/重复POST，结果到期仅更新标签。不同实例的页签状态按实例ID匹配，打开第二实例默认配置页，不因旧页签多读隐藏历史。原创建/发布内容未覆盖，发现不自动改映射或执行工作流。
+
+| 实际运行检查 | 结果与范围 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`，1001通过，21.00s，退出0；新增30项封闭命令、模式/完整性/状态与容量校验 |
+| Java纯领域 | `scripts/check_java_domain.py`最终编译运行52个main，1518 checks passed，退出0；SourceInspectionSmoke 38项包含原请求/类型冲突、权限/所有权、历史配置、过期、UNKNOWN、归档及200容量。不是PG测试 |
+| PostgreSQL / 实际HTTP | 私有本机配置仅读取并传入loopback JDBC。`gradlew.bat :apps:platform-api:test --tests '*SourceInspectionHttpIT' --tests '*PostgresSourceInspectionIT' --tests '*SourceInstanceHttpIT' --tests '*PostgresSourceInstanceIT' --no-daemon --console=plain --max-workers=2`退出0，41s；JUnit XML 3+3+3+4共13项，无失败/错误/跳过。随机测试租户、明确Fixture来源，覆盖实际Spring HTTP闭合请求、授权/归档/原键读取、PG重建历史/租户所有权隔离、4适配器同原键仅1次Reader、丢失PENDING与损坏pin；没有真实来源或模型调用 |
+| Host读取适配器 | `gradlew.bat :apps:platform-api:test --tests '*HostSourceInspectionReaderTest' --no-daemon --console=plain --max-workers=2`退出0，24s；7项无失败/错误/跳过。Connector显式Fixture验证匿名版本不能替代授权读取、失败不继续读取、offset不冒充验证集合、部分/混合/缺失类型、无客户值、空清单、超限不截断成成功、Fixture与权限边界。不是实际来源验收 |
+| Rust | `CARGO_TARGET_DIR=.tmp/dev-checks/rust78-target`，用现有MSVC环境运行workspace默认及all-features locked测试、-j2，实际41/49通过，退出0 |
+| TypeScript / build | `pnpm typecheck:web`、`pnpm build:web`初次及最终抽屉收尾后均退出0，最终构建1.22s；浏览器套件前构建也通过，原大chunk警告保留。未升级依赖 |
+| 全量浏览器 | 本机Chrome，`pnpm test:web`，393通过，5.0m，退出0；包括16项新检查用例、1440/1024/390px和浅深主题、partial、UNKNOWN/原回执错配、无轮询/重复POST、403清理、15分钟标签到期无请求、缓存页面切换 |
+| 最终相关浏览器 | 全量后修正不同实例的旧页签状态，`pnpm test:web source-inspections.spec.ts source-instances.spec.ts source-center.spec.ts`，47通过，54.6s，退出0；17项检查用例含打开第二实例不读隐藏历史。此后未再重跑全量393项 |
+| 本地会话 | `pnpm test:dev-session`，7项通过，373ms，退出0；v2固定路径桥接和身份清理保持，未扩大网络出口 |
+| 静态 | `scripts/check_repo.py`，311结构化文件/6只读Tool定义通过，退出0 |
+| 四启动单元 / 实际UI | `pnpm ops restart platform`退出0，新平台加载V036；platform20584/runtime9152/worker21872/web21120存活/就绪均200/200。独立后台5173页自动读18份实例，仅选择已有本机验收Host实例执行1次TEST与1次DISCOVER。真实授权读取通过，来源报告7.0.27；发现当前3条主机、5个原始字段，interfaces.ip实际存在缺失，HOSTID_WATERMARK完成清单；真实凭据仍显示未确认可复用。没有填写/修改地址、凭据、实例或工作流，没有触发采集、发布、运行、库存写入或模型。1440/1024/390px无整页横向溢出，浅深主题和字段表已视觉核对，console error为空；截图留仓库外，临时页关闭，主题/视口恢复，用户原页未导航或刷新 |
+
+中间失败如实保留：关联43项首轮42通过/1失败，403会清空全局授权缓存并关闭抽屉，原用例错误地断言抽屉内仍保留错误；修正为权限清理并独立测试普通失败。关联46项45通过/1失败为断言普通错误包含“来源”而实际固定文案使用“连接配置”，修正后全量393通过。最后不同实例隐藏页签收尾后47项通过。失败不计通过，未通过放宽权限或Schema解决。
+
+完整受控地址/多连接CRUD、版本化凭据配置及轮换、发布配置/凭据/算子完整pin、生产后台委托和持续任务、质量/重放/容量/多副本可靠性仍需推进，完整目标保持active，不能以本切片关闭S2–S7。未运行完整Java/PG/VM套件、运行角色最小权限实测、真实来源持续写入/模型/IdP/TLS、生产授权/多副本故障、非Windows实机、远程CI或生产部署，Rust fmt本轮未跑。四启动单元与数据库数量不变，无提交推送。相关契约、ADR-063、操作说明和前端规范同步；仓库外私有词表扫描2115个提交候选通过，git diff --check退出0、保留既有CRLF提示。实际输出仅在忽略检查目录，本机实施进度与UI证据留仓库外。
+
+## 101. 固定版本凭据管理（2026-10-03）
+
+新增纯领域SourceCredential、配置权限source.configure、CredentialProtector端口、JCA适配器和V037的元数据/密文版本/撤销/原回执表。AES-GCM认证绑定tenant、owner、ID、秘密版本、版本ID和keyId，内部命令HMAC核对同键不同秘密；公开回执只有非秘密命令摘要和元数据。版本只追加、名称编辑保留pin、撤销不可恢复。CAS与主体容量分别为100份凭据、200份回执、100个秘密版本、1000次编辑；读取校验索引、历史版本/时间/回执引用，可信连接器解封装前后复核撤销并清空临时字符数组。没有秘密GET、任意URL/密钥上传或明文/Fixture失败回退。
+
+密钥环为仓库外绝对本机文件，最多8192字节/8个32字节根密钥，规范Base64、闭合JSON、重复键与尾随拒绝；未设置明确不可用，设置无效拒绝启动。公开vaultAvailable、canConfigure、secretWriteAvailable分别反映密钥、权限和安全传输；秘密写入只允许可信Servlet TLS，或显式dev+强制loopback绑定且本端/对端均loopback，不采信普通X-Forwarded-Proto。默认部署不授予新权限或创建临时根密钥。本轮为了实际本机开发验证，显式在私有部署配置启用source.configure并设置持久随机密钥环，目录和文件ACL限制当前用户，原非秘密配置另留仓库外；没有复制/修改现有真实来源凭据。
+
+数据源中心新增凭据视图；SourceCredentialPanel承担请求/可信身份/原命令，Table/Drawer纯展示。列表和历史首次可见读取，失败显式刷新；秘密采用非受控密码输入，提交后立即清空，React待确认命令、浏览器存储与回执均不含秘密。未知结果锁定并只GET原回执；403清空缓存和DOM输入，保留现有开发会话的显式重试规则，不自动轮询。未提交新输入有继续/放弃入口，空名称也属于未保存状态。最终收敛历史页无关保存操作、修改输入取消旧撤销确认、已读取历史复用缓存。
+
+| 本轮实际检查 | 结果与范围 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q`最终1048通过，28.63s，退出0；11份新v2Schema/显式Fixture样例，公开秘密隔离、身份/地址/密钥注入、可见ASCII、控制字符、状态、pin与容量。早期1045检查不冒充最终数量 |
+| Java纯领域 | `scripts/check_java_domain.py`最终53个main/1584 checks passed，退出0；SourceCredentialSmoke 66项含原键同/异秘密、授权/主体/租户、保留旧根密钥、轮换旧pin、撤销前后IO、临时数组清空、密文篡改/跨scope、容量、坏回执与内存跨租户nonce重复回滚 |
+| 实际Java HTTP/PG与密钥适配器 | 私有loopback JDBC，`gradlew.bat :apps:platform-api:test --tests '*PostgresSourceCredentialIT' --tests '*SourceCredentialHttpIT' --tests '*SourceCredentialReadOnlyHttpIT' --tests '*SourceCredentialVaultTest' --tests '*SourceInstanceHttpIT' --tests '*SourceInspectionHttpIT' --tests '*PostgresSourceInstanceIT' --tests '*PostgresSourceInspectionIT' --no-daemon --console=plain --max-workers=2`最终退出0，1m6s；JUnit XML共23项、零失败/错误/跳过。包括4项新PG、2项新HTTP写入、1项只读身份、3项密钥文件/传输边界及原实例/检查13项。PG实际重建版本/原回执、4适配器CAS只追加1份、密文不含Fixture正文、nonce冲突和异常事务回滚、损坏索引/密文拒绝；测试根密钥/秘密明确合成，没有调用真实来源 |
+| Rust | 现有MSVC和隔离`.tmp/dev-checks/rust78-target`，`cargo test --workspace --locked -j2`及`--all-features -j2`，41/49通过，均退出0；未覆盖运行中Runtime产物，fmt本轮未跑 |
+| TypeScript / build | `pnpm typecheck:web`与最终独立`pnpm build:web`均退出0，最终构建1.02s；全量及最终专项浏览器启动前的生产构建也实际通过，沿用锁和依赖，大chunk提示保留 |
+| 全量浏览器 | 本机Chrome，`pnpm test:web`最终411通过，5.8m，退出0；含17项新凭据、三宽度/两主题、会话/权限/未知结果、声明的公开Schema及全站既有导航/画布/列表回归 |
+| 最终凭据专项 | 全量后收敛历史页保存按钮、缓存与撤销确认，`pnpm test:web source-credentials.spec.ts`最终18通过，38.5s，退出0；新增编辑取消撤销确认。此后没有再重跑全量412项。此前来源四组关联64项通过，1.1m |
+| 本地会话 | `pnpm test:dev-session`，7通过，318.6481ms，退出0；未扩大本地代理出口或更换开发Token |
+| 静态与来源边界 | `scripts/check_repo.py`333结构化文件/6只读Tool通过；私有仓库外策略检查2159候选通过。最终文档收尾后再执行边界与diff，结果按末尾记录 |
+| 四单元 / 实际本机API和UI | `pnpm ops restart platform`退出0，平台27036加载V037；runtime9152/worker21872/web21120与平台存活/就绪均200/200。仅新增明确Fixture本机凭据，实际POST创建和原键重放相同、同键异秘密409、PATCH轮换v2、撤销v1、原创建回执保持v1；元数据与版本读取不含秘密/密文/内部HMAC。独立5173页面读取列表和历史，v1已撤销、v2可引用，密码输入为空；1440/1024/390px整页无横向溢出，表格局部滚动，浅深主题实际截图已视觉检查。浏览器没有输入新凭据、撤销或保存动作；临时页面关闭，主题与视口恢复，用户原页未导航/刷新 |
+
+中间失败保留：首次新JUnit编译因泛型返回Boolean与JUnit重载歧义失败，显式取booleanValue后编译；首轮10项集成5失败，发现回执INSERT少一个占位符导致503，修正后23项通过并最终再跑通过。前端首轮17项15通过/2失败，历史失败后切页签重复GET为实际缺陷，新增请求尝试状态后修正；403用例误断言隐藏控件，调整后全量411中410通过/1失败，仍把保留开发凭据的显式刷新误认为应禁用，改为检查缓存清空、零自动请求与显式刷新才第二次GET。最终411及18专项均通过。没有用放宽Schema、权限或增加重试解决这些失败。
+
+完整目标仍active：版本化凭据管理已完成此切片，现有env连接尚未绑定新pin；受控地址/多连接配置、固定配置与凭据绑定检查、发布配置/算子/模型完整pin和差异、可信后台委托/真实写入闭环、指标追溯、质量/重放/恢复/容量仍待推进。实际Fixture凭据CRUD不等于真实来源认证、KMS或生产密钥管理验收，不提升M0–M4退出状态。未运行完整Java/PG/VM套件、最小运行角色实测、实际TLS/IdP/KMS/灾备、多副本故障或吞吐、非Windows实机、远程CI/生产部署；没有新数据库/启动单元、提交或推送。相关契约、ADR-064、规范和本机实施进度同步；原始日志在忽略检查目录，截图与私有密钥/配置记录均在仓库外。
+
+最终文档与UI收尾后，私有边界检查2159候选通过、git diff --check退出0，四服务仍200/200；没有新增未记录的凭据或业务执行。临时浏览器页已关闭，最终四张历史截图已经视觉检查，恢复原浅色主题与默认视口。
+
+## 102. 受控地址目录与固定pin内部读取（2026-10-03）
+
+完整后续目标保持active。本轮完成S2新增连接的地址与读取边界：纯领域SourceEndpoint/Pin、SourceEndpointCatalog端口、授权元数据服务与固定地址/凭据读服务；平台加载仓库外绝对路径部署目录，最多64KiB/32项/每项1–32个明确租户，重复/未知/非法内容拒绝启动，未配置为空。封闭v2 Schema/Fixture样例和授权GET目录已实际加载；浏览器请求不提供URL、租户、秘密或代理信息。操作员身份文件与identity-grants同步支持source-endpoint/credential范围，实际IO还需source对象和source.sync允许，默认身份和权限未扩大。
+
+数字IPv4/IPv6、规范端口与固定根路径在服务端校验；HTTPS默认，回环地址和回环HTTP仅显式dev+bindLoopbackOnly允许。拒绝DNS主机名、URL凭据/query/fragment/编码、歧义数字、危险地址范围与区号。新登记传输绑定精确URI，显式关闭代理与跳转；既有5秒连接/10秒单请求/2MiB单响应、1000成员清单、TEST1条/DISCOVER5条、最多6/5次HTTP请求和进程内2并发保持有界。内部RegisteredHostSourceReader真实调用已有JSON-RPC适配器，地址pin和固定秘密版本在IO前后复核，秘密字符数组最终清空；短暂String限制如实保留。没有公开新增连接探测或任意HTTP接口，也没有把旧env来源自动改成固定秘密版本。
+
+| 实际检查 | 结果 |
+|---|---|
+| 契约 | `python -X utf8 -m pytest tests/contracts -q --junitxml=…`退出0；JUnit元数据1084项、失败/错误/跳过0，12.273秒。新增地址/固定摘要/目录/部署配置正例与未知身份/凭据/网络字段、容量及操作员scope负例 |
+| 纯Java | `scripts/check_java_domain.py`退出0，54个main、1625检查；SourceEndpointSmoke40项验证范围/租户、错误摘要、轮换仍用旧版本、读中改地址/撤销、操作失败清空临时秘密、无IO拒绝和名称变更不改变语义pin |
+| Java适配器及实际HTTP/PG | Gradle `:apps:platform-api:test --max-workers=2`执行8套、28项，失败/错误/跳过0，最终29秒。包含RegisteredSourceEndpointsTest5、JacksonRegisteredTransportTest4、SourceEndpointHttpIT2、FileSourceConnectionGrantsTest2，以及Host读取/旧检查/PG检查/凭据HTTP回归。实际回环HttpServer验证无代理、跳转无二次发送、目的地不匹配不发送、过大正文取消；实际PG/HTTP固定旧秘密在轮换后读取通过，撤销后无上游IO，发现仅5字段类型与缺失。授权GET零网络副作用、其他租户隐藏、注入查询400、缺认证401、no-store；操作员范围撤销重新读取生效 |
+| Rust | MSVC环境和现有隔离target，`cargo test --workspace --locked -j2`与`--all-features`均退出0，41/49通过，未增加Rust执行能力 |
+| Web | `pnpm typecheck:web`与独立`pnpm build:web`退出0，构建1.07秒；已有大chunk提示保留。本轮无前端UI或依赖改动 |
+| 关联浏览器 | Chrome显式路径、一个worker，`source-instances.spec.ts source-inspections.spec.ts source-credentials.spec.ts`45通过，1.1分钟；未跑新的全量浏览器套件，不将§101全量411计入本轮 |
+| 本地会话 | `pnpm test:dev-session`7通过，283.0049ms |
+| 静态/私有资料边界 | `scripts/check_repo.py`342结构化文件/6只读Tool通过；私有外部词表检查2250候选通过，检查器未输出命中正文或词表内容。`git diff --check`退出0，既有CRLF提示不是内容错误 |
+| 四单元/实际本机目录 | `pnpm ops restart platform`退出0，平台31288实际加载新GET目录；runtime9152、worker21872、web21120与平台均200/200。显式在仓库外私有目录登记已有回环Host地址一项，保护目录/文件ACL，文件仅当前用户FullControl且owner匹配。保留原配置非秘密备份，既有平台Token、真实来源秘密和身份权限未改。可信只读API核对目录、精确摘要、单项读取和注入查询400；原18份接入、已有Host实例cfg1及上一节Fixture凭据v2/edit3未变，无业务写入或上游读取 |
+
+中间失败：首轮26项中25通过/1失败，测试预期不支持的POST返回405，而当前受保护错误分派实际返回401；保持认证实现，修正为拒绝与零网络副作用验证，复验26通过。新增独立scope文件测试首次编译引用不存在的ENTITY_WRITE枚举，改用实际ENTITY_MANAGE后最终28通过；没有扩展权限、放宽契约或增加重试来处理失败。编译与原有废弃API提示保留。
+
+当前交付是目录和内部固定pin读取边界。实例创建/更新的完整连接配置快照、地址与秘密版本选择UI、公开检查回执接入新适配器仍待完成；旧env连接的凭据语义仍UNVERIFIED。工作流配置/算子/模型完整pin、版本差异、可信后台委托和真实输出闭环、指标追溯、质量/重放/恢复/容量仍继续推进，不能用内部适配器Fixture测试替代这些验收。没有运行完整Java/PG/VM套件、实际新连接TLS/IdP/KMS/备份恢复/最小运行角色、多副本/吞吐/远程CI/非Windows实机检查；未增加启动单元或数据库，未提交推送，M0–M4退出门槛未提升。实际证据在忽略的`.tmp/dev-checks/endpoint102-*`，部署文件及本机产品实施记录在仓库外；没有新截图或操作用户原浏览器页面。
+
+
+## 103. 实例完整连接配置、固定凭据与创建编辑抽屉（2026-10-03）
+
+完整后续目标保持active。新增SourceConnectionConfiguration/Service、独立控制器及V038完整非秘密快照；创建/更新只接受登记地址pin和固定凭据版本pin，实例/通用历史/完整历史/原回执同事务写入。新实例物理ID独立，旧Host显式绑定保留原物理ID和创建回执；MANUAL不能绑定。语义变化追加配置，名称/说明只更新编辑版本。数据损坏、跨主体/租户、对象范围、CAS、容量、撤销与密钥不可用明确拒绝；旧回执复核原实例/快照摘要，元数据维护回执不能冒充连接命令。操作员文件补充workflow范围支持现有根门禁，默认身份/权限未扩大。
+
+公开TEST/DISCOVER已按被认领实例完整快照调用登记地址/固定秘密适配器，目录pin与凭据元数据在同一持有事务内验证，不开启嵌套PG事务。IO在事务外，精确原版本在前后复核；读中配置变化UNKNOWN，固定成功结果才CURRENT，旧env真实读取仍UNVERIFIED。轮换不自动换pin，旧检查改版STALE、撤销STALE、到期EXPIRED；查回执和重复原请求没有再次IO。发现保持Host首分页最多5条/5个原始字段类型及缺失，无原始字段值持久化。
+
+Web新增严格API契约/摘要校验、SourceConnectionPanel请求容器和SourceConnectionDrawer纯展示。实例管理提供新增连接，维护抽屉提供地址与凭据；分别选择地址、凭据、具体版本，被撤销版本可见且禁止提交，完整ID换行。未知结果固定原命令并查询原回执，普通关闭保留有效或无效草稿，继续/放弃入口、Esc焦点和403/身份变化清空隐藏目标与缓存。历史首次可见只读一次，失败仅显式刷新。新连接创建记录导向实例维护，不提供尚未接通的工作流版本跳转；旧工作流保留原绑定。
+
+| 实际检查 | 结果 |
+|---|---|
+| 契约 | pytest contracts退出0；JUnit记录1131项、失败/错误/跳过0，15.508秒。6个新Schema/Fixture样例，原回执正确引用内层Schema，未知身份/网络/秘密字段、pin、版本和容量负例通过 |
+| 纯Java | scripts/check_java_domain.py退出0；55个main、1673检查。SourceConnectionSmoke49检查：创建/重放、旧回执、元数据与连接版本分离、原秘密轮换后不自动换pin、范围/租户拒绝、归档、并发CAS、事务回滚、旧Host绑定、读中改版UNKNOWN、100配置版本容量及超额无写入 |
+| Java实际HTTP/PG与适配器 | Gradle平台test、11套/41项，失败/错误/跳过0，最终41秒。新增PostgresSourceConnectionIT4验证完整历史/撤销后原回执、并发唯一胜者、两类快照回滚和损坏正文拒绝；SourceEndpointHttpIT4包含真实回环HttpServer→公开创建/配置→PG→TEST/DISCOVER→轮换/修改/撤销→原回执，仅合成上游与秘密，禁止将Fixture作为真实来源验收。其余实例/检查/凭据HTTP与PG、出口限制、文件scope及读取适配器回归通过 |
+| Rust | MSVC环境，隔离现有target，workspace locked -j2默认/all-features退出0，41/49通过；未增加运行能力或更新锁 |
+| Web | typecheck退出0；独立build退出0，最终1.07秒，已有大chunk提示保留。React/TypeScript/shadcn与依赖版本未更换 |
+| 关联浏览器 | 显式Chrome、一个worker，source-connections/instances/inspections/credentials/center/connection-checks及integration-initial-read/lists共111通过，最终2.1分钟。新15项覆盖三宽度/浅深、固定选择、原回执未知/不匹配、CAS、无效草稿恢复、403清理、撤销选项、维护更新保持cfg版本、历史失败不自动重试和Esc焦点；未运行本轮全量浏览器，不把§101全量411计入本轮 |
+| 本地会话 | pnpm test:dev-session 7通过、失败/跳过0，8656.5539ms |
+| 静态/私有资料边界 | scripts/check_repo.py 355结构化文件/6只读Tool通过；私有外部词表2294候选通过，未输出命中正文/词表内容。git diff --check退出0，既有CRLF提示保留 |
+| 实际部署/页面 | 首次平台重启4520实际加载V038，四单元200/200。续跑发现四单元均已停止后，按原配置pnpm ops start恢复，Runtime实际构建3m27s未中断/重复启动；最终platform23008/runtime30548/worker12524/web29096均200/200。可信实际GET新配置/history保持旧Host LEGACY且完整历史为空，目录摘要和原18份创建/旧Host cfg1/Fixture凭据v2 edit3不变，注入查询400与no-store核对。实际页面选择既有地址及明确Fixture凭据v2、保留v1撤销，1440/1024/390与明暗截图已查看；界面草稿未提交、未读上游、未执行采集/发布/运行，临时草稿明确放弃、临时页关闭、浅色偏好与视口恢复；用户原页未导航或刷新 |
+
+中间失败：新浏览器首轮误引用不存在的凭据版本样例路径，12项新用例失败而原45通过；修正实际version-page路径后11/12通过，余一项为Playwright对原生option disabled的判断不支持（DOM已有disabled）。改用disabled属性及保存禁止共同验证，最终111通过。后续细节修改后再跑111通过，不放宽权限、契约或隐藏失败。最初只执行编译和旧领域检查不计入最终feature通过，旧输出仅作为过程证据。
+
+实现记录、闭合契约、ADR-066、runbook与前端规范同步。完整模型/指标发现和映射重验、实例成为主列表、工作流来源/算子/模型/映射全pin、差异及升级恢复、可信可撤销后台委托、真实来源测试到查询输出闭环、质量/重放/恢复/容量、多副本故障及生产环境门槛仍未完成。没有进行完整Java/PG/VM套件、新连接生产TLS/IdP/KMS/备份恢复/最小角色、多副本/吞吐/远程CI/非Windows实机验收；未迁移实际秘密或增加启动单元/数据库，未提交推送。证据在忽略的.tmp/dev-checks/connection103-*与仓库外本机checks；旧外部产品研究/身份/截图仍不进入仓库。
+
+
+## 104. 工作流固定接入版本与即时只读预览（2026-10-03）
+
+source.configuration增加封闭sourceId/revision/digest，不复制地址或秘密到工作流，不接受latest、身份或权限字段。新pin进入语义摘要；旧定义的序列、存储解析、批次预览与发布摘要保持兼容。服务器在调用者租户事务中验证完整不可变连接历史、物理来源及摘要；可用性另核对实例归档、登记地址和固定秘密版本/密钥。连接轮换不改已有流程pin。保存、预览前后及发布校验来源；读取中撤销不能保存成功回执，历史版本及审计在权限范围内仍可读取。
+
+固定Host来源经已登记出口与秘密读取边界即时预览最多5条，沿用有界manifest及Host映射，逐实体检查ENTITY_READ；外部IO在工作流PG事务之外。请求不提交samples或旧syncRunId，来源只接受zabbix-jsonrpc；不回退Fixture。trace带固定配置，syncRunId为null，计数表示实际读入样本；截断不冒充完整采集，运行元数据不保存值。只读预览不能替代持久采集谱系，旧LOCAL_DEV_ENTITY运行器遇到固定来源显式SOURCE_UNAVAILABLE。四启动单元及数据库不变。
+
+WorkflowSourcePanel持有可信会话、实例/版本读请求、取消、缓存与失败；WorkflowSourceConfig纯展示。在来源节点显式打开选择器才读实例目录，版本明确选择后应用到定义，不自动用latest。失败不因抽屉或主题切换而重试，403清理隐藏状态。完整实例/摘要/凭据标识可换行，发布来源只读。
+
+| 实际检查 | 最终结果 |
+|---|---|
+| 契约 | pytest tests/contracts退出0；JUnit1149项、失败/错误/跳过0，15.772秒。新增18项固定pin正反例，保留旧定义兼容；未知身份/地址/秘密/权限、非法UUID/digest/版本、manual配置pin和null拒绝 |
+| 纯Java | check_java_domain.py退出0，56个main、1705检查；新绑定32项覆盖摘要、固定历史、伪造来源/摘要、租户/scope、禁止注入批次/手工样本、即时trace、轮换不迁移、归档/恢复、读取中撤销不存回执及旧运行器拒绝 |
+| Java实际HTTP/PG及适配器 | Gradle平台test、显式选择18套64项，失败/错误/跳过0，最终1m27s。新增实际回环HttpServer与PG：公开凭据/实例→固定工作流保存→预览→trace→发布→连接/秘密轮换仍读原版本→撤销原秘密无上游IO→历史版本可读。旧Workflow/SourceSetup/Continuation/Runtime及其PG、连接/凭据/检查、出口/对象范围适配器回归通过；没有以纯领域Fixture代替HTTP/PG证明 |
+| Rust | MSVC环境、现有隔离target，workspace locked -j2默认/all-features均退出0，41/49通过；无新增Rust运行能力或锁更新 |
+| Web | typecheck退出0，独立生产build退出0，1.10秒；现有大chunk提示保留。固定来源解析/运行明细复用封闭pin校验 |
+| 关联浏览器 | 显式Chrome、一个worker，workflows/workflow-outputs/source-connections/graph-workspace共62通过，1.6分钟。新增5项验证1440/1024/390、明暗、显式版本、完整pin、无旧批次预览、固定来源不误开旧运行器、失败显式重试与403清理；未跑本轮全量浏览器 |
+| 本地会话 | pnpm test:dev-session 7通过，失败/跳过0，327.9437ms |
+| 静态/资料边界 | check_repo.py通过357结构化文件/6只读Tool；私有外部词表检查通过且不输出命中正文/词表。git diff --check退出0；最终候选数以忽略的workflow104-boundary.log为准 |
+| 服务与实际页面 | pnpm ops restart platform退出0，平台17516/runtime30548/worker12524/web29096均200/200。可信GET核对原18份接入、旧Host cfg1 LEGACY/完整历史空、Fixture凭据v2/edit3及目录pin、no-store/query400未变。实际临时页显示来源选择器和旧实例尚无固定地址/秘密配置；1440浅色与390深色截图在仓库外，已查看。没有保存草稿/配置、预览/发布实际来源或写业务数据；临时草稿明确放弃、页关闭，主题/视口恢复，用户原页未操作 |
+
+过程失败如实保留：新纯领域测试首次误用已有接口签名，随后漏完整layout；修正测试后32项通过。新契约注册器首次包含无$id文件导致收集失败，改为注册实际有$id Schema后1149通过。平台首次编译将UUID传入字符串资源构造器，修正为ResourceRef.entity并输出规范entity_id字符串，最终实际64项通过。新浏览器先因定位同时命中配置/预览两区而3失败，收窄定位后又因打开抽屉覆盖顶部主题控件而3次超时；改为关闭抽屉切换主题再打开，最终62通过。未通过force点击、放宽契约或修改认证来绕过失败。
+
+当前来源仍按创建者私有隔离，跨创建者共享来源尚未设计。完整算子/模型/映射依赖pin、差异与升级、固定配置的持久采集批次、受信可撤销后台委托和真实输出闭环、完整模型/指标发现、主列表统一、质量/重放/恢复/容量与多副本故障及生产环境门槛继续实施。未运行完整Java/PG/VM或全量浏览器、生产TLS/IdP/KMS/备份恢复/最小角色、持续采集/真实写入、吞吐/多副本/远程CI/非Windows实机验收。没有新服务/数据库、秘密迁移、提交或推送；完整目标保持active，不因本切片通过提升M0–M4状态。
+
+
+## 105. 静态算子目录、固定摘要与执行前计划（2026-10-03）
+
+算子唯一元数据源移入contracts/catalog，当前11个内置版本1类型；开发/CI生成纯Java静态描述、TypeScript元数据、Node配置Schema和固定示例，禁止手改生成文件、动态代码或远程下载。摘要覆盖声明的语义版本、参数与端口，显示文字不进入执行摘要；声明实现ID不是构建文件或源码内容哈希。领域层不读取JSON/框架文件，Node参数按已生成目录验证。每次评估预编译最多16节点/32边的不可变内存计划，复用已解析父节点与类型端口；来源读取前拒绝摘要不匹配，不增加逐点PG/持久编排或服务。
+
+operatorDigest存在时进入Definition语义摘要；旧无pin摘要和不可变JSON不改写。新发布必须全部pin匹配，未固定/失配返回409；旧已发布版本仍可读和按版本1执行，PG回查/执行后证明没有写入新属性。旧草稿明确使用更多菜单固定版本，支持撤销/重做；保存清除旧预览，重新预览后沿用原15分钟、CAS、输出模型与来源复核门禁。旧实际运行器在读取批次和输出前检查pin，失配任务停止并保存闭合OPERATOR_CHANGED元数据，停止旧任务仍可操作。
+
+授权工作区同次响应提供目录，保留首次自动读取一次。节点库分类/搜索文字来自目录，纯展示组件不请求网络；新模板/节点固定读取到的摘要，旧草稿不自动升级。目录缺失保留历史查看并禁用新建/固定/发布；不兼容目录保留错误，不回退或轮询。右侧抽屉展示完整类型/版本/digest，现有主题、身份清理、未保存页签和发布只读边界继续生效。
+
+| 实际检查 | 最终结果 |
+|---|---|
+| 契约与生成 | pytest tests/contracts最终退出0，1165通过，失败/错误/跳过0，固定示例补充后最终复验13.97秒。新目录闭合/代码地址/未知类型/参数/端口/摘要/重复/兼容定义/运行错误正反例，生成器--write及--check实际执行；CI只校验，不自动升级 |
+| 纯Java | 最终check_java_domain.py退出0，57个main、1736检查。新算子31项覆盖固定摘要、旧定义等价执行、不可变计划、新发布门禁、预览失效、旧不可变版本不迁移、错误pin不读来源/批次或写输出、任务停止/错误和允许显式停止 |
+| 实际Java HTTP/PG及适配器 | 18套66项，失败/错误/跳过0，最终Gradle55秒；实际授权根目录、pinless保存/预览/禁止新发布→显式升级CAS→旧预览无效→重新预览/发布→PG回读完整pin；错误摘要409、无认证401和伪造query400。独立PG旧不可变定义执行后未新增operatorDigest；固定来源、来源确认原回执、连接/凭据/检查/出口/对象范围及旧运行回归通过 |
+| Rust | 现有MSVC与隔离target，workspace locked -j2默认41、all-features49均退出0，无Rust运行能力或锁升级 |
+| TypeScript/构建 | 独立typecheck退出0；浏览器准备实际执行tsc及生产build，初次1.01秒，最终932ms；已有大chunk提示保留，没有增加依赖或手改客户端 |
+| 浏览器 | 明确本机Chrome、单worker，9个关联文件105通过，2.7分钟。新增升级/撤销重做/完整摘要/预览门禁/缺失目录历史查看/不兼容无回退，1440/1024/390和明暗；运行错误/解析小修后workflows+workflow-operators最终42通过，1.3分钟。未跑本轮全量浏览器 |
+| 本地会话 | pnpm test:dev-session退出0，7通过、失败/跳过0，497.3616ms |
+| 静态与私有资料 | check_repo.py、私有词表边界、生成器--check和git diff --check实际通过；最终360结构化文件/6只读Tool，私有边界2330候选通过（忽略operators105-boundary日志），不输出词表或命中正文。仅既有CRLF提示 |
+| 服务与实际页面 | pnpm ops restart platform退出0，platform10284/runtime30548/worker12524/web29096均200/200。可信GET目录与contracts完全相等，11算子；no-store、query400、无认证401。原18份接入、旧Host cfg1 LEGACY/history空、Fixture凭据v2/edit3未变；当前页8草稿/5已发布。实际临时页的新模板显示完整TRIM pin与目录节点库，1440浅色与390深色已查看、DOM无全页横溢；截图留在仓库外checks/operators105。没有在实际页面保存/预览/发布或读上游/写业务数据，临时草稿明确放弃、页关闭，主题/视口复原，用户原页未操作 |
+
+过程失败保留：最初领域回归的旧测试新发布夹具未固定摘要，OPERATOR_PIN_REQUIRED使检查退出1；升级新发布夹具并新增独立旧历史兼容用例，最终全部通过，不放宽服务器门禁。初次启动Java测试帮助脚本时生成脚本尚在运行，Node因文件尚不存在退出1；等待原生成命令完成后重新执行，最终66项通过。首张实际截图紧随视口变化，捕获旧尺寸帧；DOM核对确认新尺寸、抽屉与全文无横溢后重拍，最终图片替换旧帧。没有通过强制点击、篡改身份或放宽权限绕过失败。
+
+实现状态、ADR-068、契约/固定示例、操作说明和前端规范同步。S1实例主列表、完整模型/指标发现与标准映射pin、依赖差异/升级冲突、固定来源持久采集批次与可信可撤销后台委托、真实输出查询闭环、质量/重放/恢复/容量和多副本故障及生产环境门槛继续实施。未运行完整Java/PG/VM、全量浏览器、生产TLS/IdP/KMS/备份恢复/最小角色、连续采集/实际写入、吞吐/多副本/远程CI/非Windows实机验收。没有新服务/数据库、秘密迁移、提交推送；完整目标active，M0–M4退出门槛不改变。
+
+## 106. 当前接入实例主列表与固定配置首版编排（2026-10-03）
+
+默认主列表使用v2实例API的当前授权元数据；不可变创建回执移入独立入口，不再由浏览器补成可维护/配置v1实例。按名称/说明/来源、类型与归档状态筛选，统计仅限当前最近20份实例。目录与创建回执首次可见读取一次，失败显式刷新，切离首次目录读取会取消并拒绝迟到响应；已确认创建返回后读取实例列表，不把原创建记录当作当前行。原回执恢复、维护CAS/未知结果、凭据/检查门禁和身份清理保留。
+
+新连接主列表链接使用封闭的实例UUID、配置revision和完整digest三元组，非法/重复/混合/身份参数在工作区读取前拒绝。授权实例与不可变连接历史精确匹配后，只准备未保存首版草稿，固定来源、主机模型及算子摘要；轮换到v2仍保持明确选择的v1。归档/缺失/不匹配/普通失败/403不回退到其他版本、旧批次或Fixture。已有工作流从版本入口显式创建下一版再选配置，保存以服务器CAS为准；最近列表无法证明不存在历史版本，不能替代服务器冲突校验。跳转不保存/预览/发布，不读取上游；旧运行管理对固定来源仍关闭。
+
+来源展示表、请求容器与URL选择分层保留，纯组件不发请求。手机搜索独占一行，筛选与两项操作分层，页签单行本地滚动、支持键盘，避免长标题折成竖排；明暗、1440/1024/390及局部表格滚动核对。
+
+| 实际检查 | 最终结果 |
+|---|---|
+| 契约/生成 | pytest tests/contracts退出0，1165通过、失败/错误/跳过0，9.38秒；算子生成器--check核对11个目录项。没有手改生成客户端或改变已有服务端业务Schema |
+| 纯Java | check_java_domain.py实际退出0，57个main、1736检查；没有Java领域或适配器功能修改 |
+| Rust | 现有MSVC、隔离target、workspace locked -j2默认41/all-features49均退出0，失败0；未增加Rust功能、依赖或锁升级 |
+| TypeScript/生产构建 | 修正配置字段名后独立typecheck退出0；最终浏览器准备实际执行tsc及生产build成功，保留既有大chunk提示，没有升级依赖 |
+| 浏览器 | 明确本机Chrome、单worker；9个关联文件118通过，2.4分钟，覆盖首次自动读取/缓存/失败/取消/迟到/原回执恢复、配置历史pin、同配置轮换不自动改版、缺失/归档/403/已有版本拒绝、闭合URL与无隐藏写入。工作流编辑/算子/输出3文件48通过，1.6分钟；移动样式最后6文件90通过，1.8分钟，含手机搜索几何、三宽度和明暗。90项与118项有重叠，不能相加为独立用例总数；未跑本轮全量浏览器 |
+| 本地会话 | pnpm test:dev-session退出0，7通过、失败/跳过0，396.79ms |
+| 静态/私有资料 | check_repo.py实际通过359结构化文件/6只读Tool，生成器、私有边界实际通过2332提交候选；词表/正文不输出。最终文档后边界与git diff --check实际退出0，仅既有CRLF提示，不提交私有原始证据 |
+| 实际服务与UI | 信任本机开发身份的只读GET核对18份实例/18份创建回执，旧Host cfg1 ACTIVE且LEGACY未绑定；no-store、伪造query400、缺认证401。8080/8090/8081的实际存活/就绪及5173页面均200/200，无重启或配置写入。临时实际页面展示18份实例，1440/1024/390与明暗核对，无全页横溢；手机搜索294px覆盖整行，检查图在仓库外checks/source106，已查看。没有保存实际草稿/连接、读取上游或写业务数据；临时页关闭并恢复主题/视口，用户原页未操作 |
+
+过程失败保留：首次typecheck把固定来源摘要字段写成connectionDigest，按已有digest契约修正后通过。第一次115项浏览器有6失败：新节点定位使用旧名称，历史用例在认证前选页签而认证后恢复默认；修正定位和授权后的明确选择，118项最终通过。新增手机几何定位同时命中隐藏凭据工具栏，第一次响应式复验2失败，限定实际实例区域后最终90通过，没有放宽几何标准或强制点击。首次健康脚本使用错误路径退出1，按启动器实际端点修正后四单元200/200。文档批量补丁因锚点不全被拒绝，未写入部分文件；重新核对后一次更新，旧记录保留。
+
+实现状态、路线图、固定来源契约说明、来源操作与前端规范同步。完整模型/指标发现、标准映射pin、发布依赖差异/升级冲突、固定来源持久批次与可信可撤销后台委托、真实输出查询闭环、质量/重放/恢复/容量和多副本/生产门槛继续实施。未运行本轮Java HTTP/PG适配器或完整Java/PG/VM、生产TLS/IdP/KMS/备份恢复/最小角色、实际持续采集/写入、吞吐/多副本/远程CI/非Windows实机。沿用§105既有服务端实际66项证据，不把本轮浏览器HTTP Fixture当作新的真实连接验收。没有新服务/数据库、秘密迁移、提交或推送；完整目标保持active，M0–M4退出门槛不提升。
+
+
+## 107. 已保存版本的只读配置比较与并发核对（2026-10-03）
+
+新增封闭的comparison请求/响应契约、明确Fixture样例、纯Java比较器、应用层精确保存引用核对与只读HTTP接口。双方均固定id/revision/state/editVersion/digest，服务器在同一Store事务应用可信身份、租户、本人草稿和来源对象范围；布局保存改变编辑号也使旧请求409。不同流程拒绝400，缺失/他人草稿404，不绕过权限。比较固定来源/模型/算子摘要、映射、参数、节点和连线增删及执行顺序；不同revision自身、画布位置和预览回执不列为处理变化。null表示未设置，空字符串保留。最多1200变化、键96/值4096/节点32字符，有稳定顺序和不可变列表；不执行代码、解析当前模型、读秘密或上游、不写草稿/发布/预览/运行历史。
+
+版本列表和编辑器更多菜单接入非模态贴右全高抽屉，未保存变化禁用；请求容器/纯展示/API契约分离。打开或选项变化不发请求，冲突后显式刷新并重新比较；选项消失置空仍可刷新。取消/切页/迟到/403与缓存页面状态清理、完整键/摘要、空值区别、Esc焦点恢复均验证。客户端拒绝伪造引用、未知字段、非法值和重复变化，不在浏览器重新计算差异或自动升级依赖。
+
+| 实际检查 | 最终结果 |
+|---|---|
+| 契约 | pytest tests/contracts实际退出0，1191通过、失败/错误/跳过0；新增26项闭合引用、身份/参数注入、预算、节点范围、时间/重复正反例及空变化。控制台双quiet没有汇总，按实际通过的进度点计数，并保留日志；不是collect-only结果 |
+| 纯Java | check_java_domain.py最终退出0，58个main/1768检查；新比较32项验证revision不计变化、名称/来源/模型/算子/映射/参数/节点/边/序、不可变结果、无模型/上游I/O、双方来源范围、SOURCE_SYNC、本人的草稿与租户隔离、过期编辑号和不写历史 |
+| 实际Java HTTP/PG及适配器 | 18套67项，失败/错误/跳过0，Gradle实际1分7秒；新测试真实PG保存→预览→不可变发布→第二版草稿→精确引用比较，no-store与null字段、原发布JSON和运行数量未变、query/未知字段/重复JSON键/无认证/错摘要/错编辑号/异流程/缺失/布局CAS更新后旧请求拒绝。其他来源/连接/凭据/出口/固定来源和旧运行回归通过 |
+| Rust | 现有MSVC、隔离target、workspace locked -j2默认41/all-features49均退出0，失败/忽略0；未修改Rust运行或依赖锁 |
+| TypeScript/生产构建 | 独立typecheck最终退出0；每轮浏览器准备实际执行tsc及生产build成功，既有大chunk提示保留，没有依赖升级或手改生成客户端 |
+| 浏览器 | 明确本机Chrome、单worker，4关联文件60通过、1.5分钟。补充编辑器dirty与缓存页签后专项14通过、28.3秒；实际视觉修正关闭按钮后最终14通过、32.4秒，含三宽度/明暗、关闭图标几何居中。只读网络错误提示修正后最后15通过、27.5秒，保留选择并仅显式重试。专项与60有重叠不能直接相加；未跑本轮全量浏览器 |
+| 本地会话 | test:dev-session实际7通过、失败/取消/跳过0，3751.9451ms |
+| 静态与私有资料 | check_repo.py实际通过364结构化文件/6只读Tool；生成器--check核对11目录项；最终文档后私有边界2351候选及git diff --check均实际退出0，仅既有CRLF提示；不输出私有词表或命中正文 |
+| 实际服务/页面 | 平台重启后29292/runtime30548/worker12524/web29096全部200/200。实际比较有no-store、伪造query400、无认证401、错摘要409；现有单发布版本比较自身返回空changes，原发布JSON与运行数量未变。原18实例/18创建回执、旧Host cfg1 ACTIVE且LEGACY未绑定保持。实际1440/1024/390及明暗无全页横溢；最终关闭图标横/纵偏移均0，截图仓库外checks/comparison107且已查看。当前本机没有同流程多revision，实际页面仅验证自身比较；不同版本差异由独立HTTP/PG测试及明确HTTP Fixture浏览器验证。没有实际保存/预览/发布或读取上游/写业务数据；临时页8和9均关闭，主题/视口复原，用户原页未操作 |
+
+过程失败保留：首次纯Java夹具修改映射时同时移除了另一个字段，实际3条映射差异与预期2不符；保持无关字段后验证正确的删除/新增2条，最终全部通过，没有改比较语义。实现核对时发现原容器可能阻止空选项刷新，刷新到新编辑号后与陈旧父列表绝对核对也可能误清结果；测试前已按固定流程ID刷新和仅实际父列表变化失效修正，专项覆盖通过，这两项不是曾执行失败的浏览器用例。截图发现旧页面按钮样式覆盖关闭图标，改为共用Button并增加居中几何复验；最终图替换初图。一次实际复验脚本混用了TypeScript非空断言，工具在解析阶段拒绝、未执行任何动作；改为JavaScript后继续实际检查。没有放宽权限、伪造生产连接或强制点击绕过失败。
+
+ADR-069、比较契约、前端规范、操作说明、实现状态与路线图同步。完整模型/指标发现、标准映射独立pin、显式依赖升级兼容与发布冲突、固定来源持久采集批次/可信可撤销后台委托、真实输出查询、质量/重放/恢复/容量和多副本/生产门槛继续。未运行完整Java/PG/VM、全量浏览器、生产TLS/IdP/KMS/备份恢复/最小角色、实际持续采集写入、吞吐/多副本/远程CI/非Windows实机。没有新服务/数据库、秘密迁移、提交推送；完整目标active，M0–M4门槛不提升。
+
+## 108. 固定来源的有界指标元数据发现（2026-10-03）
+
+本轮继续完整接入目标，完成S2首分页指标发现及有效回执修正。契约新增DISCOVER_METRICS/metricDiscovery，纯领域验证来源项顺序、指纹、结果互斥、预算和固定配置。真实来源通过既有数字地址登记、版本化凭据与读前后撤销检查，仅两次固定item.get，按itemid升序读取21项含哨兵，保留20项；不读取lastvalue/history/脚本/密码。两次一致且无哨兵为完整的本次授权可见清单，不能作为事务快照或全租户资源证明；部分、变化、失败及未映射分别保留。
+
+映射来自已有精确来源键配置，包含id/revision/完整配置digest、完整标准指标键、单位/值类型/转换。来源原键、空单位、未知类型与类型不匹配没有被静默换成已支持定义。此处的映射引用仍是观察依据，尚未成为工作流独立执行pin；没有新增绑定、模型、指标点或采集checkpoint。Fixture仅使用既有合成来源并明确标注，真实失败不回退。
+
+V039将同一检查回执JSON预算扩展为256KiB，仍最多200份/主体与最近20份读取；新迁移同时进入Gradle资源和启动迁移器。旧Host JSON可缺少新投影，实际PG去掉新属性后由新适配器读回保持原结果。新完成投影互斥，原请求重放不重复网络读取。旧未版本化真实连接在新指标操作前拒绝，历史连接测试依然明确UNVERIFIED。
+
+| 实际检查 | 最终结果 |
+|---|---|
+| 契约 | pytest tests/contracts最终实际退出0，1211通过，16.17秒；20新增用例覆盖闭合结果、身份/值/秘密字段注入、预算、文本控制字符、类型和结果互斥，旧Host兼容 |
+| 纯Java | check_java_domain.py最终退出0，59个main/1802检查；指标发现新增34项，验证不可变结果、数值ID顺序/重复、预算、指纹、权限/来源范围、配置和凭据pin、原请求无重复读、部分/失败无Fixture回退 |
+| 实际Java HTTP/PG及适配器 | 19套73项，失败/错误/跳过0，Gradle最终51秒；真实HTTP/PG与明确合成上游验证两个固定元数据请求、no-store、固定连接/凭据、轮换不改变旧pin、撤销后旧回执STALE及新请求无网络503、原请求不重复读取；20项超过旧8KiB预算的JSON实际持久化后新适配器可读，旧投影兼容。固定工作流和原来源等既有回归通过 |
+| Rust | 既有MSVC与隔离target，workspace locked -j2默认41/all-features49均实际退出0；未修改Rust或依赖锁 |
+| TypeScript/生产构建 | 独立typecheck实际退出0；每轮浏览器准备实际执行tsc与生产build成功，保留既有chunk提示，无依赖升级或手改生成客户端 |
+| 浏览器 | 明确本机Chrome、单worker，3关联文件最终48通过、57.6秒；最后配置提示修正后来源专项27通过、43.3秒，与48重叠不能相加。三宽度1440/1024/390与明暗验证完整来源/标准键、定义链接、无自动POST、历史首次一次、显式发现与原请求查询、不完整、损坏指纹门禁及会话清理。加入每个td和链接自身溢出及关闭图标横纵居中检查，不能只用全页宽度判布局通过。未跑本轮全量浏览器 |
+| 本地会话与静态 | test:dev-session实际7通过，失败/取消/跳过0、3644.8605ms；check_repo.py实际通过368结构化文件/6只读Tool；生成器--check核对11目录项 |
+| 实际来源/服务 | 复用本机配置的来源Token，经受控API保存一个独立本地凭据与“本地指标接入”，配置v1/凭据v1。真实本机Zabbix数字地址18088的item.get返回3项，FIRST_PAGE_MATCH/READ_VERIFIED/complete=true/CURRENT，精确映射3项。原请求GET保持同一结果；无认证401、query400、同键换种类409。逐项摘要核对原18实例/18不可变创建回执及原凭据不变，共19实例/2凭据；未改旧配置或写模型/工作流/遥测输出。Docker来源Web为已固定digest的正式连接器镜像。平台19612/runtime30548/worker12524/web29096全部200/200 |
+| 实际页面 | 独立临时页10实际默认读取19实例，打开新实例→连接与字段读取已有指标回执；CURRENT被前端接受，3项完整来源/映射键实际可见。点击host.memory.available.ratio进入对应定义，完整来源vm.memory.size[pavailable]与比例单位/转换/版本正确。此浏览器核对只读，没有再次发现或写操作；截图仓库外checks/discovery108，默认视口截图已查看；明暗三宽度截图为明确HTTP Fixture浏览器产物且已查看最终390深色与1440浅色。没有把Fixture截图当作实际上游证明。临时页10关闭，未操作用户原页，未设置浏览器视口或主题 |
+
+过程失败如实保留：初契约测试1210通过/1失败，字符串Schema的末尾美元锚可匹配末尾换行；加入绝对末尾检查后1211全部通过。首Java测试73项有1个PG失败，新JSON超出旧预算，V039尚未接入启动迁移器；接入后下一次又发现迁移未进入Gradle资源，导致Missing inventory migration。补齐两处后最终73全部通过，没有减小夹具、手改旧迁移或绕过数据库约束。初浏览器48通过但截图发现末列旧nowrap/链接样式造成手机裁切；修正局部样式后加入单元格/链接几何检查并再次48通过。关闭改共用Button后居中检查通过。实际配置页核对发现缺少目录投影被误写为凭据不可用，改为查看独立地址/凭据入口，最终27专项通过。一次文档编辑工具补丁格式错误未写该文档，修正后再写。
+
+ADR-070、来源指标/检查契约、前端规范、来源中心操作说明、实现状态、路线图及本机实施进展已同步。提交前的私有资料边界和git diff --check以本节最终附记的实际结果为准；不输出私有词表或命中正文。
+
+后续仍需完整指标清单分页/模型字段发现、标准映射独立执行pin、显式依赖升级兼容与发布冲突、固定来源持久批次/可信可撤销后台委托、真实输出查询、质量/重放/恢复/容量及生产门槛。未运行完整Java/PG/VM、全量浏览器、生产TLS/IdP/KMS/备份恢复/最小角色、多副本/吞吐/远程CI/非Windows实机。没有新增启动单元或数据库、提交推送；完整目标active，M0–M4门槛不提升。
+
+最终附记：私有资料边界检查实际通过2371候选文件，git diff --check实际退出0，仅既有CRLF提示；本附记写入后再次运行同两项检查，结果以discovery108-boundary-last.log与discovery108-diff-last.log保存。
+
+## 109. 来源指标清单的受控分页与真实接入核对（2026-10-03）
+
+本节实际完成：每页20项、容量1000项的来源指标成员清单分页；服务器私有ID清单、公开引用及父/根回执谱系；固定连接/来源/可信身份核对；最多五次固定元数据请求、原请求恢复与15分钟根有效期；独立公开/私有编解码、旧记录兼容；请求容器与共用指标表/分页展示组件。CURRENT表示本页及配置有效，终页complete才表示连续成员范围覆盖。ITEMID_WATERMARK不是所有可变元数据的同一时刻原子快照，不读值/history，不写绑定、指标点、实体或工作流，不推进checkpoint。
+
+| 实际检查 | 结果与范围 |
+|---|---|
+| 契约 | pytest tests/contracts，1239通过，16.04秒，实际退出0；5个分页/私有存储Schema与明确Fixture样例，拒绝公开私有清单、额外cursor/offset/来源/身份，失败与成功空结果区别、结果互斥及旧兼容 |
+| 纯Java领域 | check_java_domain.py，60个main、1852检查，实际退出0；新SourceMetricPageSmoke 50检查，45项三页、精确切片/有序清单、父根/摘要/时间、原请求无重复读取、跨来源/身份/租户、终页/失效/失败/迟到与有效期不续期 |
+| Java HTTP/PG及适配器 | 最终20套84项，failures/errors/skipped均0，Gradle实际成功1分5秒；实际JUnit XML汇总。新适配器8项核对最多5次固定请求、45项三页、清单前后变化、容量、空成功、缺项/多项/乱序/count失配、大于long的ID及私有Codec防篡改 |
+| 实际HTTP/PG分页 | SourceEndpointHttpIT真实loopback HTTP和PG、明确合成上游45项，三页20/20/5，每页5次来源交换；固定根/父、公共无私有ID清单、GET/同键重放不读来源、拒绝额外字段/查询/匿名；凭据撤销后原页STALE且下一页503无来源I/O。PostgresSourceInspectionIT实际1000私有ID/长键跨适配器持久读取、篡改fail closed；四并发适配器同键仅一次来源读取 |
+| Rust | cargo test --workspace --locked -j2，默认41与all-features 49，均实际退出0；沿用MSVC与既有目标目录，没有更改锁文件 |
+| TypeScript及构建 | 独立typecheck实际退出0；独立生产build实际退出0，840毫秒，保留既有大chunk提示；局部样式修改后专项浏览器server再次实际执行build并成功 |
+| 浏览器 | source-inspections/source-connections/metric-definition-list三文件53通过，1.3分；收紧映射摘要后source-inspections最终32通过，50.4秒（与53重叠，不相加）。Chrome单worker，明确HTTP Fixture；包含45项三页、父命令四字段、上一页GET/缓存下一页无POST、未知继续查询原请求、变化/容量不伪空、根到期不续期；三宽度/明暗完整键、单元格和链接溢出、映射定义跳转与旧Host行为 |
+| 本地会话与静态 | dev-session实际7通过、0失败/取消/跳过，292.2211毫秒；check_repo实际378结构化文件/6只读Tool通过；算子生成检查11项通过 |
+| 实际本机接入 | 重启平台20296，既有runtime30548、worker12524、web29096均200/200；仅对第108节保存的固定来源cfg1发起一次新分页发现，真实Zabbix三项，READ_VERIFIED/ITEMID_WATERMARK/complete=true/CURRENT、精确映射3项。原回执GET一致、公共无metricMembership/itemIds、匿名401/查询400/不同种类同键409。19实例/19创建回执/两凭据逐项哈希保持，未创建或改连接/秘密、未写指标/工作流，无Fixture回退 |
+| 实际网页 | 临时页11默认1280×720读已持久回执，三项完整来源键、标准映射与1–3/3分页可见，终页双按钮禁用；只读DOM几何确认3行无单元格溢出，映射披露约20.4px且无边框/内距。点击host.memory.available.ratio进入实际完整指标定义，完整来源键、比例单位、转换与版本吻合。没有再次通过UI发现POST、设置主题/视口或操作用户原页；临时页11关闭，截图仅在本机仓库外 |
+
+过程错误保留：初契约生成开发脚本括号错误，未运行生成；修正后1239全部通过。初Java编译因新增PG篡改测试的字符串转义错误失败；改为jsonb_build_array后实际全套通过，追加并发和领域时序检查后最终84通过。一次多文件补丁因上下文不匹配未修改文件，修正后执行成功。一次文档补写引用不存在的目录，已写入部分保留，剩余使用实际contracts路径完成；分页说明移动到contracts。一条错误标题补丁未写入内容。首实际UI核对发现通用details样式让行高过大，局部收紧后32专项复验、实际3项与分页同屏截图已查看。
+
+证据在.tmp/dev-checks/page109-{contracts-final,domain-final,java-final,types-final,build-final,browser-final,browser-compact,rust-default,rust-all,dev-session,repo,generator,restart}.log及page109-{counts,live}.json。JUnit统计来自实际XML，源命令恢复状态与全资源哈希在仓库外私有验收文件；截图在仓库外checks/page109，实际接入截图与明暗三宽度Fixture截图区分。私有资料边界与git diff --check以最终附记的实际结果为准，不输出命中正文或词表。
+
+ADR-071、分页契约、来源检查/首分页兼容说明、前端规范、来源中心操作说明、实现状态及路线图同步；本机产品文档实施进展同步。后续仍需模型字段、独立标准映射执行pin、显式依赖升级兼容及发布冲突、固定来源持久批次/可信可撤销后台委托、真实输出查询、质量/重放/恢复/容量及生产门槛。未运行完整Java/PG/VM、全量浏览器、生产TLS/IdP/KMS/备份恢复/最小角色、多副本/吞吐/远程CI/非Windows实机。无新数据库/启动单元、无提交推送，完整目标active，M0–M4门槛不提升。
+
+最终附记：私有资料边界检查实际通过2398候选文件，git diff --check实际退出0，仅既有CRLF提示。已查看最终390深色和1440浅色Fixture截图与实际默认视口完整三项/分页截图；本附记写入后再次运行两项边界检查，结果保存在page109-boundary-last.log与page109-diff-last.log。
+
+## 110. 来源采样映射固定与显式维护（2026-10-03至2026-10-04）
+
+新增完整MetricMappingPin、兼容维护应用服务、封闭v2 Schema/合成样例/API及V040。旧绑定迁移为未固定，刷新不采用pin、不为相同元数据增版本；新绑定持完整登记摘要，已固定pin不能被普通同步替换，引用中的单位/类型/维度不能被普通定义更新改变。维护只选择服务器登记的完整定义，检查可信tenant/owner、metric/entity/source对象范围、source.sync和source.configure、版本CAS及200份回执上限；租户事务原子保存绑定和原结果，旧结果可在目录变化后回读。同版本改摘要、降级、跨id或语义不兼容拒绝。
+
+真实历史读在取秘密或网络前检查完整pin，返回后比较完整绑定和指标定义；变化拒绝整页及游标。列表按SQL授权范围过滤后扫描最多201候选、展示20份。Web抽离MetricMappingPanel请求容器与MetricMappingDetail，沿用右侧抽屉、主题变量及完整键换行；首次打开一次GET、缓存返回不重读，未知结果只查原请求，原回执完整语义不一致继续锁定，明确409后显式读取再维护。身份变化清空私有内容。前端HTTP及本地预览代理仅追加受控metric-bindings v2族，没有增加任意HTTP代理。
+
+| 实际执行 | 结果与证据 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts='' -q`最终1271通过，9.49s，退出0；新增32个维护契约检查，覆盖封闭命令/身份/规则拒绝、pin与版本、定义范围、合成样例及未固定历史 |
+| 纯Java领域 | `scripts/check_java_domain.py`最终61个smoke main、1896检查，退出0；新MetricMappingSmoke44项验证完整摘要、旧同步不采用、固定/升级/CAS/原回执、目录改版、主体/租户/对象范围、同版本失配、降级拒绝、来源I/O前无pin/错误pin拒绝及退役保留pin |
+| Java HTTP/PG/适配器 | `gradlew.bat :apps:platform-api:test`选择25套相关测试（维护HTTP/PG、历史、来源/凭据/连接/出口/分页、工作流及旧运行），最终1m8s，退出0；实际XML汇总101项，失败/错误/跳过0。新PostgresMetricMappingIT4项、MetricMappingHttpIT2项；四独立适配器并发只生效一次，205份范围外绑定不挤掉授权结果，损坏回执拒绝，旧记录回读、重复命令、封闭JSON、no-store及网络后绑定变化丢弃通过。没有将纯领域或合成上游HTTP服务器当成真实厂商验收 |
+| Rust | workspace locked默认41、all-features49，失败/忽略0，均退出0。第一次-j2链接出现LNK1102内存不足，降为-j1后两种实际通过；没有改Rust运行、依赖或锁文件 |
+| TypeScript/build | `pnpm typecheck:web`最终退出0；抽离纯表格后`pnpm build:web`最终成功954ms，退出0，保留既有大chunk提示。未升级依赖、手改生成客户端或引入新执行后端 |
+| 相关浏览器 | metric-mappings/model-catalog/platform-session三文件28通过，22.3s，实际退出0；抽离纯表格及收紧活动页提交门禁后同28项最终18.2s、退出0。使用已安装本机隔离Chromium、单worker、受控生产预览4179；10项新维护用例覆盖1440/390明暗、单次写、原请求GET、错误原语义持续锁定、409无重试、403清空、伪范围摘要拒绝、只读没有提交。两轮重叠不能相加，合成Fixture明确标记；没有本轮全量浏览器回归 |
+| 本地预览会话 | `pnpm test:dev-session`最终7项通过，失败/取消/跳过0，279.965ms，退出0；受控新增GET/POST/原回执路径可代理，近似路径metric-bindings-other拒绝 |
+| 生成/静态 | `generate_workflow_operators.py --check`11算子验证、`check_repo.py`396结构化文件/6只读Tool均退出0；不将静态检查视为权限或生产验收 |
+| 真实本机 | 私有受控验收脚本只对原三项绑定显式提交固定映射，各保存一份原回执；原GET与同命令重复POST精确一致，绑定版本各加一，其他身份/实体/指标/单位/转换/维度保持。CPU、内存、运行时长各返回20个真实Zabbix历史点，模式zabbix-jsonrpc、persistence=not-persisted、无Fixture回退；401及伪造查询400通过。维护本身无来源I/O、指标点或工作流写入，历史读取是后续独立显式GET |
+| 原资源与服务 | 原19份接入实例、19份创建回执、两份凭据的完整公开值保持。旧私有基线采用JSON属性顺序摘要，重启后Java不可变Map顺序改变；仅枚举键顺序的循环/反向组合，所有值必须重新产生原SHA256才能通过，再保存排序键的私有基线，未覆盖失败基线或改业务值。管理器最终platform31128/runtime30548/worker12524/web29096运行，四单元200/200；没有新增永久服务或数据库 |
+| 实际界面 | 独立5173检查页读取三项真实绑定、查看CPU完整规则与摘要，准确跳转host.cpu.usage.user定义，默认1280px页面无横向溢出；查看390深色、1440浅色Fixture截图。实际与合成截图分开保存仓库外，没有操作原用户标签页、切换用户主题或视口；临时检查页关闭，4179验证服务器关闭 |
+
+日志保留在忽略目录`.tmp/dev-checks/mapping110-*`：contract-last、domain-last、java-final、rust-default-final、rust-all-final、ts-last、build-last、browser-complete、session-final、generated-last、static-last、services-final及live.json。实际验收命令/回执与截图在本机仓库外；没有把凭据、厂商值、原始截图或研究记录提交到仓库。
+
+中间失败如实保留：首次TS检查对象类型的includes不合法，收紧键数组类型后最终通过。首次浏览器因前端v2族白名单缺失失败，修正后28项逐项通过但原Google Chrome运行收尾挂起，不能记作完整成功；错误复用5173本地预览模式的Token测试也已中止，不记成功。最后由持有独立进程句柄的临时检查器启动正常生产预览，使用已安装隔离Chromium，28项及浏览器正常退出0，服务关闭。实际来源绑定初次经本地预览代理403，追加唯一允许族并由7项会话测试复验后恢复，没有放宽身份或服务器权限。平台管理器首次restart因Windows taskkill进程树超时退出1，原平台仍健康；核对管理器拥有的Java PID后原生停止该进程，再由管理器start成功为31128，未改启动器或停止其他单元。Rust首次链接内存失败和旧属性顺序摘要失败均不计为通过；开发只读路径猜测/临时命令转义失败已修正，没有产生业务写入。
+
+范围限制：这一步固定来源采样规则；旧历史点和既有Worker输出只保留原标记，不能据此追认完整摘要谱系。当前登记目录/兼容策略不支持任意自定义规则、降级、多个同id同时可选版本或列表完整翻页。标准指标目录还未进入工作流MAP执行，内联MAP仍固定在工作流语义摘要中。模型字段、工作流标准指标与依赖升级/发布冲突、可撤销可信后台身份、持久固定批次与输出查询、质量、重放恢复、多副本及生产容量仍未完成；完整目标保持active，M0–M4退出门槛不提升，无提交或推送。见[ADR-072](adr/072-explicit-metric-mapping-pins.md)、[公开契约](../contracts/metric-mapping-maintenance.md)及[操作说明](runbooks/metric-mappings.md)。
+
+收尾：MetricMappingTable进一步抽离为纯展示，API与请求门禁不下放；37个本地Markdown链接实际检查通过。私有资料边界实际2456候选文件通过，git diff --check退出0、仅既有CRLF提示；追加本记录后再次运行两项，保留boundary-last和diff-last日志。再次以原三份已确认命令查询/原样重复回执，绑定版本仍不变，各项真实历史仍返回20点，原19实例/19创建回执/两凭据与四单元就绪不变。
+
+
+## 111. 标准指标映射进入工作流目标与实际预览计划（2026-10-04）
+
+本轮实现METRIC 1.1的完整metricKey与映射id/revision/digest目标。WorkflowMetricPlan解析完整登记定义，检查精确sourceKey和原始数值类型，执行归一化/范围并生成单位、GAUGE、固定维度和完整pin；旧ENTITY、LOG/METRIC 1.0语义和wire保持。新格式及pin参与工作流摘要、存储和差异；可信对象范围检查覆盖写入、历史查看及回执，执行前/保存回执前重编译，失配不留下新回执。发布原样重放保持历史版本，目录变化不自动升级。1.1当前只支持数值GAUGE、全部固定维度和MANUAL_SAMPLE，拒绝未知转换与超预算规则；仍非真实指标写入或后台工作流。
+
+输入仍是5条、32个标量、4096字节；标准结果七字段、4096字节，value为64字符精确十进制字符串，嵌套仅限成功VALIDATE/OUTPUT。前端核对完整定义SHA、固定元数据及精确十进制范围。工作区单次授权响应提供映射；纯WorkflowMetricMappingConfig抽离展示与选择，不发请求；页面重建节点及连线，支持撤销、定义跳转、按需摘要和明确填入Fixture示例。目录缺失/格式不支持可读而不可预览，旧通用指标仍可选择。统一映射类型GAUGE/SUM/HISTOGRAM与既有遥测领域，当前执行子集只有GAUGE。没有新增执行单元、数据库、依赖或手改生成客户端。
+
+| 检查 | 本轮实际运行结果 |
+| --- | --- |
+| 契约 | python -m pytest tests/contracts -o addopts='' -q，最终1296通过、9.53s、退出0；新增25项，涵盖闭合目标/结果、精确字符串、嵌套步骤限制、METRIC 1.1、旧格式与合成样例；关系与授权另由服务器检查 |
+| 纯Java领域 | scripts/check_java_domain.py，62个main/1970检查、退出0；新WorkflowStandardMetricSmoke74项：12.5→0.125、固定维度与pin、精确来源键/范围、原始INTEGER、元数据篡改、历史查看/原发布重放、metric.read范围、目录竞态不保存回执等；不是来源真实采集 |
+| Java HTTP/PG/适配器 | 选择26套相关测试，1m22s、退出0，实际XML汇总105项，失败/错误/跳过0。新WorkflowStandardMetricHttpIT3项及旧TelemetryWorkflowHttpIT新增无metric.read拒绝；实际本机PG保存、预览、发布、重放、重新解码、版本比较、目录过滤、伪pin/来源键/范围/嵌套输入拒绝通过。独立可信测试tenant与输入均明确Fixture，无指标点写入验收 |
+| Rust | 现有MSVC、隔离.tmp/rust78-target，cargo test --workspace --locked -j1和--all-features -j1，41/49通过，失败/忽略0，实际退出0；未更改Rust能力、依赖或锁 |
+| TypeScript/build | 最初独立typecheck通过；收尾构建包含最新tsc --noEmit及Vite，最终863ms、退出0，既有大chunk提示保留。主流程完整标识上画布，中央支持格式判断复用，精确范围比较没有使用Number舍入 |
+| 浏览器 | workflow-standard-metrics、workflow-outputs、workflow-comparison、workflow-operators、workflows、configured-source-workflow六文件最终84项通过、1.4m、实际退出0，retry=0、单worker、已安装隔离Chromium及受控4179生产预览。13项新明确Fixture用例覆盖1440/390明暗、完整键/规则、无自动写请求、保存/预览/发布、固定元数据/高精度越界拒绝、缺失/不兼容旧定义、撤销旧链和403清空。旧实体、日志、通用指标及固定来源回归通过；不是全量浏览器测试 |
+| 本地会话 | pnpm test:dev-session，7项通过、失败/取消/跳过0、323.2109ms、退出0；未增加代理权限或路径族 |
+| 生成/静态 | generate_workflow_operators.py --check实际11算子核对，check_repo.py首次398、文档收尾399结构化文件/6只读Tool，均退出0；静态检查不替代运行验证 |
+| 打包与启动 | 平台bootJar实际22s、退出0；核对管理器拥有的原Java PID31128后原生停止并由管理器start成功，新PID22276；runtime30548/worker12524/web29096保持。四单元存活/就绪均200/200，未增加永久服务 |
+| 实际资源与来源 | 仅用第110节三份已确认维护原命令GET及原样重复POST核对，不产生新维护命令；三份pin/其他绑定字段保持，CPU、内存、运行时长各显式读20个真实历史点，zabbix-jsonrpc/not-persisted，无Fixture回退。原19实例/19创建回执/两凭据完整公开值与私有基线保持，401/伪查询400通过；本轮实际工作流仍无主tenant写入 |
+| 实际页面 | 5173自动授权目录中实际显示三份完整标准指标；临时检查页选择CPU，核对精确来源键、转换、范围、mode=user与完整摘要，画布有标准指标校验。仅准备未保存样本草稿，未点击保存/预览/发布；关闭前明确放弃本地内容，原列表仍13流程。未更改用户主题、视口或原标签页。实际截图与明暗/窄屏Fixture截图分开保存在仓库外，验证预览子进程正常关闭 |
+
+中间失败不记为通过：首次新纯领域测试用了不存在的MetricType常量，改为既有SUM后74项及完整领域通过；最初TS闭包未保留联合类型窄化，捕获目标后通过。首次契约发现新sourceKey尚未纳入METRIC分支及样例回执路径错误，分开1.0/1.1规则并修复后1296通过。原84项范围最初为83项，其中82通过、旧拖拽连线失败，单独重跑仍失败；viewport处理不足，实际命中两个SVG端口后确认原测试仍打开auto浮层，第一次按下先关闭它。测试明确先关闭连接管理、确保端口在视口内再拖拽，专项1项退出0，之后关联83项退出0；中央格式门禁及不兼容历史定义补充后最终84项退出0。没有改产品连线逻辑、放松断言或加隐藏重试；临时DOM诊断已移除。首条Rust嵌套命令转义失败，改用忽略目录内固定cmd脚本后两种测试退出0；Markdown状态插入首次CRLF匹配失败，兼容原换行后完成，没有将这些开发工具失败当作测试通过。
+
+日志在忽略目录.tmp/dev-checks/standard111-*，含domain、contracts-final、java、rust-default/all、build-final、browser-complete/final-exit、dev-session、static/operators、package、live-preservation与report.json。声明的通过都来自真实退出0；部分重叠运行不能相加。截图、主机验收命令与私有资料仍在仓库外，无提交推送。
+
+范围仍包括待完成的真实固定指标来源、系列身份、持久输出查询/采集checkpoint、可撤销可信后台执行身份、停止与恢复/租约fencing、多模型字段及依赖升级、质量重放/生产容量。既有Worker历史轮询、旧Host实体输出不是新标准指标工作流完成证明。完整目标active，M0–M4退出门槛不提升。见[ADR-073](adr/073-standard-metric-workflow-targets.md)、[标准契约](../contracts/workflow-standard-metrics.md)、[使用步骤](runbooks/workflow-standard-metrics.md)。
+
+
+收尾：41个本地Markdown链接核对通过，私有资料边界2471候选文件实际通过，git diff --check实际退出0、只保留原有CRLF提示。实际检查页放弃未保存的合成内容后回到原13流程列表并关闭；未改变用户原页面。最终84项浏览器验证退出0，所属预览和测试子进程结束；没有提交或推送。
+
+
+## 112. 固定指标来源、真实原值转换与发布（2026-10-04）
+
+新增固定ZABBIX_METRIC来源联合、指标元数据pin和只读选择页，复用已有来源配置及发现存储。纯领域校验出处与目标映射，受控适配器读取固定系列、网络前后核对元数据与秘密版本；工作流执行标准映射一次。来源选择与节点展示抽离组件，缓存/取消/身份/过期门禁保留；源pin进入版本比较和只读回执。没有新增迁移、数据库或启动单元。
+
+| 实际检查 | 命令/方法 | 最终结果 |
+|---|---|---|
+| 全部开发契约 | 开发venv的python -X utf8 -m pytest tests/contracts -o addopts='' -q | 1317 passed，10.88s |
+| 纯Java领域与应用边界 | python -X utf8 scripts/check_java_domain.py | 63个main，1997 checks |
+| Java平台HTTP/PG及来源适配器 | 本机source112-run-tests.mjs调用Gradle固定27套；XML重新汇总 | 112 tests，零失败/错误/跳过；BUILD SUCCESSFUL，1m21s |
+| Rust锁定工作区 | 本机MSVC环境执行cargo test --workspace --locked -j1及--all-features | 默认41/all-features49，零失败/忽略 |
+| TS/生产构建 | pnpm --dir apps/web-console build，包含tsc --noEmit | 实际退出0；Vite 852ms，保留已有大chunk提醒 |
+| 关联浏览器 | 本机source112-browser.mjs，显式隔离Chromium，1 worker/retries0 | 最终103 passed，1.7m；8个来源/标准映射/输出/比较/算子/画布/历史文件 |
+| 本地会话 | pnpm test:dev-session | 7 passed，零跳过 |
+| 算子元数据 | python scripts/generate_workflow_operators.py --check | 11个内置算子验证 |
+| 静态与私有资料隔离 | scripts/check_repo.py；check_reference_boundary.py传仓库外私有policy | 404结构文件/6只读工具；2499候选文件通过（最终文档检查另记下方） |
+
+Java含新固定原值Reader的六项测试，以及实际HTTP/PG的来源选择、真实JSON-RPC预览与来源变化门禁；纯领域涵盖历史出处、权限、映射、摘要、过期选择与来源预算。浏览器Fixture明确标注，覆盖两种宽度和明暗主题、封闭请求、来源变化不发布、失败显式重读、原生过期项、抽屉取消/迟到和身份清除；Fixture不作为真实采样证据。
+
+主本机验收显式创建一次新的固定配置指标发现，从服务器返回的真实CPU系列建立一条工作流，保存、只读预览5点且零拒绝、发布不可变v1，并GET原发布及回执验证。实际输入为原始值，标准结果按登记转换核对，writesPerformed=false。原13条流程完整值保持，新流程使列表为14条。原19实例、19创建回执、两凭据及三项已固定旧绑定保持；只重放原维护命令和GET，三项原绑定各读取20个真实历史点，没有新业务指标写入或资产绑定创建。实际值、身份原件和回执只保存在仓库外。
+
+新版platform-api 27864及其他三单元在受控loopback开发模式均存活/就绪200。真实网页查看已发布版本、完整来源键/系列/配置/元数据摘要，以及原5点回执；来源读入6（含截断检测点）与转换5分开，历史无值正文。真实截图和1440/390明暗Fixture截图留在仓库外，临时IAB页已关闭；没有改变用户主题或视口。
+
+中间失败保留：首轮测试误在未打开抽屉时查节点选择；修正后发现合成选择页映射与工作流目标不一致，统一样例。Windows隔离Chromium在失败后关闭曾挂起，按已确认自建PID结束，仅清理自有进程。后续99项通过但原生option的toBeDisabled断言不适用；页面disabled属性存在，改为核对原生禁用属性和不可绑定行为，并加入两项取消/身份迟到用例及谱系计数用例，最终103项退出0。真实验收首轮健康检查误用了Runtime路径，改用已登记healthz/readyz后只GET/原回执核验，没有重复创建流程或发布。全部首次失败均未记作通过。
+
+最终文档核对：11份相关文档的63个本地链接存在；私有资料边界检查2499个候选文件通过，git diff --check退出0。最终自有隔离浏览器正常退出并清理临时目录，临时预览/测试进程已结束；旧只读进程查询曾长时间未返回，未据此重启任何服务。pnpm ops status单独实际退出0，四服务仍200/200。
+
+当前只是单系列原始值→标准只读转换→不可变版本与元数据谱系闭环。发布不启动采集、不创建MetricBinding、不持久指标点；现有实体后台入口仍不接受该来源。S5可信可撤销后台授权、持久批次/checkpoint与幂等实际输出，S6模型字段/依赖升级、S7质量恢复/容量以及生产身份/租约/fencing门槛继续。未重跑全站浏览器、完整全部Java/VM集成、生产认证与容量灾备；不提升M0–M4退出状态，目标active，无提交推送。
+
+## 113. 实体工作流的限时可撤销后台授权（2026-10-04）
+
+原Host实体任务增加可信后台委托，操作员私有许可默认关闭，现有OIDC边界签发最长15分钟/20批授权，截止不晚于原身份期限。私有任务只持久身份映射引用与预算，公开任务五字段摘要与执行authorizationId分离；不持久登录凭据或Principal。每次处理/写入与提交游标前重读当前许可及完整身份映射，核对可信租户、所有者、工作流/来源范围；开发/委托轮询互相跳过，无自动续期或权限缓存。授权独立于浏览器注销；停止、撤权、到期和额度耗尽终止后续处理。失败/部分写入保留已确认ID而不推进游标，未来/乱序批次拒绝。
+
+实际运行并取得退出0：契约1334项；64个纯Java main/2028检查；31套Java适配器、HTTP及实际PostgreSQL134项，失败/错误/跳过均0；Rust locked默认41、all-features49；TypeScript及生产build（最终Vite 1.56s）；八份关联浏览器文件109项。随后授权专项6项复验，核对1440/390明暗界面及非法期限/计数/私有字段拒绝；本地凭据/浏览器会话分别5与4项通过。最终运行面板删除重复教程/无关实现范围文案并格式化为独立展示组件后，整份工作流43项再次通过，包含6项授权视觉核对，私有截图更新。11内置算子开发生成核对、静态408结构文件/6只读工具、私有资料边界2515候选文件、14份相关文档74个本地链接与git diff --check退出0。Git仅提示原有CRLF归一化，没有白空格错误。
+
+新增真实HTTP→协议Fixture登录→PG任务→实体输出测试固定隔离租户，验证请求不能带私有authority或伪造模型/租户权限、Origin/CSRF、公开授权不泄露映射引用，首批确认两个实体且跨租户不可见；注销后重建授权适配器，以当前政策和原持久引用处理第二批，授权标识和额度保持。显式停止后不消费新批次；移除许可、变更身份映射使任务失败，原游标保留。单元/纯领域另覆盖期限边界、时钟倒退、预算耗尽前不读批次、损坏/禁用政策、来源范围先于读取、错误身份、部分输出后撤权/失败、没有隐藏重试与开发模式隔离。重建的是授权适配器与PG读取，未实施OIDC平台OS杀进程、生产IdP或HA故障演练。
+
+中间失败如实保留：新增单元测试把Runnable直接传给JUnit Executable导致测试编译失败，修正为方法引用后通过。原纯领域批次Fixture的完成时间在未来，新增时间边界正确拒绝；修正Fixture推进时钟后通过，没有放松执行器。Docker引擎当时未运行，首轮PG集成失败；恢复已存在Docker引擎及原容器后重跑。新的HTTP私有字段断言使用全文包含匹配，误命中测试流程名称；改为准确字段/秘密引用检查，最后整套134项通过。前端说明插入时留下字面反斜线引号，TS拒绝；修正后build通过。启动器Runtime等待并行Rust校验的构建目录锁超过5分钟上限，首次全启动失败；校验退出0后显式重启，构建4m20s后运行。首次只读保全检查发生在Runtime尚未就绪，健康探测失败；四服务就绪后重跑通过。以上首次失败均未计为通过。
+
+最终本机platform 3296、runtime 28428、worker 21512、web 19696均200/200，仍为原loopback开发/真实来源模式。只GET确认19实例、19原创建回执、两凭据、原13工作流及上一节新增真实CPU不可变版本与5点只读回执保持，未新建接入或工作流、未启用委托任务。原实例/秘密元数据摘要保持；本节没有再次读取CPU上游或进行新的指标落库。私有真实证据、授权明暗/手机截图仅在仓库外；临时自有预览/浏览器正常退出，未操作用户页面或主题。无提交/推送。
+
+边界：仅原未配置版本Host实体来源使用该授权；固定配置批次、指标/日志后台持久输出继续。控制命令仍是generation CAS，完整幂等命令账本/未知结果确认、失败批次恢复尚未完成；显式重新启动从新起点开始。身份及许可同时删除后重启不会执行旧任务，但旧RUNNING状态的管理对账仍待交付。S5整体、S6模型字段/依赖升级、S7质量恢复/容量、HA租约/fencing和生产身份继续；目标active，M0–M4退出状态不提升。决策与操作见ADR-075、workflow-background-authority契约及运行手册。
+
+## 114. 启动/停止原受理回执与未知响应确认（2026-10-04）
+
+新增纯Java命令/回执、可信tenant/owner存储接口及V041控制元数据表。原请求UUID固定操作、版本/摘要、设置和代数；任务与受理回执同现有PG事务提交。相同内容只读原结果，不重复签发授权或执行来源/输出；不同内容409。GET原回执去除私有引用，当前任务另读。每owner 200受理回执，START到180即拒绝，为最多20任务停止留出位置；代数上限同样保留停止余量，兼容旧RUNNING 1000000停止为终态1000001。没有新启动单元、数据库或隐藏执行后端。
+
+| 实际检查 | 方法与最终结果 |
+|---|---|
+| 全部开发契约 | 开发venv的python -X utf8 -m pytest tests/contracts -o addopts='' -q：1344 passed，16.81s |
+| 纯Java领域/应用边界 | python -X utf8 scripts/check_java_domain.py：65个main、2072检查；新增控制44项 |
+| Java平台/适配器/实际PG | 本机control114-run-tests.mjs调用固定32套Gradle；XML汇总138项，失败/错误/跳过均0，实际退出0 |
+| Rust默认/all-features | cargo test --locked -j1 --target-dir .tmp/rust-validation -p opsweave-agent-runtime及同目录--all-features：41/49项，零失败/忽略 |
+| TS/生产构建 | pnpm --dir apps/web-console build含tsc --noEmit，实际退出0，最终Vite 1.36s；已有大chunk提醒保留 |
+| 关联浏览器 | 显式隔离Chromium、retries0/worker1，八份关联文件116 passed，2.3m；代数余量补齐后整份工作流51 passed，1.4m，重叠不相加 |
+| 本地会话 | pnpm test:dev-session：7 passed，零失败/跳过 |
+| 静态/算子 | check_repo.py：412结构文件、6只读工具；generate_workflow_operators.py --check：11内置算子 |
+| 文档/私有资料/差异 | 19份相关文档106本地链接存在；仓库外policy的边界检查2528候选文件通过；git diff --check退出0 |
+
+新增实际PG四项覆盖四客户端并发同键仅一次提交/签发、停止后重放不重启、不同行文冲突与跨租户/所有者隔离、任务和回执共同回滚、新建存储实例读取原结果及损坏行拒绝。现有真实HTTP→OIDC协议Fixture→PG测试补充原POST/GET、拒绝额外查询字段、撤销后台许可后原START仍可读取而当前任务保持FAILED；公开回执无秘密引用。纯领域验证容量预留、无上游/输出调用、只读权限重放、原结果先于满额判断和旧上限停止。测试租户与协议Fixture明确隔离；不是生产IdP、真实丢包或OS/HA崩溃演练。
+
+页面由WorkflowRuntimeSection管理原键/输入和可信身份生命周期，WorkflowRuntimeControlStatus/Panel仅展示与回调。新八项控制浏览器用例覆盖响应丢失后无自动查询/重发、原GET且新当前状态不被旧回执覆盖、显式404后原内容重发、停止原回执不停止后来任务、错误原键保留确认、放弃不等于服务器取消、身份变化丢弃迟到查询以及旧代数停止/非法终态拒绝。未知结果锁定输入/版本/关闭，控制期间暂停状态轮询；403和身份变化清除私有内容，未写浏览器存储。1440/390明暗截图核对完整UUID与换行，实际查看宽屏浅色/手机深色截图，证据留在仓库外；Fixture截图不证明主数据上执行任务。
+
+中间失败保留：新增PG测试的Entry构造参数顺序错误，以及泛型计数导致JUnit assertEquals重载歧义，首次Java测试编译失败；修正后32套138项退出0，未放松断言。首次Rust默认测试使用运行中的共享target，Windows拒绝删除Runtime可执行文件而退出101；改用忽略目录内独立校验target，保留Runtime在线，默认及all-features真实退出0。原实现代数上限可能使最后一代RUNNING无法停止，复核后保留启动/停止余量并增加领域、Schema和浏览器验证，最终检查为本节所列结果。首次失败没有计为通过。
+
+最终本机platform 9976、runtime 28428、worker 21512、web 19696均200/200，平台显式重启加载新迁移和控制接口，其余三单元保持。只读保全核对原19实例/19创建回执/两凭据、原13流程和上一节新增CPU不可变版本及5点回执，完整值及摘要保持。主数据上没有新建流程/接入、启动/停止任务、新读取CPU上游或持久指标写入。原证据和1440/390明暗截图仅留本机私有目录；自有预览和浏览器正常退出，没有操作用户页签或主题。无提交推送。
+
+日志在忽略目录.tmp/dev-checks/control114-*，包括contracts、domain、java及首次编译失败、rust默认/all及首次锁失败、build-final、browser-complete及最终退出、静态/算子、文档/边界/diff、live-preservation、service-status和report.json。回退SQL文件仅编写，未执行DROP；生产独立运行/迁移角色权限未验收。没有重跑全站浏览器、全部Java/VM集成、生产身份/HA/容量灾备。受理回执不包含拒绝命令的成功结果，200份为受控开发上限，自动清理未实现；控制事务幂等不能替代外部资产/指标的未知写入确认。
+
+后续仍为S5固定接入配置批次、实际指标/日志持久输出、checkpoint/失败重放和管理性恢复，S6模型字段/依赖升级，S7质量恢复/容量及HA租约/fencing、生产身份。整体目标active，M0–M4退出门槛不提升。见[ADR-076](adr/076-idempotent-workflow-control.md)、[控制契约](../contracts/workflow-runtime-control.md)及[操作手册](runbooks/workflow-runtime-control.md)。
+
+## 115. 固定指标样本实际写入与原批次回读（2026-10-04）
+
+纯Java应用服务增加闭合一次指标命令、原始RUN摘要复核、标准映射执行一次、固定系列及批次证据；V042在已有PG受理元数据，不存原始/标准数值。可信身份、来源配置/指标pin/映射/时间/数量/精度由执行器检查，外部POST之前再次核对。沿用既有平台与VictoriaMetrics，四启动单元保持，没有新数据库或隐藏执行后端。
+
+| 实际检查 | 方法和最终结果 |
+|---|---|
+| 全部开发契约 | 开发venv的python -X utf8 -m pytest tests/contracts -o addopts='' -q：1356 passed in 23.46s |
+| 纯Java领域/应用边界 | python -X utf8 scripts/check_java_domain.py：66个main、2114检查，新增输出42项 |
+| Java协议/HTTP及实际PG/VM | 本机output115-run-tests.mjs，34套XML汇总149项，失败/错误/跳过均0，实际退出0，Gradle1m41s |
+| Rust默认/all-features | 锁定Runtime包、MSVC、隔离.tmp/rust-validation：41/49项，零失败/忽略，实际退出0 |
+| TS/生产构建 | pnpm --dir apps/web-console build含tsc --noEmit，实际退出0，最终built in 909ms；已有大chunk提醒保留 |
+| 关联浏览器 | 隔离Chromium、1 worker/retries0，九份关联文件129 passed (2.4m)；局部留白及历史失败门禁补齐后输出专项13 passed (12.2s)，重叠不相加 |
+| 本地会话 | pnpm test:dev-session：7 passed，零失败/跳过 |
+| 静态/算子 | check_repo.py：418结构文件、6只读工具；generate_workflow_operators.py --check：11内置算子，实际退出0 |
+
+适配器七项协议Fixture覆盖准确回读、已有相同点跳过POST、已存冲突/精度配置拒绝、受理后500无自动重写、部分到达不确认、错误tenant标签和2MiB响应上限、系统代理被显式绕过。PG三项在隔离tenant验证事务回滚、新建Store读取UNKNOWN及其原摘要、终态/身份/批次字段不可替换、未知不能降FAILED、损坏UUID拒绝。新增HTTP测试以明确合成Zabbix协议样本，经实际平台/PG/loopback VictoriaMetrics写入两点，显式读验证完整确认、归一化0.2/0.125、原POST/GET一致、不同内容409、非法身份查询400/未认证401、最近记录和凭据撤销后的历史查询；可见性等待只在测试显式GET，不重试业务POST。此协议Fixture不冒充真实采集。
+
+浏览器输出专项覆盖1440/390明暗、完整来源/指标定义链接、封闭命令及原值、响应丢失后的原UUID/无自动GET或POST、明确404原内容重发且不新读来源、页面重载最近UNKNOWN的只读验证、部分0/1明确不匹配、数量/系列摘要错拒绝、claimed匹配点的批次摘要复核、历史读取失败先阻止新写且无自动重试、身份清除丢弃迟到结果。WorkflowMetricOutputSection持有请求/身份/门禁，Panel只展示。样式仅此面板，消除通用article/details造成的重复卡片留白；截图留在仓库外，实际查看宽屏浅色、手机深色及真实结果面板。没有更改全站外壳。
+
+主本机验收复用上一节已发布真实CPU工作流v1，显式受控读取一次最近5个原值，按原命令UUID写入独立来源系列：accepted=confirmed=5，failed=unknown=0，实际time-series回读5点且批次摘要匹配。原命令重复POST/GET只返回原记录，不重复来源读取/写入；不同内容409、额外身份查询400、未认证401及刷新后历史存在通过。原19实例、19创建回执、两凭据的完整公开值/摘要及14工作流版本保持，未创建MetricBinding或资产。原三项绑定未变化；原13流程和CPU已发布版本/只读回执通过保全检查。实际值/原命令/回执只在本机私有output115.json。
+
+只重启平台加载V042和新接口，最终platform1536，runtime28428/worker21512/web19696保持；四单元200/200。实际5173在隔离自有浏览器中通过现有自动授权会话打开原固定版本、从最近记录选择原回执、只GET回读5点，界面显示完整匹配，业务POST=0，未操作用户原页签/主题。该实际截图与合成Fixture截图分开保存。
+
+中间失败保留：新增纯领域Fixture没有实现固定目标requireTarget，默认生产门禁正确拒绝；补齐Fixture固定来源/目标检查后42项及全领域通过，没有放松门禁。首次实际HTTP不同内容预期409却返回401，发现新Controller未登记统一异常Advice，补齐后实际409/400及整套149项通过。新增PG测试错误调用MappingDefinition.revision/digest，首次编译失败，改用正式mapping.pin访问器后通过。实际页面脚本最初期待手填Token栏，当前5173使用已有自动授权预览会话而没有该栏；适配实际会话入口后只读验收通过，没有改变认证模式。首次失败均不计通过。
+
+当前CONFIRMED是已证实的批次结果，不代表未来保留策略下点永不丢失；当前点另读。PENDING/UNKNOWN全部点数保持保守未知，验证只读VM并细化状态，命令/批次字段不可变，不将查询失败判成确定写入失败。每owner200记录、最近20和并发2为受控开发限制，没有自动清理/分页。只支持明确loopback配置，available不是真实健康或生产安全证明。V042回退SQL未执行，生产独立运行/迁移角色权限、HA整机故障、吞吐/容量/备份未验收；没有重跑全站浏览器或全部Java集成。
+
+完整目标active：仍需S5固定配置连续批次/完整窗口、checkpoint和失败/管理恢复、日志输出及资产系列关联，S6模型字段/依赖升级，S7质量恢复/保留容量、HA租约fencing及生产身份。此样本闭环不替代上述退出门槛，不提升M0–M4状态，无提交推送。见[ADR-077](adr/077-confirmed-workflow-metric-output.md)、[输出契约](../contracts/workflow-metric-output.md)、[操作步骤](runbooks/workflow-metric-output.md)。
+
+最终补充：纯领域另验证伪造Fixture origin和不匹配trace目标均在受理/外部写入前拒绝，Sink固定直连loopback且不使用系统代理。最终领域42新增检查/66main/2114和34套149 Java实际退出0；输出13项最终浏览器与TS/build通过。最终文档15份180本地链接、私有资料边界2553候选文件和git diff --check实际退出0；没有输出私有词表或命中正文。原批次在重开平台后GET/原POST保持同一确认，当前5点仍匹配，不新读取来源。
+
+## 116. 固定接入资产批次、停止与原扫描恢复
+
+2026-10-04。固定ZABBIX_HOST→ENTITY已发布流程使用Java有限扫描，单页5条/清单1000项。V043在现有PG低频资产链路保存原规范输入、原时间/UUID和私有游标；公开Schema只提供元数据。READY/IN_FLIGHT分别先提交，资产写入全确认后推进checkpoint，失败/部分输出不推进。遗留IN_FLIGHT超过60秒转UNKNOWN并停任务，不自动重发；RESUME保留原内容和已确认ID、重新申请可信短时授权。完成扫描自动STOPPED，不等同周期采集。
+
+实际运行：
+
+- 契约：`python -X utf8 -m pytest -o addopts='' tests/contracts -q`，1366 passed in 10.55s。公开/私有输入分离、闭合状态、RESUME受理语义及错误/数量/身份字段拒绝通过。
+- 纯Java：`scripts/check_java_domain.py`，67个main、2149个打印检查通过。新增35检查覆盖两页确认、停止期间无写入、原输入恢复、丢失确认后的稳定Observation、IN_FLIGHT中断、健康空末页、源撤权、身份隔离、来源读期间停止的代数检查、额度耗尽后显式续授，以及完成旧版本后新启动。
+- HTTP/PG/适配器：35套153测试，XML失败/错误/跳过均0，最终Gradle1m36s。新增实际PG批次与库存、独立存储重建、丢失确认后恢复不重复Observation、旧游标继续、不可变body拒绝及公开私有分离。注册来源HTTP预览/发布/start→真实PG资产、确认末页、原start重放、未授权与额外参数拒绝通过。上游在联测中为明确Fixture，不能作为本机实际来源证据。
+- Rust：隔离`.tmp/rust-validation`，`cargo test --locked -p opsweave-agent-runtime`默认41、`--all-features`49通过，失败/忽略均0；未使用运行服务持有的target。
+- TypeScript/生产构建：`npm run build`通过，最终1.04s。既有大chunk提示保留，无依赖升级。
+- 浏览器：HTTP Fixture关联139项/2.9m通过。容器留白、间距及版本门禁调整后，固定Host专项+整份workflows最终61项/1.6m通过。两轮重叠，不合计200项；新旧配置控制、未知恢复原命令查询、旧版本已完成新启动、失败不自动读取、身份/迟到清理及1440/390明暗布局验证通过。
+- 本地会话7项、仓库424结构文件/6只读工具、11算子生成校验通过。相关文档链接、外部资料边界及diff检查另附本节末尾；只记录实际执行结果。
+
+本机实际：新增一个固定真实接入配置v1的Host流程并发布，原命令先保存在仓库外再提交。扫描1批3条来源记录、3资产确认写入，末批完整并自动停止；原START POST/GET返回同一受理回执，不重启扫描、不改checkpoint。分别GET回读3资产（工作流命名空间/版本匹配）和3份同批次原Observation，未生成重复Observation。Observation保留已有投影/来源模式缺失标记，不把引用当成根因证明。真实5173页面只读打开已发布版本，显示完成/3条且业务POST=0；用户原标签和主题未改变，截图与原数据仅在仓库外。本机新平台12716、runtime28428、worker21512、web19696均200/200。原19接入实例/19创建回执/两凭据、原14流程版本保持，当前7发布+8草稿=15；旧实际CPU5点回读完整摘要仍匹配、标准转换一次且原3绑定未改。
+
+首次未通过检查如实记录：Java记录访问器与规范化帮助函数重名、领域Fixture调用Observation查询签名错误已修正；一次开发编辑脚本未指定UTF-8导致读取失败，修正后执行；PG损坏数据检查暴露Jackson构造异常类型，存储解码改为无正文的稳定异常；浏览器拒绝损坏响应时原任务错误与契约错误同时存在，断言改为明确选择契约错误；首次Rust命令路径在cmd使用斜杠未启动，改正确路径后默认/all均实际通过；本机Observation回读首次以毫秒传给秒级契约返回400，修正单位后3份实际记录匹配。以上首次运行不算通过，结论来自修正后的输出。
+
+当前不宣称持续遥测窗口、周期扫描、跨系统事务、连接丢失后的分布式租约/fencing、生产调度、自动放弃未完成扫描、模型依赖迁移或保留期清理完成。当前恢复证据是有界资产流程和本机单执行器，现有租户事务锁不等于HA完成。仍遵守四启动单元、可信身份、契约唯一源和指标点不逐点查PG。完整目标active，未提交/推送，M0–M4退出门槛不提升。
+
+本节收尾实际结果：18份相关文档/192个本地链接有效；`check_reference_boundary.py --policy <仓库外本机词表>`扫描2576个提交候选文件通过，无命中正文或词表输出；`git diff --check`通过。修正后的本机Observation秒级查询、原Host控制回执重放、旧CPU批次保持和最终四单元状态再次核对通过。日志与汇总在`.tmp/dev-checks/host116-*`，实际原数据、回执和截图在仓库外私有目录；这些未提交到仓库。
+
+
+## 117. 固定指标完整窗口与确认checkpoint（2026-10-04）
+
+完成有界连续指标运行及STOP/RESUME、原不可变控制回执。首次服务器窗口前60秒，后续逐窗60秒、延后10秒读来源。两次固定指标元数据检查间按clock/ns升序读取最多61条，第61条失败；来源空窗与失败区分，24小时前的待处理范围拒绝，不跳过。每窗最多60点，算子按5条分组且转换一次；毫秒精度冲突不舍入覆盖。
+
+V044只存任务、原控制回执及批次proof/时间戳，原值/标准值不进入PG。先提交IN_FLIGHT和pending，受控输出一次；成功提交后单次5秒确认等待，再精确回读一次。整批确认才推进checkpoint，明确拒绝可显式重新读同窗；UNKNOWN或中断IN_FLIGHT只能核验原系列/时间戳/digest，不发业务POST或读新来源。核验成功后失败任务保持STOPPED，恢复需新控制授权。停止与本机输出由租户锁串行，不能宣称HA/fencing完成。
+
+实际检查：1376契约（21.32s）；68纯Java main、2186打印检查，新增连续指标37覆盖60点转换/61点拒绝、空窗、失败、原控制重放、停止期间不写、未知精确核验/无重发、短期授权到期/撤权/额度与开发隔离；38套163 Java，零失败/错误/跳过，最终Gradle 2m28s。包括3个窗口协议Fixture、5个PG连续套件（3个继承元数据检查、2个新增连续/恢复；实际独立租户与时序系列），2个真实HTTP错误边界，以及原实体/身份/来源/样本回归。Rust --locked 默认41/all-features49，隔离target目录；TypeScript/build 1.34s（既有大chunk提醒）；149关联Playwright 3.3m，含新增9个连续采集明暗/1440/390、未知核验/恢复、丢失控制响应、契约/503无自动重读和身份迟到检查，不与早期9专项相加。7个开发预览会话检查和11个算子生成核对通过；静态仓库检查见收尾记录。
+
+本机实际：原CPU接入窗口超过初始5点门禁，任务暂停且没有批次入场或游标推进；提升完整窗口容量为60后明确RESUME原位置。后台连续确认2窗/12点，时序库实际点值与两份原摘要匹配，标准转换一次，随后停止，无pending。原START POST/GET受理快照保持，重放未重新启动或推进；伪造查询400、未授权401。真实5173页面只读显示2窗/12点及已停止/可明确恢复，业务POST=0，未操作用户原标签与主题。旧CPU5点样本摘要保持，旧固定Host1批3条/3资产保持；原19接入/19创建回执/两凭据及7发布+8草稿=15版本保持。最终平台18972、runtime28428、worker21512、web19696均200/200。原数据、控制内容、协议诊断与截图仅在仓库外本机目录。
+
+首次未通过如实保留：新Schema的私有authority引用没有注册ID，改为闭合复用结构；Java协议Fixture泛型编译修正；客户端重复JSON编码导致原控制响应校验失败，改用统一HTTP客户端的对象body；即时写后回读暴露时序可见性延迟，补连续输出单次有界等待，未知仍保留，测试显式核验不算自动重试；未知核验后任务需要显式恢复，修正状态和实库Fixture停止前提；原回执缺失因遗漏ControllerAdvice触发错误分派401，加入新Controller及真实HTTP404回归；实际CPU每窗6点超过原5点上限，保持失败checkpoint并扩到60点完整处理，61点仍拒绝。首次失败不算通过，结论来自修正后实际输出。开发诊断中路径/命令转义错误已纠正，不作检查通过证明。
+
+目前不宣称所有遥测频率、迟到回看、日志持久输出、周期Host、模型依赖升级、未知范围自动放弃、跨系统事务、物理掉电耐久性、分布式租约/fencing、共享多副本预算或生产容量完成。完整目标active，M0–M4退出门槛不提升，未提交推送。日志/汇总在.tmp/dev-checks/stream117-*，客户原数据和截图在仓库外私有目录。
+
+
+本节收尾：21份相关文档/202本地链接有效；静态仓库432结构文件/6只读工具、11算子生成及7开发预览会话检查通过。仓库外私有词表检查扫描2600提交候选文件通过，无命中正文或词表输出；git diff --check退出0（仅已有行尾规范提醒）。实际原CPU两批分别6点，2窗12点且无pending，原样本/资产/控制与最终四单元再次核对通过。
+
+最终展示措辞核对：零确认窗口显示“开始于”，不把初始游标标成已确认。随后再次实际TypeScript/build通过（912ms），9个连续采集专项通过（24.6s）；与149关联回归重叠，不合计。相关149结果已在汇总中保存，最终专项使用独立状态字段。
+
+
+## 118. 固定主机周期采集与跨轮授权预算（2026-10-04）
+
+实现60–900秒周期的固定发布Host→ENTITY采集，复用V043单轮日志和既有执行器；V045只存周期元数据及原控制快照。每轮确认完成后等待间隔，不追赶错过的周期。最后一批确认、整轮累计和下一次时间同事务；授权随后到期保留最近成功。每次明确启用或恢复最多20批，跨轮共用原授权ID、有效期和consumed计数。未知或来源失败暂停，无自动恢复/续权；STOP同时取消当前扫描与后续周期，普通单次START不能抢占，手动STOP关联扫描也停止周期。
+
+实际契约1393（18.41s）；69纯Java main、2224打印检查，新增周期38项覆盖两轮/时钟边界、不追赶、原回执/变更409、停止读入竞态零写、未知原体恢复、20批、到期/撤权、身份隔离和确认后到期保留成功。Java 40套171项，零失败/错误/跳过，最终1m 58s。新增周期PG类5项含3项继承扫描回归和2项周期/恢复；真实PG及资产Observation验证重建后相同原回执、稳定实体、原批次和时间恢复。新增HTTP2项验证原404/401、伪造查询/私有授权字段及缺版本控制；身份适配器新增一项检验重建发现、浏览器注销后原授权跨轮累计、当前身份映射版本撤销。此身份检查是本机协议Fixture，未当作生产IdP验收。
+
+Rust --locked 默认41/all-features49；TypeScript/build 1.16s（既有大chunk提醒）；159关联Playwright（3.6m），含10项周期明暗/1440/390、首次默认读取、丢失控制响应原GET、404后原体重发、失败不轮询、身份迟到，以及原Host/指标/画布/版本回归。真实5173页面只读展示停止后的2轮/6条，业务POST=0，未改变用户原标签与主题；4份周期主题/宽度截图和实际截图均在仓库外，已视觉查看窄屏暗色及真实页。
+
+本机真实原Host工作流两轮各3条，共2确认批/6条。3个资产ID跨轮不变，6份新Observation按原观察时间和batchId回读匹配；明确停止后nextRunAt为空、扫描任务STOPPED。原START POST重放保持原快照，不修改当前停止记录；旧单次START快照和3份原Observation逐项保持。旧CPU连续2窗12点及2份时序摘要重新核对，原19接入/19创建回执/两凭据、7发布+8草稿=15版本保持。平台已重启最终代码，四单元均200/200；原数据、控制命令和回读证据保存在仓库外本机。
+
+首次失败如实保留：迁移未加入启动清单导致17项PG/HTTP失败；补启动后发现尚未加入Gradle资源打包，导致缺迁移的级联失败；补齐后实际全套通过。浏览器首次6失败含已有截图定位到两个details的严格选择器错误，以及协议Fixture把完整URL中的/workflows/误当状态分支；修正精确路径与截图范围后159全套通过。补充名称字段契约复用和确认后到期事务统计后重新跑领域及Java，结论只来自最后实际输出。过程中两个本机Gradle调用短暂重叠，后续均取终态及最终XML核对，不将启动或编写测试等同通过。
+
+静态仓库437结构文件/6只读工具、11算子元数据、7开发预览会话检查通过；24份相关文档/209本地链接有效。仓库外私有词表检查扫描2623提交候选文件通过，无词表或命中正文输出；git diff --check通过（只有已有行尾规范提醒）。日志/汇总在.tmp/dev-checks/host118-*。
+
+当前不宣称日志持久输出、迟到/任意频率遥测、未知范围放弃、完整快照缺失资产生命周期、模型依赖迁移、长期后台委托、跨系统事务、物理掉电耐久性、分布式租约/fencing、共享多副本额度或生产容量完成。完整目标active，无提交推送，M0–M4退出门槛不提升。
+
+
+## 119. 模型候选兼容性与固定引用（2026-10-04）
+
+本节实现自己的保存候选差异检查、当前授权固定模型引用、列表/字段全称/精确版本导航及抽离组件。报告仅是元数据，发布事务仍重新验证；不代表破坏性迁移、工作流自动重绑定或任务升级。沿用四单元及既有PG表，无新迁移、数据库或后台框架。协议、边界、操作分别见[模型影响契约](../contracts/model-impact.md)、[ADR-081](adr/081-model-revision-review-and-fixed-references.md)及[操作说明](runbooks/model-impact.md)。
+
+实际执行：
+
+| 检查 | 实际结果 |
+|---|---|
+| `pytest tests/contracts -o addopts='' -q` | 1427通过，17.06秒；封闭请求、私有数据/身份覆盖、边界、权限缺失及矛盾兼容决定拒绝 |
+| `scripts/check_java_domain.py` | 70个main、2276项打印检查通过；新增ModelImpactSmoke 52项，覆盖追加策略与发布规则一致、枚举分隔歧义、数值等价、私有候选/CAS、租户隔离、定向端点、引用截断、目标字段、本人任务与无执行 |
+| Java HTTP/PG和身份适配器 | 42套181测试，失败/错误/跳过均0，2分23秒；真实loopback HTTP与PG，新增自己的保存候选检查、发布冲突/不兼容、明确未读取工作流、固定草稿/发布引用和只读前后比较；测试tenant隔离，输入显式Fixture |
+| Rust锁定默认及all-features | 41/49通过；未改锁与运行后端 |
+| TypeScript/build | 通过；已有大chunk提示保留 |
+| 关联浏览器 | 194通过，4.0分，retry=0、workers=1；含模型/导航、固定来源、画布/算子/比较、单轮/周期主机、连续指标、输出、原控制和身份 |
+| 最终模型与导航专项 | 38通过，33.7秒；与前项重叠，不合计。覆盖发布失败人工重查/编辑失效、矛盾响应拒绝、追加下一版与原版本引用、精确字段/目录外模型/关系端点、只读失败恢复、多页签关闭旧抽屉及主题布局 |
+| 静态仓库/算子/本地预览 | 442结构文件/6只读Tool、11算子、7预览检查通过 |
+| 文档链接/外部资料边界/diff | 28文档/231本地链接通过；私有词表检查2646候选通过；diff退出0（既有CRLF提示保留） |
+
+初次新增领域检查出现两轮Java测试源码语法错误，修正后实际编译与所有main通过；不将测试文件写好等同检查通过。首次18项模型浏览器执行有3失败：两项用了不存在的主机`name`字段（实际为`hostname`），一项错误提示定位器不唯一；修正Fixture与定位后，关联193项中1失败暴露UI选择的`field`被混入封闭ref，改为只传ID/revision。随后21项专项及194关联完整通过；再补充多页签跳转、目录外关系端点和追加下一版，最终38专项通过。未隐藏失败或自动重试。
+
+本机真实只读验收：新引用接口返回11项当前授权引用，其中保留既有Fixture标识；原真实固定Host工作流的本人单轮扫描/周期摘要均STOPPED，映射字段为完整模型字段。19接入、19创建回执、2凭据、15工作流版本及原连续指标任务元数据与§118逐项比较保持；周期仍2轮/6条。当前引用响应实际通过契约校验。没有新增接入、凭据、模型/流程版本、采集或输出命令，不把本轮元数据比较声称为业务点/Observation的重新回读。
+
+实际Web5173的1440/390明暗四种视图只读显示11项，完整字段可跳转；业务POST=0、页面错误=0、根页面无横向溢出，表格自身局部滚动，完整长ID换行；实际查看桌面浅色和窄屏深色截图。操作使用自己的无头浏览器，用户标签和主题未动。原平台实际重建/重启后PID26556:8080，runtime28428:8090、worker21512:8081、web19696:5173，均200/200。证据保存在仓库外`D:/workspace/ops-weave-private/acceptance/model119.json`及`checks/model119`，本机汇总`.tmp/dev-checks/model119-report.json`。
+
+日志持久输出、超60点完整分页/迟到回看、未知范围显式放弃、破坏性模型迁移/运行升级、质量/保留/容量和生产HA租约/fencing尚未完成。当前引用不构成全租户清单或跨目录/任务原子快照；不声明多副本、跨系统事务或断电耐久性。完整目标active，M0–M4退出门槛保持，未提交推送。
+
+
+## 120. 固定手工日志持久批次与原结果确认（2026-10-04）
+
+### 实现与实际边界
+
+按既有可选日志引擎要求与ADR-082新增logs基础设施profile，镜像固定digest、loopback8123和私有随机凭据；没有增加业务启动单元或隐藏执行框架。受限应用账号只SELECT/INSERT，初始化DDL由部署完成，实际版本25.8.33.6。固定表/13字段/引擎/排序键及SELECT可用性由适配器实际检查；固定SQL使用typed parameters，无代理、重定向、DDL、客户端表名或任意URL；请求/响应有时限和64KiB上限。
+
+V046与两种WorkflowStore实现保留17字段元数据回执，正文只进入日志引擎。MANUAL_SAMPLE→LOG固定已发布版本和最近本人RUN、输入摘要/trace/count/source/target、24小时/5条、可信独立log权限和共享IO预算在Java执行器核对。PG先保存PENDING再外部写一次、按tenant/owner/request/固定版本精确查询并显式FINAL；完整索引/原文摘要匹配后才CONFIRMED。原UUID重放只读旧回执，变更409、跨owner/tenant404。写后读取失败无论端口异常分类均UNKNOWN；进程重建和历史未知只查询验证，禁止自动补写。数值标量摘要统一无指数十进制，测试1e-7跨Java/浏览器一致。
+
+UI入口默认折叠，展开只读一次能力/历史。请求容器与纯展示面板分离；用户明确写入才读取当前样本RUN并提交命令。原输入只在内存，网络/契约未知锁定原请求，原404才显式同键重发；历史无原文的未知只能查询。清除身份取消并丢弃迟到结果，正文只显示转义文本，不执行HTML/脚本/其中URL。历史CONFIRMED和当前不完整/失败读取分开。
+
+### 实际运行的检查
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 全部契约pytest | 1474 passed，23.58s；封闭权限/对象范围、状态/数量/预算、完整数量与正文格式拒绝 |
+| 纯Java领域脚本 | 71个main，2330条打印检查；日志新增54条，包括写后读失败UNKNOWN/恢复不重写、独立对象权限、重复/变更、时间范围与数值摘要 |
+| Java实际HTTP/PG/日志与适配器 | 45套/192测试，零失败/错误/跳过；最后BUILD SUCCESSFUL 2m 10s |
+| Rust runtime | MSVC环境cargo --locked默认41、all-features 49；本轮未改Rust实现，没有新增Rust fmt声明 |
+| TypeScript/生产构建 | tsc --noEmit及Vite退出0，built in 957ms；已有大chunk提醒保留，无依赖升级 |
+| Playwright关联回归 | 214通过，4.5m；workers1/retry0，覆盖日志/模型/导航/Host周期/指标持续/来源/输出/画布 |
+| 最终日志专项 | 17通过，17.3s；与关联集重叠，不相加 |
+| 本地会话/算子/静态边界 | 7会话、11算子生成检查；Repository static checks passed: 453 structured files; 6 read-only tool definitions |
+| 文档链接/资料边界 | 31 documents; 249 local links checked；Reference boundary check passed: 2678 commit candidate files；git diff --check退出0，既有CRLF提示保留 |
+
+### 本机实际证据
+
+仓库外`acceptance/log120.json`保存一次主本机Fixture手工流程发布/RUN→实际Java→PG→日志库的原命令与回读：2条CONFIRMED、索引/时间/空格/换行/Unicode/引号/可选缺失逐项一致。主本机未用外部日志连接器，Fixture指输入，日志存储实际。重放后直接物理查询仍2条；PG直接查询只有1份17键回执，没有正文/样本/权限/凭据。`log-store/storage-proof.json`、`rebuild-proof.json`分别保存物理计数和平台重新建立后原回执/正文只读保持的实际结果。
+
+19接入、19创建回执、2凭据和原15流程版本逐项元数据保持；新增一个日志Fixture流程，共16版本。既有Host周期仍STOPPED、2轮/6条，连续指标Task元数据保持；本阶段未重新验证其全部Observation或时序点，沿用早期对应阶段的证据。四单元最终200/200，平台PID见本机devctl状态。`checks/log120`保存四种实际1440/390明暗页面，只GET原回执和正文，业务POST0、页面错误0、根横向溢出0；已查看1440亮色及390暗色截图，用户标签页未改。
+
+### 初始失败与修复
+
+第一轮领域编译缺少WorkflowLogOutput导入，修正后完整脚本通过。一次开发修改脚本因引号语法未成功修改，改用直接patch后构建通过。初始容器引导命令失败，随后独立就绪确认成功；不把首次失败写成通过。
+
+首次Java188项有4失败：3个协议Fixture把URI的`+`当空格，改用URLDecoder；实际日志写入返回UNKNOWN，直接诊断证明存储MEMORY_LIMIT_EXCEEDED。原512MiB/384MiB不足，受限profile改1GiB/768MiB并重建后，新批次通过。旧不明批次不自动补写，不据错误推定完全未落地。收尾复核加入显式log资源到可信授权文件/Schema，并补独立对象权限检查；同时加入小数规范化和写后read(false)仍UNKNOWN的必要反例。全部最终检查均对修复后代码实际运行。
+
+### 后续
+
+这里只验收手工有限日志批次基础。外部日志来源/持续采集/checkpoint、完整分页/迟到回看、未知范围显式放弃、破坏性模型迁移、质量/保留/备份/容量以及生产身份/HA租约/fencing仍需继续。存储引擎去重/本机PG事务不等于跨库exactly-once或物理掉电证明。完整目标active；无提交推送，M0–M4退出门槛不提升。
+
+
+## 121. 完整指标分页与上一分钟迟到补采
+
+日期2026-10-04；本节仅记录实际运行结果，不提升生产退出门槛。
+
+- 契约：1479通过，20.53秒；纯Java 71个main、2341打印检查，持续窗口48检查。
+- Java：46套/203检查，失败0、错误0、跳过0；3m 9s。实际PG V047迁移、大证明重开、旧16字段解码、实际时序598→600点补采，以及真实本机来源300→301点分页/迟到联测；输入为Synthetic Fixture，来源/存储协议真实，固定绑定及授权服务端口在测试中显式构造，不冒充完整接入注册链路。
+- Rust --locked默认41、all-features 49；TypeScript生产构建3.40s，既有大块提示仍在。
+- Playwright关联221项/4.6m、连续专项16项/43.5s，相互重叠不相加；原控制/身份晚到/未知门禁与补采计数、600时间戳、窄屏明暗主题实际通过。
+- 真实来源7.0.27独立测试Host 300点整窗分页确认，随后新增1点，回读301点；原证明与cursor不变，输出无覆盖旧值。证明日志统计14次历史读取，包含有界只读等待，不是单窗请求数。专属Host名称/标签检查后清理；没有改既有Host。
+- 实际平台重建为PID3460，原周期Host状态、19/19/2接入/创建回执/凭据及16流程版本逐项保持；原连续Task/摘要保持，12个旧点值和2条原日志正文重新只读匹配。实际四种页面明暗/宽度无异常、业务POST0、无根溢出，用户页签未动；四单元200/200。
+- Repository static checks passed: 453 structured files; 6 read-only tool definitions；Workflow operator metadata: 11 built-in operators verified；开发会话7项；32 documents; 261 local links checked；Reference boundary check passed: 2682 commit candidate files；git diff --check退出0，仅既有CRLF提示。
+
+首次真实大批次5秒回读未完整可见而为UNKNOWN；使用原批次只读核验确认，没有重发POST。首次回归还发现旧16字段JSON缺省反序列化失败和浏览器复用同页的测试准备错误，分别修复解码缺省与测试隔离，最终上述实际检查通过。关联预览首次启动超时，扩大预览启动等待预算后完成回归。开发管理器原taskkill停止失败，核对PID5564所属仓库jar后只停止该平台进程，由管理器重新构建启动；其他三个单元未重启。
+
+局限：仅上一已确认分钟的新增标准点；全过滤迟到行不计latePoints，停止/到期不继续回看，更早迟到/历史修订、批次显式放弃、外部/持续日志及质量保留/容量/HA未完成。未执行V047回滚、生产身份负载、故障切换或断电耐久性检查；没有生产部署或提交推送。完整目标active。
+
+[决策](adr/083-bounded-metric-pagination-and-late-points.md) · [操作](runbooks/workflow-metric-streams.md) · [契约](../contracts/workflow-metric-streams.md)
+
+## 122. 固定外部日志来源、服务器样本写入与真实链路（2026-10-04）
+
+本轮完成ZABBIX_LOG固定配置/日志项pin、自己的发现选择、前后metadata受控读取、只读预览/发布/谱系、四字段服务器样本写入和原回执确认。正文不由客户端传入或写入PG，最多5条最新样本与完整来源窗口分开；原手工路径、旧定义摘要及17字段回执保持。输入字段/清单和请求生命周期组件分开，日志源/目的授权独立。
+
+实际运行并通过：
+
+- 契约pytest：1507，37.50s；闭合源pin/选择/目标/源命令以及禁止client samples/身份/URL。真实主链路7份wire另外按对应schema验证。
+- 纯Java：72个main、2380项打印检查；新日志来源39项，涵盖发现出处/过期/类型/权限、发布与固定源、原UUID不重读、命令namespace、未知只读确认和版本差异。
+- Java：46套/202测试，失败0、错误0、跳过0，2m58s；真实PG/VM/日志引擎及HTTP旧路径保持，日志协议6项验证原文/缺失事件字段、两次metadata、条数/时间/顺序/字段/截止预算和闭合JSON。未重跑第121节已清理的300点来源Fixture专项，原12点在当前主平台真实回读保持。
+- Rust --locked：默认41、all-features49；TypeScript生产构建1.13s，既有大块提示保持。开发会话7项和11个算子元数据检查通过。
+- Playwright：250关联测试/5.4m；最终字段布局调整后29日志专项/30.6s通过，二者重叠不合计。来源选择、只读预览发布、原命令四字段、未知/原404、身份取消/晚到响应、正文转义和窄屏明暗得到覆盖。
+- 主平台实际SOURCE日志链路：本机正式来源服务7.0.27中的专属Synthetic Fixture Host/item，经原已维护配置和账号发现，2条原文被Java服务器读取转换并在日志库25.8.33.6完整回读；原UUID复用只返回回执，变更409、额外samples/tenant/query拒绝、无认证401。原文未进入运行元数据；无未标记Mock或来源失败回退。
+- 本机重建平台为PID30816，其他三单元未重启；四单元200/200。19/19/2来源/创建回执/凭据和原16版本逐项保持，新增1个明确Fixture版本共17。原Host周期、标准指标task/proofs保持，12个原指标点及2条旧日志原文重新只读匹配。
+- 实际页面1440/390明暗四种来源抽屉/字段与确认日志回读；业务POST0、页面错误0、根溢出0，已查看宽屏来源和窄屏正文截图；用户页签未动。原始回读、命令和截图只在本机仓库外保存。
+
+首轮关联回归244通过/6失败：日志Fixture未固定算子、option禁用断言采用了不适用的辅助断言、漂移错误文案使用指标名。分别修复Fixture固定版本、保留原生disabled属性检查，并改为通用来源项错误文案；最终250项全通过。视觉检查发现字段说明嵌入header段落，调整至来源配置之后，再实际构建、29专项和四页面复验通过。
+
+首轮真实发现未包含测试日志项：测试Host误建在接入账号不可读的主机组。核对专属Host名称/Synthetic Fixture标签后，只将该测试Host移到既有可读主机的组，再新建服务端发现快照完成链路；没有扩大令牌权限或修改既有Host。测试Host/item和明确Fixture流程保留供检查，其最新样本在10分钟后自然不可再预览，不自动追加日志。
+
+静态检查：460结构文件、6只读工具定义；私有词表边界2704候选文件；git diff --check退出0，只有既有CRLF提示。34份文档/280本机链接检查通过。没有提交推送、生产部署、HA/故障切换或生产负载认证验收。
+
+局限：本轮是外部样本闭环，连续日志完整窗口、稳定事件身份/去重/checkpoint未完成；更早迟到和历史修订、UNKNOWN显式放弃、破坏性模型迁移、S7质量/保留/容量与生产HA继续。完整目标active，M0–M4退出门槛不提升。
+
+[设计](adr/084-fixed-log-workflow-sources.md) · [来源协议](../contracts/workflow-log-sources.md) · [输出](../contracts/workflow-log-output.md) · [本机操作](runbooks/workflow-log-output.md)
+
+## 123. 完整LOG窗口与整窗存储端口（2026-10-04）
+
+2026-10-04 第123节：完整LOG窗口读取、纯处理及批量日志端口接通。固定来源60秒半开窗口、settle10秒、最近24小时内，最多1,000条/20次历史请求/20秒来源预算；clock/ns严格升序，满页重读完整边界秒，元数据漂移、失败、超量与超时均不返回成功前缀。来源接收位置与映射eventTime分开，原eventId不冒充全局身份；算子仍按5条内存执行，但全部校验完成才形成一次整窗输出，FILTER保留原索引。输入/输出摘要区分缺失与空文本。
+
+既有日志库新增V002窗口表，UInt32索引及source_position；实际专属小表试验拒绝旧排序键类型扩大（Code 524），因此保留原样本表和5条契约。包内共用固定loopback有界HTTP，样本64KiB、窗口8MiB，正文不进SQL/普通日志，应用账号只有固定表SELECT/INSERT；没有新数据库、PG正文表或启动单元。新内部数据Schema/样例不构成公开HTTP任务或Web连续入口。
+
+实际1531契约、73纯领域main/2403打印检查、49套215 Java检查零失败/错误/跳过、Rust锁定41/49、TS/build、46日志浏览器通过。真实本机来源7.0.27的专属Synthetic Fixture 1,000条同秒不同纳秒位置完整读取，经固定算子一次写入25.8.33.6日志库并逐条回读匹配，正文Unicode/换行/空白/缺失上下文保持；再次来源/存储读取位置和值一致，没有第二次输出。1份实际1,000行wire按新Schema校验。该联测不含PG窗口证明或持续任务。
+
+原19接入/19创建回执/2凭据、17流程版本、原Host周期/指标任务及12旧指标点、原样本正文只读保持。平台重建PID29312，四单元200/200；1440/390明暗四种实际页面复查业务POST0、pageErrors0、无根溢出，用户页签未动。持续LOG任务、不可变证明/原UUID、代数停止、短时委托、未知只读恢复、迟到补采去重及确认后检查点继续；更早指标迟到/历史修订、UNKNOWN放弃、破坏性模型迁移与S7仍未完成。目标active，未提交推送，M0–M4退出门槛不提升。见[窗口契约](../contracts/workflow-log-windows.md)、[ADR-085](adr/085-bounded-complete-log-window-ports.md)及验证报告§123。
+
+实际执行记录：
+
+| 检查 | 结果与边界 |
+|---|---|
+| 契约pytest | 1531 passed，21.08s；新增内部记录/窗口正反例，不是公开持续任务API |
+| Java纯领域 | 73个main、2403项打印检查；新LOG窗口23，覆盖1,000条、过滤索引、全窗拒绝与摘要 |
+| 平台选择性集成 | 49套215，failures/errors/skipped均0；最终Gradle2m18s，包含原PG/VM/CH及新的真实来源/存储联测 |
+| LOG协议/存储故障Fixture | 来源7个、存储5个JUnit；边界/密集秒/失败页/解析耗时/漂移、一次POST/丢失ACK/重复字段与超响应均实际通过 |
+| Rust | --locked默认41、all-features49通过；未升级锁或新增Runtime执行能力 |
+| TypeScript/build | 实际通过，1.43s，保留已有较大chunk警告；没有前端源码/依赖升级 |
+| 日志浏览器 | 46通过，47.8s；独立loopback预览，无用户标签页修改 |
+| 实际服务链路 | 7.0.27专属Synthetic Fixture同秒1,000条→完整窗口→固定算子→25.8.33.6窗口表→精确回读；两次来源/存储读取相同，输出只有一次。实际wire按新Schema通过 |
+| 实际旧页面 | 1440/390亮暗四种，只读已发布来源字段与原样本回读，业务POST0/pageErrors0/根溢出0；截图另存本机并已查看 |
+| 主环境只读核对 | 19接入/19创建回执/2凭据、17流程版本、Host周期、原指标证明和12点、原日志样本保持；不是新持续LOG任务验收 |
+| 部署与运行 | V002由私有管理身份应用，新表只授予应用SELECT/INSERT；compose config -q通过；平台29312、Runtime28428、Worker21512、Web19696四单元200/200 |
+| 辅助检查 | 11算子与7开发会话检查通过；结构464份文件/6个只读Tool、私有边界2720个候选、37份文档/455个本机链接及diff检查通过（原有CRLF提示保留） |
+
+旧表排序键UInt8→UInt32的专属小表试验两次实际被Code524拒绝，小表已清理，没有修改旧样本表。首次领域Fixture将FILTER放在MAP前违反已存在结构，调整Fixture后最终纯领域通过；首次新增Python契约测试使用保留字造成收集错误，修正后最终1531通过。实际来源Fixture推送已观察成功后，版本查询携带认证被拒绝；修正匿名版本查询，原1,000条未重推。首轮49套214通过后增加解析预算/日期错误检查，最终49套215通过，以上数量使用最终结果、不重复累加。
+
+本轮源码只提供内部完整窗口及批量端口。未新增公开连续任务、控制回执、PG窗口证明/检查点、迟到补采、HA、生产保留或容量声明。来源分页并非事务快照，元数据两次一致不能证明历史行未变。没有自动源读取重试、输出重试或失败Fixture回退；正文/秘密只留在受控内存、日志库与仓库外Synthetic Fixture证据。
+
+## 124. 确认后推进的持续日志窗口（2026-10-04）
+
+| 实际检查 | 结果与范围 |
+|---|---|
+| 契约 | 1544通过；新增任务/存储、批次、控制/存储、状态、分页与核验闭合Schema，禁止正文、来源、私有身份注入；15份真实主服务wire另按Schema校验 |
+| 纯领域 | 74个main / 2447条打印检查通过；持续日志44条覆盖1000位置、分页、空窗、FILTER、迟到去重、旧输入变化、UNKNOWN只读、代数停止、授权/范围和20失败批后的原确认依据 |
+| 平台 | 50套221项，失败0/错误0/跳过0；实际PG重开、原控制、UNKNOWN、回滚、隔离、元数据拒绝正文；实际日志库998→1000补采、50条分页，以及确认依据不依赖最近20批 |
+| Rust | --locked默认41 / all-features 49通过，无锁文件升级 |
+| TypeScript/build | 实际通过；原有大chunk提示保留 |
+| 浏览器协议Fixture | 75关联首次通过；之后收紧文本上下文类型并增加不完整回读场景，最终14专项通过。76个不同场景，重叠不累加；同秒1000条纳秒位置、50条分页、明暗/窄屏、原摘要、UNKNOWN、错误停轮询、身份清正文 |
+| 主服务真实链路 | 现有受控连接/vault/固定发布日志来源，本机7.0.27的明确Synthetic Fixture确认2条，迟到追加1条并去重2条；补采checkpoint保持，停止/恢复与健康空窗后累计2窗3条，任务最终停止；25.8.33.6实际回读正文和纳秒位置精确 |
+| 实际页面 | 1440/1024/390明暗六种，只读任务/迟到记录，POST0/pageErrors0/根溢出0；已查看1440亮色任务和390暗色正文截图，用户页签未动 |
+| 原环境保持 | 19接入/19创建回执/2凭据、17版本、原Host周期/指标任务及12指标点、原日志样本只读一致 |
+| 最终运行与辅助 | 平台最终PID25980，Runtime28428/Worker21512/Web19696不变，四单元200/200；重建后原持续任务和2+1日志逐条只读保持。结构474文件/6只读Tool、11算子、7会话、私有边界2748候选、40文档481本机链接、diff检查通过（原CRLF提示保留） |
+
+首轮新测试缺少适配器导入，修正后编译。随后测试揭示V048未进入资源打包，补齐固定声明；HTTP错误处理未覆盖新控制器，原404经错误分发成为401，加入既有封闭错误处理并增加非规范UUID拒绝检查。全部平台检查在修正后实际重跑通过。私有联测记录的最终停止快照覆盖了本机命令字段，按原回执摘要恢复精确命令，没有重发来源或服务器控制。末次复查发现回看依赖最近20批显示列表，改为固定窗口查询并实际增加/运行历史证明恢复检查。
+
+连续任务只属于本机受限执行，不是生产日志管线验收。来源分页不是事务快照；最近分钟补采不能覆盖更早迟到或历史改写。没有隐式来源/输出重试、授权续期或Fixture回退；UNKNOWN显式放弃、分布式fencing/HA、生产容量/保留、独立OIDC日志端到端联测仍未完成。正文、凭据和原始Synthetic Fixture证据不进仓库。目标未标完成。
+
+## 125. 固定版本只读运行质量与异常（2026-10-05）
+
+本节在既有四启动单元/数据库内实现原批次观察，无来源读取或输出端口。窗口计数按批次，主机缺失分项为null；UNKNOWN/IN_FLIGHT、迟到新增/指标旧点重交与空窗口区分，确认率没有分母显示“—”。固定版本过滤先于21条查询上限，20条公开截断及原UUID查询保留；原摘要/时间损坏失败不隐藏成空结果。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 契约 | 1563通过，14.55秒；四份闭合质量Schema及原契约回归 |
+| 纯Java领域 | 75个main、2477打印检查；质量30项含UNKNOWN/空窗/来源失败/迟到/重交/本人隔离/旧批查询/截断 |
+| Java平台与端口 | 52套226项，失败/错误/跳过0；真实PG固定版本过滤、重开UNKNOWN不变、主机逐实体权限与正文隔离、损坏元数据，真实HTTP身份/查询参数/UUID/405边界；原接入/目录/流任务/输出/OIDC关联回归 |
+| Rust | 实际锁定默认41/all-features49，使用现有工具链与target目录；无依赖变更 |
+| Web | 实际TypeScript/build通过，保留原较大chunk提示 |
+| 浏览器协议Fixture | 首次关联59场景58通过，403测试断言原区域内错误但可信会话会清空页面；改为全页会话清理断言。质量19专项最终重跑通过；59个不同场景，重复不累加。最终专项目录与六种主题/宽度复查 |
+| 真实主服务 | 三类原证明四版本；4份报告+2份原日志批次共6份wire验证；初始2条、补采输入3/去重2/确认1，原任务STOPPED和证明一致，无业务POST/来源请求 |
+| 实际页面 | 1440/1024/390明暗六种，批次/原关联/计数真实，POST0/pageErrors0/根溢出0；查看亮色宽屏及暗色窄屏截图。用户页签未动 |
+| 原环境 | 19接入/19创建回执/2凭据、17草稿+发布条目（其中9发布），原Host周期/指标任务及12点、原日志样本/连续2+1条只读保持 |
+
+首轮纯领域和平台编译暴露目标方法名、测试Principal访问器/位置类型和适配器导入错误，逐项修正后实际重跑。新PG样例用实体映射字段导致日志目标拒绝，改为合法日志字段；UNKNOWN原证明断言也改为已保存的UNKNOWN状态，而非准入IN_FLIGHT。框架对不支持写方法转到错误路径返回401，接口明确拒绝返回405后验证通过。真实只读辅助脚本最初误将17个草稿+发布条目当作17发布，按原基线比较9个发布及全部17条目修正，没有改动服务器元数据。
+
+这是S7基础观察，未完成专门schema/identity/timestamp/unit/queueWait计数、阈值告警、历史修订/重放、UNKNOWN明确放弃、保留与生产容量、分布式租约/fencing/HA或独立OIDC持续LOG端到端验收。真实来源中的输入为明确Synthetic Fixture，不是客户生产数据；没有提交/推送。最终辅助检查及服务状态由本节末项记录补充。
+
+最终辅助实际通过：479结构文件/6只读Tool、私有边界2768候选、43文档493本机链接，diff退出0（原CRLF提示保留）。最终Platform PID30988、Runtime30108、Worker8600、Web31904均200/200；Rust/契约/领域/平台/Web/页面均实际运行，无提交或推送。完整目标仍active，本节为进展。
+
+
+## 126. 实际转换处置、节点异常与指标原窗口恢复（2026-10-05）
+
+持续指标/日志读取成功后在原转换评估中记录received、accepted/rejected/filtered、unknown和闭合节点计数，第一组错误后的剩余记录不冒充结果。来源端口未返回列表时SOURCE_FAILED数量null、nodes为空。结构/必需标识/时间/单位类别按已测拒绝行去重，类别可以重叠；单位元数据未读出列表的拒绝没有分母，queueWait/采样总体未测量。
+
+V049只追加闭合元数据，200条本人容量在IO前检查，追加前重查当前代数/身份/版本；固定版本21条查询→20条及截断、原UUID查找、读取权限和损坏失败。新增请求容器、纯表格/节点详情与严格解析。指标原确认窗口专用查询先固定范围，不依赖可见20条。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 契约 | 1582通过，26.82秒；新增19条检查契约用例，四份Schema闭合/nullable/状态/截断边界 |
+| 纯Java领域 | 76个main、2506打印检查；新29项覆盖部分10→4/1/5、来源时间/标识、健康空读取、Source不可用、停止代数、容量IO前拒绝和21失败后的指标补采 |
+| Java平台与端口 | 54套233项，失败/错误/跳过0，最终2分43秒；真实PG不可变追加/事务回滚/重开/租户本人/固定版本/损坏/200容量，隔离Schema迁移→回滚→重建保留发布表，真实时序库在21失败后补采，HTTP身份/参数/UUID/405及原关联回归 |
+| Rust | 锁定默认41/all-features49，实际运行；没有依赖变更 |
+| Web | TypeScript/build实际通过，1.32秒；保留原较大chunk提示 |
+| 浏览器协议Fixture | 首轮77场景76通过，1处403测试先等待已清空区域的竞态；修正为直接验证拒绝后的清空。最终检查统计20+质量19共39专项通过（1.2分钟）；其余38关联首轮通过，重复不累计 |
+| 真实来源/主平台/PG | 两个独立Synthetic Fixture LOG item/发布流程；来源直接拒绝空正文统计不可用，节点映射后拒绝得到10输入/4通过/1拒绝/5未检查/结构1。失败均无该窗口输出准入、checkpoint不动、原观察UUID读取一致；任务保留FAILED暂停，没有自动恢复 |
+| 真实wire | 6份三类质量报告+2份旧日志批次+2份检查报告+2份原观察，共12份按Schema验证 |
+| 实际页面 | 1440/1024/390明暗六种，真实10/4/1/5及EMPTY_REQUIRED节点明细，POST0/pageErrors0/根溢出0；查看亮色宽屏和暗色窄屏截图，用户页签未动 |
+| 原环境 | 原19接入/19创建回执/2凭据、17草稿+发布条目保留；只新增2个独立Synthetic Fixture发布条目，当前19条目。原Host周期/指标任务、12旧指标点、原日志样本和连续2+1条只读保持 |
+
+新领域测试最初调用不存在的store访问器，平台测试泛型assertEquals产生重载歧义，修正后实际重跑。首轮真实辅助脚本按整分钟放置测试记录，而START采用当前整秒前60秒；读取原状态并停止专属任务后，在下一原窗口注入新的独立记录并明确恢复，没有重发原push。来源端口直接拒绝空正文时没有返回列表，观察保持不可用；另用合法来源值经固定ENUM_MAP后产生节点空值，验证实际部分统计。STOP对FAILED返回409，保留暂停状态，没有通过恢复绕过它或声称已停止。
+
+主机细分、unit元数据漂移及来源返回前的分母、排队时间、告警/阈值、历史修订/重放、UNKNOWN放弃、保留/生产容量、分布式租约/fencing/HA及独立OIDC持续LOG验收尚未完成。上面真实输入均为明确Synthetic Fixture，无客户生产流量、无提交/推送。目标active，本节是实际进展。
+
+最终辅助实际通过：484结构文件/6只读Tool、私有边界2790候选、46文档509本机链接，diff退出0（原CRLF提示保留）。日志单位字段的服务端闭合约束补充后，领域76/2506、平台54套233项再次实际通过（最终2分43秒）；已重新构建/启动平台并只读复查真实wire和原环境。Platform PID2892、Runtime30108、Worker8600、Web31904均200/200。完整目标仍active，无提交/推送。
+
+
+## 127. 固定主机分页检查统计与实体范围
+
+2026-10-05 第127节：固定连接主机分页接入实际转换处置与节点统计。每页最多5条，包含过滤/拒绝实体的私有UUID范围见证；known received与见证数量一致。当前可信身份逐实体读取门禁，正常检查关联原批次并复核版本、数量与实体集合，损坏/失配失败。新分页首次评估记录一次，拒绝回滚批次准入、不输出/不推进检查点；UNKNOWN显式恢复使用原分页，不重读来源或重复统计。200条本人容量在IO前和追加前验证，停止竞态保留原门禁。
+
+| 实际检查 | 结果 |
+| --- | --- |
+| 契约 | 1595通过，20.82秒；新增私有stored与公开隔离、5条上限、UUID/窗口/单位约束 |
+| 纯Java领域 | 77个main/2528打印检查；主机专项22，含完整/过滤/拒绝/空页/不可用、逐实体权限、容量、停止竞态及UNKNOWN恢复不重复 |
+| 平台 | 54套237项，失败/错误/跳过均0；真实PG重开、原UUID恢复、私有范围/父批次失配和拒绝回滚等 |
+| Rust | --locked默认41/all-features49通过 |
+| Web | TypeScript/build通过，2.02秒；原较大chunk提示保留 |
+| 浏览器协议Fixture | 69相关场景通过，2.1分钟；检查统计30、质量19及主机运行/周期20 |
+| 真实来源/主平台 | 正常确认6条（5+1）；异常末页1输入/0通过/1拒绝/0未检查/结构1，无该页批次准入，原前页5条确认保持 |
+| 实际wire/页面 | 9份按Schema验证；1440/1024/390明暗六种，POST0/pageErrors0/根溢出0，已查看宽屏亮色和窄屏暗色截图；用户页签未动 |
+| 原环境 | 19接入/19创建回执/2凭据、19流程条目保持；新增2专属Synthetic Fixture流程，当前21；周期/12指标点/旧日志及连续2+1、上节两条诊断和暂停状态保持 |
+
+真实辅助脚本首次语法检查失败，修正后执行，没有先发生业务调用。新测试主机最初在受控账号不可见分组，首次扫描实际只读取并确认原5条；保留其检查和批次，调整仅专属测试主机到原测试主机分组，然后以新UUID/代数启动新扫描。没有修改受控凭据、原发布流程或重发未知来源写入。真实输入均明确Synthetic Fixture，不是客户生产流量。
+
+S7及总目标仍active：来源返回前的异常分母、单位元数据漂移细分、queueWait、阈值告警、历史修订/重放、UNKNOWN显式放弃、保留与生产容量、租约/fencing/HA、生产身份及独立OIDC持续LOG验收继续。无新增迁移/数据库/启动单元，无提交或推送。
+
+最终平台显式重跑27个Gradle任务，54套237项零失败/错误/跳过，2分44秒；之后只读复核新增主机的原观察/任务/检查点、原接入与流程、12指标点、日志2+1及上节暂停诊断保持。辅助实际通过：486结构文件/6只读Tool、2795私有边界候选、47文档519本机链接；diff退出0（原CRLF提示保留）。四单元最终200/200：Platform PID28744、Runtime30108、Worker8600、Web31904。总目标active，无提交或推送。
+
+
+## 128. 固定任务明确终止恢复（当时待恢复，最终复验见第129节）
+
+2026-10-05 第128节（最终联测与部署待恢复）：固定 HOST/METRIC/LOG 任务增加明确终止恢复与不可变原UUID回执。任务转ABANDONED、代数加1、撤掉后台授权，原批次保持UNKNOWN，确认游标/数量及可能已写入的内容不改；主机公开回执的preservedCursor固定null，私有分页仅留在内部检查点；200条本人容量与任务修改同事务。核验返回重查状态/代数；同版本不能重启/恢复，更高发布版本明确START建立新任务。按版本状态查询隔离旧任务与批次，控制代数单独返回，历史质量观察保留终止事件；回执查询使用实际流程对象范围，不多要求通配权限。
+
+已实际通过：1625契约，78个纯Java main/2576打印检查（恢复专项48），Rust --locked默认41/all-features49，TypeScript/build、平台bootJar及124相关浏览器场景。六种1440/1024/390明暗协议Fixture覆盖，已查看宽屏亮色与窄屏暗色截图。终止恢复初版真实PG/指标库/日志库检查曾通过；版本隔离和范围权限扩展后的最终真实联测尚未通过，不能用先前结果替代。
+
+| 实际检查 | 结果 |
+| --- | --- |
+| 契约 | 1625通过，36.14秒；命令确认、原回执闭合、ABANDONED及版本控制边界 |
+| 纯Java领域 | 78 main/2576打印检查，恢复专项48；主机第二页私有游标不外泄/前页5条确认保持，三类原UNKNOWN、原UUID重放、并发核验、容量、时间回退、精确对象范围及新旧版本保留 |
+| Rust | --locked默认41/all-features49通过 |
+| Web | TS/build通过，2.49秒；原较大chunk提示保留 |
+| 浏览器协议Fixture | 首轮121通过/1定位器多匹配失败；修正为精确summary后最终124通过（含私有游标拒绝）；本轮耗时见原始本机日志；不是主平台实际页面验收 |
+| 平台构建 | 当前源码bootJar成功；包构建不等于启动/迁移/真实联测通过 |
+| 最新平台真实联测 | 55套249项，140失败、错误/跳过0；Docker不可用时真实依赖失败，未回退Fixture输出；恢复后须全量重跑 |
+| 主环境保持 | 当前尚未复核，不沿用上一节旧结果宣称新部署保持 |
+
+早期编译发现调用不存在的方法/错误枚举、Schema引用失配及测试Fixture来源门禁/缺失字段，已修正并实际重跑对应检查。终止恢复初版真实PG/指标库/日志库检查曾成功；后续增加版本隔离、历史投影和精确范围后，最终扩大联测失败。Windows Docker API随后不可连接，CLI启动和WSL启动后引擎仍连续超时，辅助服务启动被当前系统权限拒绝。此处不据此断言全部失败已经定位或新平台已正常。
+
+最新扩大平台联测55套249项，140失败、错误/跳过0；运行时确认Docker引擎不可用，随后CLI/WSL启动后接口仍超时，未切换模拟后端。最终真实联测、主平台新包启动/V050复核、原19接入/19回执/2凭据及21流程和旧实际数据保持均待恢复后验证。Web与Runtime已恢复200/200；Worker端口响应200/200但当前管理器无其PID，未停止该现存进程；Platform尚未恢复。无新增数据库/启动单元，无提交或推送，总目标active。
+
+S7其余内容继续：普通停止/失败任务的版本替换与历史状态、单次样本UNKNOWN处置、来源返回前的异常分母、单位漂移细分、queueWait、阈值告警、历史修订/重放、保留与生产容量、租约/fencing/HA、生产身份及独立OIDC持续LOG验收。
+
+
+## 129. 明确任务版本替换、终态历史与日志写入确定性
+
+2026-10-05 第129节：已停止/失败的固定任务可明确 START 更高发布版本，保留不可变终态历史与原批次；运行中、降级、旧版本 RESUME 及未确认输出不能绕过门禁。新任务使用当前代数、授权和新的窗口/扫描。V051只存终态元数据，V052保留旧日志结果正文并增加明确未写入证据门禁；写入成功后回读失败保留 UNKNOWN。旧FAILED缺少该证据时不能恢复/替换，历史质量仍按原记录展示，不据FAILED推断未发生写入。沿用既有PG和四启动单元。
+
+实际通过：1643契约；79个纯Java main/2612打印检查（版本33、连续日志47）；平台55套254项零失败/错误/跳过；Rust --locked默认41/all-features49；TypeScript/build及129相关浏览器场景。主平台新包已启动200/200，V050/V051/V052实际结构与两份按版本状态Schema复核通过；原19接入/19创建回执/2凭据、21流程、旧主机/12指标点/日志2+1及暂停诊断只读保持，无业务POST。
+
+| 实际检查 | 结果 |
+| --- | --- |
+| 契约 | 1643通过，20.06秒；私有终态快照、字段/身份隔离、恢复可用性类型和缺失任务门禁 |
+| 纯Java领域 | 79个main/2612打印检查；版本33、日志47，覆盖正常停止/来源失败/明确拒绝、UNKNOWN禁止升级、降级/旧版恢复拒绝、历史周期状态、容量IO前拒绝、事务回滚及成功写入后回读失败 |
+| Java平台 | 55套254项，失败/错误/跳过均0；最终27个Gradle任务显式重跑，3分18秒。真实PG历史重开/隔离/回滚及V051/V052迁移→回滚→重建，真实指标库与日志库保持、HTTP固定版本与原关联回归 |
+| Rust | --locked默认41/all-features49实际通过，无依赖变更 |
+| Web | TypeScript/build实际通过，1.15秒；原较大chunk提示保留 |
+| 浏览器协议Fixture | 最终129相关场景通过，5.7分钟；七套相关回归，包含新旧版本、原UUID、旧拒绝禁用恢复、非法恢复标记、1440/1024/390明暗布局。测试浏览器退出时Windows taskkill超时，核实路径后停止本轮专属浏览器，报告exit0；用户页签未动 |
+| 平台包/主服务 | 当前bootJar实际成功，26秒；devctl重新构建并启动Platform PID26940，存活/就绪200/200。V050/V051表及V052证据列实际复核，两份主环境按版本状态符合当前Schema |
+| 原环境 | 原19接入/19创建回执/2凭据、21流程，原Host周期/检查点、12指标点、原日志2条与持续2+1、两类旧诊断及暂停状态只读保持；本轮没有新增主环境流程、来源写入或业务POST |
+
+首次并行检查遇到Windows页文件/原生内存分配失败：契约1636通过/2失败/1错误，平台未构建成功；顺序重跑和仅本轮512MiB构建堆/单worker后复验。领域首轮测试访问器名称、平台导入/泛型assertTrue，以及本机辅助脚本引用/命令引号已修正并实际重跑，没有用编写测试替代执行。
+
+首次真实扩大联测252项仅旧大日志验收失败；只读原UUID回查确认原记录FAILED/OUTPUT_REJECTED但1000条已实际存在，无重写。连续执行器缺少样本执行器已有的“成功写入后回读失败=UNKNOWN”边界，已修复；新增真实写入、注入回读失败、禁止升级、原只读核验确认且写入次数1的验收。V052不改变旧结果体，默认没有明确未写入证据，禁止旧FAILED恢复/替换；新增不可变旧记录门禁验收。修复前失败的专属Synthetic Fixture保留，没有伪装成已修复或改其原结果。
+
+下一扩大轮254项仅指标原点即时可见性失败；验收明确最多五次额外有界只读观察索引，原写入与runtime.verify均不重复，任务UNKNOWN不变。大日志验收在出现UNKNOWN时只进行一次显式原批次核验，不重写或重启；核验失败仍使验收失败。生产执行器没有自动重试或放宽确认。最终全量254项零失败；真实端口均保留，未回退Mock。
+
+Platform/Runtime/Web三个管理器拥有的服务正常；Worker端口存活/就绪200/200，但管理器当前无PID，未停止或冒认该现存进程。Docker恢复后只启动原已停止日志容器，保持既有卷与所有原数据；没有更改系统页文件、辅助服务权限或清空Docker。
+
+完整目标仍active：单次样本UNKNOWN、旧拒绝记录的完整不确定性投影/显式处置、来源异常分母、单位漂移细分、queueWait、阈值告警、同版本运行历史/重放、保留与生产容量、租约/fencing/HA及生产身份/独立OIDC持续LOG验收继续。没有新增数据库或启动单元，没有提交/推送。
+
+最终辅助实际通过：492结构文件/6只读Tool、私有边界2829候选、53文档549本机链接，diff退出0，原CRLF提示保留。Platform26940、Runtime28896、Web25616均200/200；Worker现有端口200/200但非当前管理器拥有。无提交/推送，完整目标active。
+
+## 130. 旧日志不确定性观察与显式终止恢复（2026-10-05）
+
+原日志FAILED无明确未写入证据时，公开质量改为UNKNOWN、预期数量归unknown、拒绝和确认均0；原UUID、窗口、时间及存储体不改。当前/归档失败任务关联该批次时质量错误投影为OUTPUT_UNCONFIRMED。按版本日志状态保留原batch体并返回有界uncertainBatchIds；前端不提供原FAILED不支持的verification或安全重写。明确拒绝证据true仍是拒绝，不混同因代数上限禁用恢复的情况。
+
+显式终止复用V050命令/回执，只有当前原pending及ref、代数、时间、容量、可信身份/范围匹配时受理；原体、证据false、游标及确认数量保持。重开PG服务、原UUID查询/重放、更高版本START及原质量历史检查通过。真实ClickHouse新独立Synthetic Fixture已写2条、模拟旧误分类后终止：正文仍在、原FAILED体保持、UNKNOWN质量不变、写入调用仅一次。没有新迁移或数据库/启动单元。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 全部contracts pytest，最终样例更新后重跑 | 1650 passed，15.54s；零失败/错误/跳过 |
+| `scripts/check_java_domain.py` | 79个main / 2617打印检查；质量专项35 |
+| 原真实PG/VM/CH配置的55套平台检查，最终顺序重跑 | 255项；失败/错误/跳过均0，3m08s |
+| Rust --locked默认 / all-features | 41 / 49通过，Rust源码未变 |
+| TypeScript/build，最终UI修改后重跑 | 通过；原大chunk警告仍有，无依赖升级 |
+| 最终三份相关Playwright及修正专项 | 67个不同场景：整组66通过/1终态文案断言失败；该断言修正后专项1通过（2.3s），未再重跑整组67。初版65整组通过单独保留 |
+| 1440/1024/390明暗协议Fixture截图/根溢出 | 六组合执行；未知标签、禁用恢复、无核验与根宽度检查通过，查看1440亮色/390暗色；不是实际主环境UI截图 |
+| platform bootJar | 24s，26任务2执行24up-to-date；已在主环境启动新包PID29744，200/200 |
+| 真实主环境只读Schema/原数据 | 两份按版本状态及V050/V051/V052结构存在检查通过；19接入/19回执/2凭据/21流程与原主机、12指标点、样本日志2、持续日志2+1、暂停诊断保持，业务POST0 |
+| 旧误分类回读 | 原独立Fixture仍原FAILED/OUTPUT_REJECTED，预期1000、实际1000日志；无写入或终止操作 |
+
+首次平台255项有2失败：新代数负例误用构造器不接受的0，已改为合法但冲突的2；既有指标保留用例5次回读仍0，之后限定原系列的只读检查读到1点、原UNKNOWN保持、写入0。隔离测试显式允许最多30次额外限定读取，不改变应用写入/核验重试策略，不能把延迟读到点等同生产SLA。随后最终55/255通过。[存储文档](https://docs.victoriametrics.com/victoriametrics/troubleshooting/)说明近期写入可能存在可见延迟；此次未据此断言具体内部根因。
+
+启动管理器restart未能停止旧PID，记录该失败；按原管理器PID26940、Java路径和启动时间核对后单独停止该平台实例，再由管理器start成功。没有停止其他Java进程、Worker、Docker容器或重建卷。Playwright两次整组Windows taskkill收尾失败，按各次已进入浏览器收尾的原PID及专属Chromium路径核对后停止，仅清理本轮测试浏览器；最终专项正常退出0，用户页签未操作。
+
+67整组中新增原UUID用例实际完成查询并呈现服务器“已终止恢复”，原断言要求刷新前“已受理”文案而失败；修正为核对刷新后的终态，仍验证请求仅一次、原UUID一致、关闭详情保留未知原命令。此处没有放宽未知结果或服务器权限判断。
+
+补充实际检查：仓库静态492份结构文件/6个只读Tool；私有资料边界2831份提交候选文件；54份文档567个本地链接；git diff --check退出0，原CRLF转换警告保留。
+
+完整目标仍active，单次样本UNKNOWN、来源异常分母/单位漂移/排队、阈值告警、同版本历史/重放、保留容量、租约/fencing/HA与生产身份/独立OIDC持续LOG验收继续。没有提交或推送。参见[ADR-092](adr/092-legacy-log-outcome-uncertainty.md)。
+
+## 131. 单次样本UNKNOWN的明确终止确认（2026-10-05）
+
+仅原UNKNOWN的METRIC_SAMPLE/LOG_SAMPLE可终止；V053记录独立不可变事件，原证明和质量仍未知，原输出与检查点保持。服务仅Store/Clock，不读取来源/输出、求值或写入。命令绑定本人原UUID、固定ref、batchDigest、精确updatedAt及ack=true；可信目标/来源权限、每owner跨类型200上限、原命令幂等、唯一原批次和时间门禁实测。原核验在输出读取前拒绝，存储refinement再检查，终止在核验读取期间提交时原UNKNOWN不能被改为确认；核验先确认则终止失败。原数据仍能回读。
+
+共享WorkflowSampleRecoverySection/Panel默认一次终止元数据读取，不自动输出核验或重写。明确勾选才提交；丢失/无效回执保留原UUID，查询404后原样重发/放弃本地确认。待确认版本/关闭/折叠门禁、session清理、隐藏取消/迟到隔离保持。独立局部样式使用现有主题，修正继承的表单列方向，三宽度/明暗确认区与终态截图保存在仓库外，宽屏亮色/窄屏暗色实际查看。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 全部contracts pytest | 1675通过，零失败/错误/跳过；正常完成退出0 |
+| `scripts/check_java_domain.py`，最终领域修改后 | 80个main / 2669打印检查；样本终止52 |
+| 原真实PG/VM/CH配置的扩大平台检查 | 56套266项，失败/错误/跳过均0，3m34s |
+| 最终解析加固后的HTTP专项 | 4项，零失败/错误/跳过，55s；扩大266中原3项重复覆盖，新增异常JSON/日期1项。没有宣称最终267整组同时运行 |
+| Rust --locked 默认 / all-features | 41 / 49通过，无Rust源码变化 |
+| TypeScript/build，最终局部样式后 | 通过；既有大chunk警告仍有，无依赖升级 |
+| 三份相关Playwright | 整组69通过；三宽度/明暗及原UUID/404/证据/会话/门禁实际覆盖，无共享Shell修改 |
+| 真实隔离Synthetic Fixture | 原样本点值和2条日志终止后仍在；PG重开原UNKNOWN/独立事件保持；明确拒绝不能冒充未知，无再次写入 |
+| platform bootJar | 26s，26任务2执行24up-to-date；管理器再启动新版30856，200/200 |
+| 主环境只读复核 | 两份原样本和两份按版本状态符合当前Schema，V053存在；19接入/19回执/2凭据/21流程、主机/12指标点、样本日志2/持续日志2+1、检查点及暂停诊断保持，业务POST0 |
+| 旧误分类实际回读 | 原FAILED/OUTPUT_REJECTED体保持；预期1000/实际1000日志，写入0 |
+
+首轮266前的262项有3个新HTTP错误状态失败，原因是新控制器漏接统一错误处理，修复后扩大检查通过。下一轮266项有两个继承执行的指标实际写入验收失败：真实适配器成功POST后即时回读无法确认而抛出unknown=true。验收只接受该不确定异常；确定拒绝仍失败，原写入仅一次，并在终止后至多30次限定原系列的500ms间隔只读观察，实际匹配原点值/摘要后通过。应用未增加自动重试或放宽确认，不能将可见延迟等同生产SLA。
+
+初版浏览器69中12个新断言要求终止后核验按钮disabled，但产品会移除已终止的原核验入口；实际57通过/12失败，修正为核验入口不存在后整组69通过。之后局部布局及checkbox行方向调整，最终相关整组再次验证；没有修改服务器不确定性判断。
+
+启动管理器restart停止进程树失败，按原管理器PID29744、Java路径及2026-10-05 17:00:03启动时间核对后仅停止该旧平台实例，再start新包30856成功。Runtime/Web/现存Worker及Docker容器/卷保留；未用WMI广泛查杀或停止其他服务。测试浏览器及自建预览正常退出，未操作用户页签。
+
+完整目标仍active：来源异常分母、单位漂移、queueWait、阈值告警、同版本历史/重放、保留容量、租约/fencing/HA与生产身份/独立OIDC持续LOG验收继续。没有提交或推送，参见[ADR-093](adr/093-explicit-sample-output-closure.md)。
+
+最终辅助实际通过：497份结构文件/6只读Tool、私有资料边界2854份提交候选文件、57份文档596个本地链接、git diff --check退出0。既有CRLF提示保留；没有提交或推送。
+
+
+## 132. 来源端口实测分母与闭合元数据漂移（2026-10-05）
+
+持续METRIC/LOG和固定主机新分页围绕一次来源端口调用记录sourceRead，attempts=1、completed+failed=1；完整返回数量与转换/输出处置分开。失败received为null，不补0、不推算拒绝记录。HOST/METRIC/LOG上限分别5/600/1000，转换分母已知时必须相等，主机私有见证数量也一致。来源键、值类型、单位和对象变化在元数据前后校验中区分闭合原因，原SOURCE_CHANGED拒绝保持；原始异常、端点、密钥和原文不持久化。主机不能声称指标键/类型/单位变化。来源成功但转换拒绝的0/1与PARTIAL未知量单独展示。
+
+沿用V049有界JSON，容量IO前检查及当前代数/身份/版本提交检查保持。旧13字段存储兼容，未测量公开wire省略sourceRead，原体不回填或改写。元数据读取只有既有GET与UUID查询，当前范围/父版本授权保持。Web新增WorkflowSourceReadDetail纯展示，闭合时间/计数/原因及父观察校验，旧记录显示“—”；默认一次读取、隐藏取消、403清理及迟到隔离保持。没有入队观测点，queueWaitMillis继续null，窗口迟到不作为排队耗时。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 全部contracts pytest | 最终1708通过，退出0；collect-only另确认1708，并非用收集代替执行 |
+| scripts/check_java_domain.py | 81个main / 2744打印检查；新来源端口/协议Fixture75检查 |
+| 扩大真实PG/VM/CH平台检查 | 56套268项，失败/错误/跳过均0，4m6s |
+| 最终可信HTTP专项 | 3项零失败/错误/跳过，50s；新增正向来源/旧wire及原2项复验。没有宣称最终269整组同时运行 |
+| Rust --locked默认 / all-features | 41 / 49通过，无Rust源码变更 |
+| TypeScript/build | 最终通过，1.12s构建；既有大chunk警告保留，无依赖升级 |
+| 六个相关Playwright文件 | 整组132通过，7.8m，三宽度/明暗、旧记录、新分母/转换部分拒绝、伪造/时间/计数/异常配对拒绝及会话/原UUID门禁覆盖；截图在仓库外，宽屏亮色和窄屏暗色已查看 |
+| 新统计持久化/HTTP | 实际PG写入、重开、原UUID读取、缺失分母与旧13字段兼容；损坏元数据失败。正向HTTP使用完整Synthetic Fixture父接入/连接/发现链，不读取来源或写输出 |
+| 平台bootJar / 本机启动 | 最终20s，26任务2执行24up-to-date；新版PID10032运行，健康/就绪200/200 |
+| 主环境只读复核 | 19接入/19创建回执/2凭据/21流程、5条旧主机观察与检查点、12指标点、样本日志2/持续日志2+1、暂停日志诊断保持；两份样本与两份按版本状态Schema通过，已有迁移结构存在；业务POST0 |
+| 旧误分类Fixture | 原FAILED/OUTPUT_REJECTED体保持，预期1000/实际1000日志，只读写入0 |
+
+初次新契约3项失败来自把LOG元数据变化套在HOST样例上；改正Fixture并增加3个HOST反向约束后最终1708整组通过，未放宽HOST门禁。新增正向HTTP最初3轮失败来自手工样本/日志诊断不匹配及固定来源Fixture缺少完整父记录或PENDING→COMPLETED状态链；完整建模夹具后最终3项通过。服务器范围和存储状态门禁保持。协议变化仅使用显式Synthetic Fixture，不声称实际来源发生单位漂移。
+
+打包首次PowerShell未引用JVM参数，错误识别为Gradle任务而退出1；改为固定参数进程调用后20s通过。已知管理器进程树停止失败没有重试广泛查杀；核对原管理器PID30856、Java路径及2026-10-05 17:59:24启动时间后只停止该平台，再由管理器启动10032。Runtime/Web/非管理器Worker及Docker容器与卷保持。
+
+浏览器测试主体完成132项后Windows关闭等待超时；根据日志gracefully close start、该次启动的PID26568、精确自有Chromium路径与18:31:27启动时间，仅结束这个测试浏览器。Playwright随后完成临时目录清理，最终整组退出0；自建4179预览退出，未操作用户页签。
+
+完整目标保持active：实际queueWait观测、阈值告警、同版本历史/重放、保留/容量、租约fencing/HA、生产身份与独立OIDC持续LOG验收尚未完成。没有迁移、数据库、启动单元、依赖升级、提交或推送。见[ADR-094](adr/094-measured-source-port-diagnostics.md)、[来源统计契约](../contracts/workflow-source-diagnostics.md)与[运行说明](runbooks/workflow-source-diagnostics.md)。
+
+最终辅助实际通过：501份结构文件/6只读Tool，私有资料边界2863份提交候选文件，60份文档/623个本地链接；git diff --check退出0，既有CRLF提示保留。未提交或推送。
+
+
+## 133. 本地FIFO的实测调度区间（2026-10-05）
+
+持续METRIC/LOG及固定连接HOST本人轮询取得既有预算后，符合运行状态/授权类型的快照进入容量21的本地FIFO，入队随机UUID和规范UTC、出队开始时间实际记录。queueWaitMillis为实际区间的整数毫秒，不足1ms为已测0；未测量为null。反向时间、真实区间超过一小时、标量失配/缺少证据或开始晚于父观察均拒绝。一个出队任务的补采/当前窗口共享dispatch UUID，不能加成两次排队。本地等待不包含预算之前、前次轮询、全局积压或来源IO，不声称生产SLA。
+
+排队任务快照不能替代身份，执行器IO前重查当前代数/状态/版本与可信授权。STOP和授权过期发生在等待期间时拒绝来源读取，原输出和检查点不变。沿用V049有界JSON、每本人观察容量及原输出门禁；公开旧13字段、来源14字段及同时来源/调度15字段兼容，历史不回填。纯展示WorkflowDispatchDetail沿用原容器请求与取消/迟到隔离，无新请求或公共Shell改动。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 全部contracts pytest，最终UTC负例后 | 1735通过，正常退出0；执行日志逐项完成，不以收集代替执行 |
+| scripts/check_java_domain.py | 82个main / 2776打印检查；新调度32，包括FIFO/上限/异常时间、同次双窗口、停止及授权到期 |
+| 扩大真实PG/VM/CH平台检查 | 最终57套271项，失败/错误/跳过均0，3m50s；包含本节2个PG用例和原3个可信诊断HTTP用例 |
+| 新调度持久化/HTTP | 真实PG中两个Synthetic Fixture任务顺序执行，前任务明确等待40ms，后任务实测等待至少30ms；重开与原UUID回读一致，损坏标量拒绝，另一tenant/本人拒绝。来源为空Fixture，不执行输出。可信HTTP实际GET并存15/14/13字段，无来源/输出IO |
+| Rust --locked默认 / all-features | 41 / 49通过，无Rust源码改动 |
+| TypeScript/build | 最终通过，构建1.16s；既有大chunk警告保留，无依赖升级 |
+| 六份相关Playwright | 整组152通过，5.8m，包含20个新场景；1440/1024/390明暗、旧缺失/实测零、275ms与三字段展示、非规范时间/UUID/额外字段/成对标量/时间失配拒绝及一次默认请求。截图仅在本机仓库外，宽屏亮色与窄屏暗色已查看 |
+| platform bootJar / 本机启动 | 19s，26任务2执行24up-to-date；管理器启动新版31404，存活/就绪200/200 |
+| 主环境只读复核 | 19接入/19创建回执/2凭据/21流程、5条旧主机观察/检查点、12指标点、样本日志2及持续日志2+1、暂停日志诊断保持；两份样本与两份按版本状态Schema及已有迁移结构通过，业务POST0 |
+| 旧误分类Fixture实际回读 | 原FAILED/OUTPUT_REJECTED体保持，预期1000/实际1000日志，读取写入0 |
+
+测试浏览器152项主体完成后，Windows进程树收尾等待卡住。日志已进入gracefully close/force kill；核对本轮专属Chromium的PID19808、精确路径和19:36:40启动时间后仅结束这个测试实例，随后临时目录清理完成、整体退出0，自建4179预览关闭。用户页签未操作。
+
+沿用已知管理器进程树停止失败的处理边界，核对原管理器PID10032、Java路径及2026-10-05 18:58:58启动时间，仅停止旧平台并由管理器启动新包31404。Runtime/Web/非管理器Worker及Docker容器与卷保持；未广泛查杀、增加服务或重建卷。
+
+当前PG本人任务查询本身有21条上限，本地FIFO只覆盖该次接收快照；没有新增跨本人公平性、轮询完整性、HA租约/fencing、自动保留或生产容量承诺。阈值、同版本历史/重放和生产身份/独立OIDC持续LOG验收继续，完整目标active，无提交或推送。见[ADR-095](adr/095-measured-local-workflow-dispatch.md)、[契约](../contracts/workflow-dispatch-diagnostics.md)及[操作说明](runbooks/workflow-dispatch-diagnostics.md)。
+
+最终辅助实际通过：504份结构文件/6只读Tool，私有资料边界2874份提交候选文件，63份文档/650个本地链接，git diff --check退出0。既有CRLF提示保留；没有提交或推送。
+
+## 134 · 显式固定版本质量阈值 · 2026-10-06
+
+在已有质量/诊断报告上增加显式配置与元数据评估。四条规则分别使用实测来源失败、已证实输出拒绝、去重后的本地排队峰值及当前精确版本任务状态。默认未启用，统计区间60至86,400秒、最近20条有界证据；缺失、截断及相同时间混合结果不能显示为未达阈值。连续次数达到阈值即停止，不代表完整失败总量。未知旧FAILED不计输出拒绝，归档任务不冒充当前任务。
+
+纯领域与应用服务没有来源/输出/通知/动作端口，已有PG新增V054配置及不可变回执两表。本人/tenant/版本与固定对象范围由服务器复核，CAS及原UUID摘要控制并发/重复；每本人200回执，非空规则最多199，最后容量保留给停用。配置、质量、诊断同事务和asOf，时间截断微秒，损坏不回退空成功。四启动单元与既有依赖保持。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 最终全部contracts pytest | 1774通过，正常退出0；39个新增阈值结构/负例检查 |
+| scripts/check_java_domain.py | 83个main / 2815打印检查，阈值39；包含无业务IO、本人/tenant/权限、CAS/原回执、失败/缺失/顺序歧义、去重/峰值/截断和停用保留容量 |
+| 扩大真实PG/VM/CH平台检查 | 最终58套273项，失败/错误/跳过均0，3m49s |
+| 新阈值PG/HTTP | 隔离tenant实际配置、同UUID原内容/冲突、重开及原回执、当前三规则触发、停用保留旧回执、损坏拒绝；独立随机schema前进→回退→前进，只删除自己创建的schema。可信HTTP实测POST/GET、原回执、250ms触发且保留2份缺失、非法/私有字段/身份覆盖拒绝，无来源/输出IO；来源与失败证据为明确Synthetic Fixture |
+| Rust --locked默认 / all-features | 41 / 49通过，无Rust源码或依赖升级 |
+| 最终TypeScript/build | 通过，最终构建1.09s；既有大chunk提示保留 |
+| 七份相关Playwright | 表单隔离后整组177通过，6.2m；质量/诊断、指标、日志、主机运行与周期及新阈值25场景，三宽度/明暗、一次读取、CAS、丢失/非法原回执、404原样重发、未保存折叠门禁、403全局清理及迟到响应隔离 |
+| 最后局部结果表样式收紧 | 阈值专项25全部通过，31.9s，正常自然退出0；增加实际规则行≤100px、复选框≤18px、结果行≤90px和表单footer正常文档流检查。最后仅局部CSS与尺寸断言变化，未再运行整组177。最终宽屏亮色/窄屏暗色截图已查看，全部截图仓库外 |
+| platform bootJar / 管理器启动 | 24s，26任务2执行24up-to-date；平台29760、Runtime11924、Web12756实际存活/就绪200/200。Worker端口200/200但非当前管理器所有，未操作 |
+| 主环境只读及契约复核 | 原19接入/19创建回执/2凭据/21流程、主机5条观察/检查点、12指标点、样本日志2/持续日志2+1和暂停日志诊断保持。两份原样本/两份按版本任务及四份未配置阈值状态Schema通过，V054两表存在，业务POST0，原规则未启用 |
+| 旧误分类Fixture | 原FAILED/OUTPUT_REJECTED体及预期1000保持，实际1000日志只读存在，无写入 |
+
+初轮新增表未接入启动登记，造成2个实际失败；补登记后资源打包遗漏导致上下文失败。已同步补齐同一SQL资源及迁移调用，最终扩大58/273整组通过，不能用编写SQL或测试收集替代部署。浏览器初轮403断言错误地在已清理的私有页面内部等待，改为验证全局会话清理并完成整组复验。截图发现全局label/checkbox/footer/details使表单与依据行过高，已按局部组件隔离并实测尺寸。
+
+扩大浏览器主体完成后，Windows清理进程树再次超时。日志已进入gracefully close/force kill；核对本轮专属Chromium PID24404、精确路径及02:10:33.0409530启动时间后，仅结束该测试实例，随后整组正常退出0、临时目录及自建4179预览关闭。最后25项专项自然退出，不需结束进程。用户浏览器与其他服务未操作；没有广泛查杀或重建卷。
+
+本节仅配置并评估阈值，不推送通知、不执行动作、不签发后台身份，不声明全局健康或生产SLO。检查点停滞、预算耗尽与租约冲突尚需独立证据；同版本历史/重放、保留/生产容量、跨本人公平调度与轮询完整性、多副本租约/fencing/HA及生产身份/独立OIDC持续LOG验收继续。完整目标active，无提交或推送。见[ADR-096](adr/096-configurable-workflow-quality-thresholds.md)、[契约](../contracts/workflow-quality-alerts.md)及[操作说明](runbooks/workflow-quality-alerts.md)。
+
+最终辅助实际通过：514份结构文件/6只读Tool，私有资料边界2901份提交候选文件，66份文档/679个本地链接，git diff --check退出0。既有CRLF提示保留；本机产品进度已更新，完整目标active，没有提交或推送。
+
+
+## 135 · 固定版本检查历史与稳定分页 · 2026-10-06
+
+运行记录页增加固定版本已保存的来源/转换检查，预览与版本测试单独保留。每页20条、本人原200条容量保持，完成时间降序/同时间UUID升序。第一页固定asOf快照、插入水位和数量，回填较早时间的新记录也不进入旧快照。AES-256-GCM游标绑定可信tenant/本人/ID/revision/digest，10分钟有效；序号与私有选择不公开。V055新增既有诊断表identity序号及唯一约束，原正文/时间保持。
+
+纯Java应用服务每页重新检查固定来源/目标/版本及逐实体见证，包括前页锚点和下一条检测记录；没有来源、输出、通知或动作端口。失效/数量改变409，损坏503，其他范围令牌404，无静默空成功或重试。生产缺少/显式无效密钥配置503；仅未配置引用的开发模式生成进程随机密钥，重启需刷新。相同部署密钥支持适配器重开读取，不声明HA。
+
+Web请求容器默认活动就绪读目录/版本各一次；目录之外的固定直链明确GET原版本，缺失不选最新替代。原13/14/15字段观察共用节点明细组件，连续offset/数量/时间/父版本/排序及跨页UUID均校验；未知保留“—”，转换通过与输出确认分开。视图/主题/尺寸不重读，更多/刷新显式，403清私有数据后不触发自动GET，明确凭据变更才重新读取。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 全部contracts pytest | 1807通过，退出0；新增历史33项结构/负例，嵌套引用修正后通过 |
+| scripts/check_java_domain.py | 84个main / 2862打印检查，历史47；包括45条三页、同时间UUID、回填排除、过期/时钟倒退、200条十页、容量拒绝、当前本人/tenant/版本/权限与逐实体锚点复核，无新增业务IO |
+| 扩大真实平台检查 | 最终61套278项，失败/错误/跳过均0，3m46s；真实PG/VM/CH与既有可信身份/来源/输出回归 |
+| 新历史PG/HTTP及加密 | 实际隔离tenant保存45条元数据并取20/20/5，插入回填记录后旧快照保持，重开/重复读、原正文/时间、范围拒绝和损坏/删除拒绝；随机隔离schema前进→回退→前进保留原数据。可信HTTP实际分页及身份/闭合查询/只读405，无来源或输出IO。JCA随机nonce、同钥重开、篡改/其他范围/轮换拒绝及无效配置不回退；证据为明确Synthetic Fixture，不声称真实来源负载 |
+| Rust --locked默认 / all-features | 41 / 49通过，无Rust源码或依赖升级 |
+| 最终TypeScript/build | 通过，最终构建0.926秒；既有大chunk提示保留 |
+| 六份相关Playwright | 最终整组194通过，正常自然退出0；历史29、预览记录、诊断/质量/阈值及工作流画布/抽屉/原命令。1440/1024/390明暗、默认一次/失效无重试、稳定分页/拒绝合并/明确旧版本、身份取消、键盘节点详情和紧凑行高；新增实际按钮border/颜色断言。宽屏亮色和窄屏暗色最终截图已查看，全部截图仓库外 |
+| 新按钮视觉专项 | 共用Button修复旧样式覆盖后专项1通过，再运行最终194整组；未用编写断言冒充通过 |
+| platform bootJar / 管理器启动 | 25s，26任务2执行24up-to-date；核对原29760精确Java路径及02:05:08.4413506启动时间后仅停止旧平台，管理器启动22836。平台/Runtime11924/Web12756实际200/200；非管理器Worker端口200/200未操作 |
+| 主环境只读 / Schema | 19接入/19创建回执/2凭据/21流程、主机5条原观察及检查点、12实际指标点、样本日志2/持续日志2+1及暂停诊断保持。四份真实历史页与原UUID明细一致并匹配Schema，V055identity/唯一约束存在；两份原样本/两份按版本状态及四份未配置阈值Schema保持。主环境业务POST0 |
+| 旧误分类Fixture | 原FAILED/OUTPUT_REJECTED体及预期1000保持，实际1000日志只读存在，无写入 |
+
+初轮33契约中8项因嵌套Schema绝对ID引用失败，改用既有本机相对引用后33及最终1807通过。领域容量负例最初把Store的IllegalStateException误写成应用层CAPACITY，已修正并完成47实际检查。平台首轮278中1项游标断言错误：格式非法400、合法形状但无法解密404；修正后最终278全通过。
+
+浏览器初轮文案/空版本重新进入及403清理断言不准确；随后确实捕获凭据仍就绪时forbidden引起默认读取循环，已限定只在明确credentials变化触发新默认请求，最终检查至少1秒仍只一次。截图又发现普通按钮被旧样式覆盖，实际CSS断言失败后改用共用Button及组件局部样式；专项1及最终194整组通过。临时样式诊断已移除，最终浏览器自然退出，不需结束任何测试进程；用户页签未操作。
+
+历史仅覆盖已记录检查，不补回未保存执行，也不是输出确认或生产留存。受控重放、阈值通知与独立检查点/预算/租约证据、保留/生产容量、公平调度/轮询完整性、多副本租约/fencing/HA、生产身份及独立OIDC持续LOG验收继续；完整目标active，无提交或推送。见[ADR-097](adr/097-scoped-recorded-workflow-history.md)、[契约](../contracts/workflow-history.md)及[操作说明](runbooks/workflow-history.md)。
+
+最终辅助实际通过：518份结构文件/6只读Tool，私有资料边界2927份提交候选，69份相关文档/709个本地链接，git diff --check退出0。既有CRLF提示保留；本机产品进度和证据已更新，完整目标active，无提交或推送。
+
+
+## 136 · 有界历史指标投影重建 · 2026-10-06
+
+固定发布指标增加“检查重放范围→确认重放”。第一步持久PREPARING后读取过去24小时内已结束至少10秒的完整60秒窗，最多60条，运行原固定转换并封存输入/输出摘要、计数、标签与时间戳，READY有效10分钟；没有输出。来源端显式收窄原600点预算，超限/不完整拒绝，不返回截断成功。原值不存PG。
+
+第二步绑定原选择与两个摘要，持久唯一PENDING执行后重新读取同一窗。完整证明变化拒绝输出，输出前重查当前可信workflow.replay、原source.sync及固定来源/连接/工作流/映射/指标/实体范围。默认身份未增加权限。使用原共享有界IO预算与真实时序适配器，写入collection_mode=REPLAY_60S和replay_id独立系列；原持续系列、任务、授权与checkpoint保持。没有新增数据库、启动单元、执行线程、动态执行器或通知/动作端口。
+
+原UUID重复只返回原记录。明确输出拒绝才FAILED，潜在写入未确认保持UNKNOWN；显式核验只读原系列/时间戳与摘要，不重读来源或写入。PENDING受理不足180秒不提前读空，超过也不能推断未写入；此门禁不是分布式租约/fencing。空完整批次确认0条且不调用输出。V056选择/回执两表、父版本外键、每个选择唯一执行、租户事务锁与refinement保护保持；存在任何选择/执行记录时回退拒绝。本人200选择与最近20条列表不是生产留存。
+
+Web复用请求容器与纯Panel，默认折叠，展开只读元数据一次。完整指标键可跳转既有定义；“范围已固定”与执行状态分列，避免将封存范围误画为执行确认。丢失/非法回执保留原UUID和内容，只有明确404才可原样重发；UNKNOWN仅显式核验。忙碌/本地待确认阻止折叠、切换版本及关闭页签；身份取消/清理与迟到隔离保持。局部组件使用共用Button与明暗/三宽度布局，不改公共Shell。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 最终全部contracts pytest | 1844通过，53.45s，退出0；新闭合计划/证明/执行/回执/分页/原执行结构与负例实际执行 |
+| scripts/check_java_domain.py | 85个main / 2901打印检查；重放39，包括权限/本人/版本、60与61条、输入变化、共享预算/到期、空批次、原UUID只读、未知回读及正在执行的PENDING不提前核验 |
+| 扩大真实平台检查 | 最终63套291项，失败/错误/跳过均0，4m15s；包含真实PG/VM/CH和原身份、来源、输出回归 |
+| 新重放真实PG/VM | 隔离tenant实际写入独立投影、精确标签/值回读与原回执重开；丢失确认保持UNKNOWN后显式核验，来源变化不写、损坏/范围拒绝、并发同UUID一次受理/尝试。随机隔离schema空表前进→回退→前进及非空拒绝已验证。来源明确Synthetic Fixture，不声称实际供应方重放负载；真实计划/确认回执两份Schema通过 |
+| 可信HTTP边界 / 来源预算 | 实际401/403、无独立权限无业务IO、身份/额外字段/重复JSON/尾部内容/非法UUID与查询拒绝。正向重放HTTP来源链未验收；真实PG/VM闭环与浏览器Fixture各自说明。来源适配器新增60条哨兵/预算不得扩大两项，原600条语义回归保持 |
+| Rust --locked默认 / all-features | 41 / 49通过，无Rust源码或依赖升级 |
+| 最终TypeScript/build | 通过，最终构建1.19秒；最终报告前补存构建日志，既有大chunk提示保留 |
+| 四份相关Playwright | 最终整组74通过，1.3m，正常自然退出0；重放20及历史/运行/持续指标回归。1440/1024/390明暗、首次元数据读取、先检查后确认、完整指标跳转、伪造/超限/坏空摘要拒绝、原UUID/404原样重发、未知核验、关闭门禁与身份清理。最终宽屏亮色/窄屏暗色截图已查看，全部截图仓库外；业务响应为明确Fixture |
+| platform bootJar / 本机启动 | 20s，26任务2执行24up-to-date；核对原22836精确Java路径与03:15:43.4042198启动时间后仅停止旧平台，管理器启动29232。平台/Runtime11924/Web12756存活就绪200/200；非管理器Worker端口200/200未操作 |
+| 主环境只读与Schema | 原19接入/19创建回执/2凭据/21版本、5主机观察与任务/检查点、12指标点、样本日志2及持续日志2+1保持；两份原样本、两份按版本状态、四份未配置阈值和四历史页Schema通过。V056两表及唯一执行结构存在，主环境重放计划0，默认权限GET仍403，业务POST0 |
+| 旧误分类Fixture | 原FAILED/OUTPUT_REJECTED及预期1000保持，实际1000日志只读存在，无写入 |
+
+平台初轮编译遇到Java复合var声明，修正后编译通过。第一次真实时序测试把即时确认写死为CONFIRMED，实际返回UNKNOWN；已保留原状态并用显式、有界、测试专用的可见性回读等待最终确认，不重试来源/写入。最终291项整组通过，不能把等待视为产品隐藏重试。
+
+浏览器最初丢失执行断言误匹配已有确认文本，已改为等待实际原执行GET；空批次Fixture错误沿用非空摘要，已使用规范空摘要，并新增坏空摘要拒绝。完整指标链接初次参数不符，改用既有定义路由函数。最终74项在范围状态文案、链接、严格证明和局部样式变更后重新运行，自建预览与测试浏览器自然退出，用户页签未操作。
+
+本节仅重建独立指标投影，历史来源重新读取不保证原始快照已留存，也不提供持续系列覆盖或exactly-once。日志/资产重放、覆盖修复与未确认重放处置、阈值通知及独立检查点/预算/租约证据、保留/生产容量、公平调度/轮询完整性、多副本租约/fencing/HA、生产身份与独立OIDC持续LOG仍需完成。完整目标active，无提交或推送。见[ADR-098](adr/098-bounded-historical-metric-reconstruction.md)、[契约](../contracts/workflow-metric-replay.md)与[操作说明](runbooks/workflow-metric-replay.md)。
+
+最终辅助实际通过：531份结构文件/6只读Tool，私有资料边界2957份提交候选文件，72份相关文档/736个本地链接，git diff --check退出0。既有CRLF提示保留；本机产品进度与证据已更新，完整目标active，无提交或推送。
+
+
+## 137 · 有界历史日志投影重建与显式正文查看 · 2026-10-06
+
+固定发布日志增加“检查重放范围→确认重放”。完整历史窗为过去24小时内60秒、结束至少10秒、最多1,000条；先存PREPARING再读取来源与原固定转换，READY保存输入/输出摘要、计数、原始纳秒位置与接受索引，10分钟有效。确认先持久唯一PENDING，重读同一完整窗并匹配全部证明后才输出；来源变化拒绝，不返回截断成功或存正文到PG。
+
+可信workflow.replay与原source.sync、固定来源/连接/发现/实体门禁并行。日志读写使用原log资源workflow.{id}，不能把工作流范围当日志授权。每次元数据/正文/核验需当前读范围，范围检查和执行另需写范围；默认身份不增加权限。沿用四启动单元、Java完整窗口/转换、共享有界IO和现有ClickHouse端口，无新增数据库、线程、执行框架或动态代码。
+
+已有PG的V057两表、父版本外键、每个范围唯一执行和租户事务/refinement保存证明。既有日志库V003独立workflow_log_replays表，由构建时固定工厂选择；应用账号只增加该表SELECT/INSERT，DDL由既有私有管理员完成。原持续表、样本、任务、授权及checkpoint保持。整窗一次输出后精确回读；写入可能发生或写后读取失败保持UNKNOWN，明确拒绝才FAILED。原UUID重复只读，显式核验没有来源/写入调用，早期PENDING不提前核验；180秒保护不是分布式租约。空完整范围确认0条且不调用输出。
+
+Web指标/日志共用纯WorkflowReplayPanel，API和请求容器各自闭合。首次展开只读元数据一次，正文由“查看重放日志”明确读取，复用文本组件及50条分页；位置/索引与原摘要、父范围复核，当前complete不替代原回执。身份/父范围变化清除正文与游标；原UUID丢失、明确404原样重发、关闭/版本待确认门禁保持。动作自然宽度并在窄屏换行，局部样式不改公共Shell。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 最终全量contracts pytest | 1884通过，退出0；pytest重复quiet使摘要省略，实际进度点计数1884。新7类Schema/样例、闭合字段、1000边界、128/129字符tenant、纳秒位置和数据页负例已执行 |
+| scripts/check_java_domain.py | 86个main / 2944打印检查；日志重放43，包括正确log范围与工作流范围不能代替、输入变化、1000/1001、共享预算/到期、原UUID只读、UNKNOWN显式核验、早期PENDING不读输出和50条分页 |
+| 扩大真实平台检查 | 最终65套314项，失败/错误/跳过均0，4m5s；实际PG/VM/CH及原身份、来源、输出、历史、指标重放回归 |
+| 新重放实际PG/CH | 隔离tenant实际1,000条独立投影、精确摘要/正文与原持续表隔离、50条分页、PG证明无正文、重开原UUID不重读/重写；丢失写确认UNKNOWN后显式核验、输入变化/损坏范围不写、并发原请求一次准入、随机隔离schema空表前进→回退→前进及非空回退拒绝保持。计划/确认回执两份实际Schema通过；来源明确Synthetic Fixture |
+| 可信HTTP边界 | 实际401/403、缺独立权限无业务IO、身份/额外字段/重复JSON/尾部内容/UUID和查询拒绝；正向实际供应方重放HTTP来源链未验收，存储闭环与浏览器Fixture分别说明 |
+| Rust --locked默认 / all-features | 41 / 49通过，无Rust源码或依赖升级；本节未另跑fmt，不将上一节检查当本节执行 |
+| 最终TypeScript/build | 通过，1.15秒；既有大chunk提示保留 |
+| 五份相关Playwright | 最终108通过，1.8m，自然退出0；日志重放26和原指标重放/历史/持续日志/运行回归。三宽度明暗、明确正文读取、分页、文本脚本不执行、坏范围/摘要/tenant/纳秒拒绝、原UUID/404恢复、UNKNOWN和关闭/身份清理。最终宽屏亮色与窄屏暗色截图已查看；截图仅本机，业务响应明确Fixture |
+| platform bootJar / 服务恢复 | 23秒，26任务2执行24up-to-date。实际发现原平台29232/Runtime11924/Web12756已不存在且管理器显示stopped，本节未停止旧PID；现有管理器恢复平台17552/Runtime6260/Web11080，实际存活/就绪200/200。8081非管理器Worker端口200/200，进程11012未操作；原容器保持运行 |
+| 主环境只读与Schema | 原19接入/19创建回执/2凭据/21版本、5主机观察和任务/检查点、12指标点、样本日志2及持续2+1保持；两份原样本、两份按版本状态、四份未配置阈值和四历史页Schema通过。V057两表/唯一执行及独立日志表实际存在，主环境指标/日志重放计划与重放正文均0，默认权限GET均403，业务POST0 |
+| 旧误分类Fixture | 原FAILED/OUTPUT_REJECTED、预期1000和实际1000日志只读保持，无写入 |
+
+实现自查修正日志授权使用原log资源、写后读取错误必须UNKNOWN、授权前不能查询输出端口，以及TenantId现有128字符边界。初轮Java编译和TS类型问题修正后，最终上述领域、契约、314项平台与build实际通过。日志表首次使用受限应用账号DDL被拒绝，之后使用既有私有管理员明确迁移及最小表读写授权；没有扩大业务身份权限或修改原表。
+
+浏览器初轮105通过/1失败，定位器把“查看重放”和“查看重放日志”匹配到一起，已改精确匹配；截图发现结果区按钮被拉满宽，已改局部flex并新增实际宽度断言。最后调整与tenant负例后108项整组通过，测试浏览器和预览正常退出，用户页签未操作。Python/Java fixture不作隐藏执行后端，正文、凭据和截图不进入仓库。
+
+本节仅重建独立日志投影；历史来源重新读取不保证原始快照已留存，200范围/最近20条不是生产留存。资产重放、覆盖修复与未确认重放处置、阈值通知及独立检查点/预算/租约证据、保留/生产容量、公平调度/轮询完整性、多副本租约/fencing/HA、生产身份和独立OIDC持续LOG、实际供应方正向重放HTTP仍需完成。完整目标active，无提交或推送。见[ADR-099](adr/099-bounded-historical-log-reconstruction.md)、[契约](../contracts/workflow-log-replay.md)与[操作说明](runbooks/workflow-log-replay.md)。
+
+最终辅助实际通过：545份结构文件/6只读Tool，私有资料边界2990份提交候选文件，75份相关文档/777个本地链接，git diff --check退出0。既有CRLF提示保留；本机产品进度与证据已更新，完整目标active，无提交或推送。
+
+
+## 138 · 实际来源与可信HTTP的指标/日志重放验收 · 2026-10-06
+
+补齐已有指标/日志重放的本地实际来源HTTP链：随机端口、随机开发Token与独立测试tenant，现有Zabbix 7.0.27/PG/VictoriaMetrics/ClickHouse。来源记录明确Synthetic Fixture，脚本创建专属组/主机/两个trapper item并核对标签，写60条CPU百分比和60条日志后精确读回。修改前持久attempted，来源响应丢失不自动重发；不会操作旧主机/原item或改变日常身份权限。
+
+真实链经过凭据加密保存→注册连接→连接测试→分页发现→精确item/host选择→草稿→来源只读预览→固定发布→范围封存→明确执行→精确存储回读。全局旧来源端口closed，实际来源只走已注册/受控连接，不使用Fixture fallback。CPU60条精确标准化，日志60条正文/空上下文与纳秒位置保持，明确分页50/10。没有将真实预览当历史输出，发布不创建持续任务。
+
+第二个日志范围封存后增加一条本人Fixture来源记录。明确、有界的测试读取先证明61条已可见，不重发push；执行返回FAILED/SOURCE_WINDOW_CHANGED且新投影为空。原范围、UUID、60条已确认投影和两个工作流的原任务状态保持。来源/输出丢失的产品语义仍沿用UNKNOWN，不以此确定输入拒绝推断所有失败均未写入。
+
+新增脚本和实际来源HTTP测试只用于开发验收；应用代码、业务Schema、迁移、依赖、默认权限和四启动单元保持。私有输入指针、会话令牌和证据不进仓库；脚本以自身模块路径定位checkout，Java测试从真实Git根检查证据路径，拒绝仓库内文件且限制64KB。最后完善路径检查后再次用新私有目录实际运行专项，不重复旧Fixture修改。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 完整contracts pytest | 1884通过，56.24s，退出0 |
+| scripts/check_java_domain.py | 86个main / 2944打印检查；指标重放39、日志重放43保持，无领域源码变化 |
+| 扩大真实平台回归 | 66套315项，失败/错误/跳过均0，4m52s；真实PG/VM/CH、身份/来源/旧输出/历史/两类重放及实际来源HTTP链 |
+| 最终实际来源专项 | 私有路径完善后的新目录再运行1套1项，零失败/错误/跳过，55s；最终整组未再重复，整组315与最后专项1分别记录 |
+| 实际来源/HTTP产物Schema | final与final2两次9份，共18份实际计划/初始及确认回执/50与10条日志页/来源变化回执通过现有闭合Schema；完整链证明与源记录仍明确Synthetic Fixture |
+| Rust --locked默认 / all-features | 41 / 49通过；未另跑fmt，无Rust或依赖变化 |
+| TypeScript/build / Node脚本语法 | TypeScript/build通过2.67秒，既有大chunk提示保持；node --check退出0，本地脚本实际三目录分别执行，不声称生产连接器负载 |
+| 浏览器 | 本轮未再运行；没有Web源码变化，§137的108项与截图保留为当时证据，不列作本轮执行 |
+| 选定日志凭据扫描 | 7个实际测试/平台/Runtime/Web日志，对7个当前配置与验收凭据做精确扫描，0命中；只证明选定日志/确切值，不是全局日志或客户原文合规认证 |
+| 主环境及原Schema | 平台17552/Runtime6260/Web11080实际存活就绪200/200，8081非管理器端口200/200且未操作；原19实例/19创建回执/2凭据/21版本、5主机观察和检查点、12指标点、样本日志2/持续2+1保持。两份原样本、两份版本状态、四阈值和四历史页Schema通过 |
+| 主环境权限/历史输出 | 指标/日志默认重放GET403，原主环境计划/重放正文0、业务POST0；旧FAILED/OUTPUT_REJECTED与预期/实际1000日志保持；无应用服务重启、容器重启或新迁移 |
+
+最初实际连接请求使用了错误的credentialPin字段id，真实HTTP400拒绝；改用现有领域Pin及credentialId闭合契约后链通过。测试自查还修正expectedRecords字段、BigDecimal数值比较、不能用当前readAt判断整个数据页不变，并将固定sleep改为明确来源可见性探测。第一条链1m10s通过，最后完整315及路径完善后专项1均有实际输出；没有把测试编码当测试通过，也没有用重发掩盖失败。
+
+仓库外增加22项原AC的当前完成审计矩阵，并保留原观察结果、视觉/性能/容量门禁及不足。历史证据和文件存在只用于定位，不能替代最终全范围证明。完整目标active：本地实际协议/存储使用合成数据不证明外部客户或生产身份；资产重放、覆盖修复/未确认重放处置、通知与独立可靠性证据、保留/容量、公平调度/轮询完整性、租约/fencing/HA、生产身份及独立OIDC持续LOG仍继续。无提交或推送。见[验收步骤](runbooks/workflow-replay-provider-acceptance.md)、[指标重放](runbooks/workflow-metric-replay.md)与[日志重放](runbooks/workflow-log-replay.md)。
+
+最终辅助实际通过：545份结构文件/6只读Tool，私有资料边界2993份提交候选文件，76份相关文档/790个本地链接，git diff --check退出0。既有CRLF提示保留；本机产品进度与证据已更新，完整目标active，无提交或推送。
+
+## 139 · 模型约束实体实例与精确版本 pin · 2026-10-06
+
+资产页实体实例抽屉按内置和已发布实体模型渲染字段控件；成功后的详情沿用本次选中的精确模型定义。实体持久化可选 `{id,revision,digest}` pin，详情/列表/分页返回 pin；Web 对 custom pin 读取固定发布版本并比对摘要，按 pin 缺失或定义不可读降级为字段 ID。来源 upsert 清除 pin。未知写入保留原请求及编号，只有显式操作才原样重试。Playwright 使用拦截的契约响应验证 Web 交互，不代表真实后端或数据库集成。
+
+| 实际执行 | 结果 |
+| --- | --- |
+| 全部契约 pytest | Python 3.14：1908通过，24.61秒，退出0；新增 pin 合法、非法与旧实体无 pin 兼容用例 |
+| Java 纯领域 / 平台编译 | `python -X utf8 scripts/check_java_domain.py` 退出0；离线平台主代码/测试编译通过，实体 pin smoke 通过；`EntityInstanceStoreTest` 通过 |
+| Rust `--locked` 默认 / `--all-features -j 1` | 41 / 49 项通过 |
+| TypeScript / Vite | `pnpm build:web` 通过；保留既有大 chunk 警告 |
+| 实体创建 Playwright 专项 | 系统 Chrome：4项通过，覆盖创建字段标签/ID、刷新后精确版本解析、未知结果原样重试、切换身份后清空表单并重读目录 |
+| PostgreSQL HTTP / 多实例 | 未运行：`OPSWEAVE_TEST_JDBC_URL` 未配置 |
+
+V060 迁移和实体模型 pin 的 SQL 投影已通过离线 Java 主代码/测试编译，但本轮没有真实 PostgreSQL 执行迁移或 HTTP 集成。Fixture Playwright 只验证协议形状和前端恢复行为；不代表数据库持久化联测完成。

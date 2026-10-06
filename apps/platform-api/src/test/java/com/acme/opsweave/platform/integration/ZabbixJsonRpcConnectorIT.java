@@ -14,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 
@@ -66,11 +67,14 @@ class ZabbixJsonRpcConnectorIT {
     @Test
     void hostGetAgainstLocalProtocolStub() throws Exception {
         var countRequests = new AtomicInteger();
+        var scopedRequests = new AtomicInteger();
+        var outsideScope = new AtomicBoolean();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api_jsonrpc.php", exchange -> {
             String auth = exchange.getRequestHeaders().getFirst("Authorization");
             byte[] request = exchange.getRequestBody().readAllBytes();
             String requestText = new String(request, StandardCharsets.UTF_8);
+            if (requestText.contains("\"groupids\":[\"91\"]")) scopedRequests.incrementAndGet();
             byte[] body;
             int status;
             if (!"Bearer stub-token-not-from-a-vendor-zabbix".equals(auth)) {
@@ -82,14 +86,16 @@ class ZabbixJsonRpcConnectorIT {
                 body = "{\"jsonrpc\":\"2.0\",\"result\":\"1\",\"id\":1}".getBytes(StandardCharsets.UTF_8);
                 status = 200;
             } else if (requestText.contains("\"output\":[\"hostid\"]")) {
+                String groupId = outsideScope.get() ? "92" : "91";
                 body = (requestText.contains("\"output\":[\"hostid\"]")
-                    ? "{\"jsonrpc\":\"2.0\",\"result\":[{\"hostid\":\"10084\"}],\"id\":1}"
+                    ? "{\"jsonrpc\":\"2.0\",\"result\":[{\"hostid\":\"10084\",\"groups\":[{\"groupid\":\"" + groupId + "\"}]}],\"id\":1}"
                     : "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"bad bound\"},\"id\":1}")
                     .getBytes(StandardCharsets.UTF_8);
                 status = requestText.contains("\"output\":[\"hostid\"]") ? 200 : 400;
             } else if (requestText.contains("\"sortfield\":\"hostid\"") && requestText.contains("\"hostids\":[10084]") && !requestText.contains("\"offset\"")) {
                 body = ("{\"jsonrpc\":\"2.0\",\"result\":[{"
                     + "\"hostid\":\"10084\",\"host\":\"stub-host\",\"name\":\"Stub Host\",\"status\":\"0\","
+                    + "\"groups\":[{\"groupid\":\"" + (outsideScope.get() ? "92" : "91") + "\"}],"
                     + "\"interfaces\":[{\"ip\":\"10.1.2.3\",\"main\":\"1\",\"type\":\"1\"}]}],\"id\":1}")
                     .getBytes(StandardCharsets.UTF_8);
                 status = 200;
@@ -110,7 +116,8 @@ class ZabbixJsonRpcConnectorIT {
             var connector = new ZabbixJsonRpcConnector(
                 endpoint,
                 new JacksonZabbixTransport(),
-                secretRef -> "stub-token-not-from-a-vendor-zabbix"
+                secretRef -> "stub-token-not-from-a-vendor-zabbix",
+                java.util.List.of("91")
             );
             Connector.Page page = connector.fetch(
                 new Connector.SourceContext(new TenantId("tenant-demo"), "zabbix-1", "env:OPSWEAVE_ZABBIX_TOKEN"),
@@ -123,6 +130,10 @@ class ZabbixJsonRpcConnectorIT {
             assertTrue(page.snapshotComplete(), "the walk completes when the captured count and watermark both hold");
             assertEquals("hostid-watermark-snapshot", page.scanConsistency());
             assertEquals(2, countRequests.get(), "membership is rechecked before completion");
+            assertEquals(5, scopedRequests.get(), "count, both manifests and the data page share the fixed host-group scope");
+            outsideScope.set(true);
+            assertThrows(IllegalStateException.class, () -> connector.fetch(
+                new Connector.SourceContext(new TenantId("tenant-demo"), "zabbix-1", "env:OPSWEAVE_ZABBIX_TOKEN"), null, 50));
         } finally {
             server.stop(0);
         }

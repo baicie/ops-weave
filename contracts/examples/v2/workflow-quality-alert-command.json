@@ -1,0 +1,26 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000134",
+  "id": "quality-alert-fixture",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expectedVersion": 0,
+  "windowSeconds": 600,
+  "rules": [
+    {
+      "kind": "SOURCE_FAILURES",
+      "threshold": 3
+    },
+    {
+      "kind": "OUTPUT_REJECTIONS",
+      "threshold": 1
+    },
+    {
+      "kind": "QUEUE_WAIT",
+      "threshold": 250
+    },
+    {
+      "kind": "TASK_FAILURE",
+      "threshold": 1
+    }
+  ]
+}
