@@ -32,6 +32,12 @@ public final class ModelSpendJson {
         v.put("maxInputTokens",ModelSpend.MAX_INPUT_TOKENS);v.put("maxOutputTokens",ModelSpend.MAX_OUTPUT_TOKENS);v.put("maxInputBytes",ModelSpend.MAX_INPUT_BYTES);
         v.put("accounting","configured-price-estimate");return v;
     }
+    public static Map<String,Object> metric(ModelSpend.Metric metric) {
+        var result=new LinkedHashMap<String,Object>(); result.put("provider",metric.provider()); result.put("model",metric.model()); result.put("calls",metric.calls());
+        result.put("reportedCalls",metric.reportedCalls()); result.put("reservedCalls",metric.reservedCalls()); result.put("uncertainCalls",metric.uncertainCalls());
+        result.put("inputTokens",metric.inputTokens()); result.put("outputTokens",metric.outputTokens()); result.put("cachedInputTokens",metric.cachedInputTokens());
+        result.put("reservedMicros",metric.reservedMicros()); result.put("accountedMicros",metric.accountedMicros()); return result;
+    }
     public static String encode(ModelSpend.Call c) { return JSON.writeValueAsString(raw(c)); }
     public static ModelSpend.Call decode(String value) {
         try {

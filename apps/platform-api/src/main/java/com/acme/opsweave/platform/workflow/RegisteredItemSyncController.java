@@ -62,7 +62,7 @@ public final class RegisteredItemSyncController {
         );
         fixed = connections.workflowConfiguration(principal, source);
         String scopeDigest=scopeDigest(id,revision,fixed);
-        var sourceScope=new SyncRun.SourceScope(id,revision,fixed.connectionDigest(),scopeDigest);
+        var sourceScope=new SyncRun.SourceScope(id,revision,fixed.connectionDigest(),scopeDigest,instance.source().instanceId());
         SyncOutcome outcome = reader.syncItems(
             principal,
             instance.source().instanceId(),

@@ -16,14 +16,18 @@ import static com.acme.opsweave.platform.integration.PipelineJson.*;
 @RestController
 @RequestMapping("/api/v2/data-sources/{id}")
 public final class SourceInspectionController {
-    private final PrincipalContext principals;private final InventoryWiring wiring;private final SourceInspectionService service;
+    private final PrincipalContext principals;private final InventoryWiring wiring;private final SourceInspectionService service;private final OpsweaveProperties properties;
     public SourceInspectionController(PrincipalContext principals,InventoryWiring wiring,OpsweaveProperties properties,Connector connector,SourceConnectionWiring configured,RegisteredHostSourceReader registered){
-        this.principals=principals;this.wiring=wiring;var legacy=new HostSourceInspectionReader(connector,properties);
+        this.principals=principals;this.wiring=wiring;this.properties=properties;var legacy=new HostSourceInspectionReader(connector,properties);
         var reader=new SourceInspectionService.Reader(){
             public SourceInspectionService.Result read(com.acme.opsweave.identity.domain.Principal p,com.acme.opsweave.integration.domain.WorkflowDefinition.Source source,String kind){return legacy.read(p,source,kind);}
             public SourceInspectionService.Result read(com.acme.opsweave.identity.domain.Principal p,com.acme.opsweave.integration.domain.SourceInstance instance,String kind){
                 var snapshot=configured.service().configuration(p,instance.id(),instance.configurationRevision());
-                if(snapshot.isEmpty())return legacy.read(p,instance.source(),kind);var c=snapshot.get();
+                if(snapshot.isEmpty()){
+                    if(!instance.dataMode().equals("fixture"))throw new com.acme.opsweave.integration.domain.WorkflowFailure(com.acme.opsweave.integration.domain.WorkflowFailure.Code.SOURCE_UNAVAILABLE);
+                    return legacy.read(p,instance.source(),kind);
+                }
+                var c=snapshot.get();
                 if(!c.connectionDigest().equals(instance.connectionDigest()))throw new com.acme.opsweave.integration.domain.WorkflowFailure(com.acme.opsweave.integration.domain.WorkflowFailure.Code.SOURCE_UNAVAILABLE);
                 return registered.read(p,instance.source().instanceId(),c.endpoint().pin(),c.credentialPin(),c.hostGroupIds(),kind);
             }
@@ -32,7 +36,7 @@ public final class SourceInspectionController {
                 if(snapshot.isEmpty()){
                     if(!instance.dataMode().equals("fixture"))throw new com.acme.opsweave.integration.domain.WorkflowFailure(com.acme.opsweave.integration.domain.WorkflowFailure.Code.SOURCE_UNAVAILABLE);
                     return new com.acme.opsweave.integration.infrastructure.ZabbixMetricPageReader(com.acme.opsweave.integration.infrastructure.ClasspathMappingCatalog.load(getClass().getClassLoader()))
-                        .fixture(new Connector.SourceContext(p.tenantId(),instance.source().instanceId(),properties.zabbix().secretRef()),pending.requestId(),pending.asOf(),previous);
+                        .fixture(new Connector.SourceContext(p.tenantId(),instance.source().instanceId(),fixtureSecretRef()),pending.requestId(),pending.asOf(),previous);
                 }
                 var c=snapshot.get();if(!c.connectionDigest().equals(instance.connectionDigest()))throw new com.acme.opsweave.integration.domain.WorkflowFailure(com.acme.opsweave.integration.domain.WorkflowFailure.Code.SOURCE_UNAVAILABLE);
                 return registered.readMetricPage(p,instance,c.endpoint().pin(),c.credentialPin(),c.hostGroupIds(),pending,previous);
@@ -40,6 +44,8 @@ public final class SourceInspectionController {
         };
         service=new SourceInspectionService(wiring.workflows(),configured.connections(),reader,Clock.systemUTC());
     }
+    /** Fixture metadata is synthetic and does not require a deployment secret reference. */
+    private String fixtureSecretRef(){return properties==null||properties.zabbix()==null?null:properties.zabbix().secretRef();}
     private void query(HttpServletRequest request){if(!request.getParameterMap().isEmpty()||!request.getRequestURI().matches("/api/v2/data-sources/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}/(?:test|connection-check|discover|discover-metrics|metric-discoveries|connection-checks|inspections(?:/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12})?)"))throw new IllegalArgumentException();}
     private Map<String,Object> item(SourceInspectionService.View v){return Map.of("inspection",SourceInspectionJson.wire(v.inspection()),"validity",v.validity());}
     @PostMapping(value="/test",consumes="application/json")public Object test(@PathVariable UUID id,HttpServletRequest request)throws IOException{return run(id,"TEST",request);}

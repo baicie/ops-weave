@@ -46,4 +46,20 @@ final class PostgresModelSpendStore implements ModelSpendStore {
     @Override public Optional<ModelSpend.Call> find(TenantId tenant,UUID run) {
         try(var c=dataSource.getConnection()){return find(c,tenant,run);}catch(SQLException failed){throw new ToolFailure(ToolFailure.Code.UNAVAILABLE);}
     }
+    @Override public List<ModelSpend.Metric> metrics(TenantId tenant, ModelSpend.MetricsQuery query, Instant now) {
+        var calls = new ArrayList<ModelSpend.Call>();
+        try (var c = dataSource.getConnection(); var s = c.prepareStatement(
+                "SELECT body FROM ai_control.model_spend WHERE tenant_id=? ORDER BY run_id LIMIT ?")) {
+            s.setString(1, tenant.value()); s.setInt(2, ModelSpend.MAX_RECORDS + 1); s.setQueryTimeout(5);
+            try (var rows = s.executeQuery()) {
+                while (rows.next()) {
+                    if (calls.size() >= ModelSpend.MAX_RECORDS) throw new ToolFailure(ToolFailure.Code.READ_LIMIT);
+                    var call = ModelSpendJson.decode(rows.getString(1));
+                    if (!call.tenantId().equals(tenant)) throw new ToolFailure(ToolFailure.Code.UNAVAILABLE);
+                    calls.add(call);
+                }
+            }
+        } catch (SQLException failed) { throw new ToolFailure(ToolFailure.Code.UNAVAILABLE); }
+        return ModelSpend.aggregate(calls, query, now);
+    }
 }

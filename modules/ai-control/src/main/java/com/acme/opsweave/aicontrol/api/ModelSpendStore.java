@@ -12,4 +12,6 @@ public interface ModelSpendStore {
     /** Same usage is idempotent; changed usage cannot overwrite the first report. No refund on unknown outcomes. */
     ModelSpend.Call report(TenantId tenant, SubjectId subject, UUID run, UUID session, ModelSpend.Usage usage, Instant now);
     Optional<ModelSpend.Call> find(TenantId tenant, UUID run);
+    /** Bounded, read-only tenant aggregate; callers must supply the trusted tenant identity. */
+    List<ModelSpend.Metric> metrics(TenantId tenant, ModelSpend.MetricsQuery query, Instant now);
 }

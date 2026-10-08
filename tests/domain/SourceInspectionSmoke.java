@@ -34,6 +34,8 @@ public final class SourceInspectionSmoke {
   check(service.recent(p,setup.id()).size()==7);
   instances.edit(p,setup.id(),new SourceInstanceService.Edit(UUID.randomUUID(),3,"Rebound synthetic","",B,"ACTIVE"));var active=instances.read(p,setup.id());int before=calls.get();
   store.transaction(p.tenantId(),s->{for(int n=0;n<2;n++)s.addSourceInspection(p.subjectId().value(),SourceInspection.pending(setup.id(),UUID.randomUUID(),"DISCOVER",active,t.instant()));for(int n=s.sourceInspectionCount(p.subjectId().value());n<200;n++)s.addSourceInspection(p.subjectId().value(),SourceInspection.pending(setup.id(),UUID.randomUUID(),"TEST",active,t.instant()));return null;});check(service.recent(p,setup.id()).size()==20);check(service.recent(p,setup.id(),"TEST").size()==20);check(service.recent(p,setup.id(),"DISCOVER").size()==4);failure(WorkflowFailure.Code.CAPACITY,()->service.run(p,setup.id(),"TEST",new SourceInspectionService.Command(UUID.randomUUID(),active.configurationRevision(),B)));check(calls.get()==before);
+  var futureId=UUID.randomUUID();var future=SourceInspection.pending(setup.id(),futureId,"TEST",active,t.instant()).complete(t.instant().plusSeconds(1),new SourceInspection.Check(true,"LABELED_FIXTURE",null),null);
+  store.transaction(p.tenantId(),s->{s.addSourceInspection(p.subjectId().value(),SourceInspection.pending(setup.id(),futureId,"TEST",active,t.instant()));s.finishSourceInspection(p.subjectId().value(),future);return null;});check(service.read(p,setup.id(),futureId).validity().equals("UNVERIFIED"));
   System.out.println("Source inspection smoke: "+checks+" checks passed");
  }
 }

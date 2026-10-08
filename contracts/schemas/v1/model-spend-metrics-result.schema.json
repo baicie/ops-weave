@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.invalid/schemas/v1/model-spend-metrics-result.schema.json",
+  "title": "Tenant-scoped model spend aggregates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "storage", "from", "to", "model", "items"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "storage": {"enum": ["memory", "postgres"]},
+    "from": {"type": "string", "format": "date-time"},
+    "to": {"type": "string", "format": "date-time"},
+    "model": {"type": ["string", "null"], "pattern": "^[a-zA-Z0-9._:-]{1,128}$"},
+    "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/item"}}
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "calls", "reportedCalls", "reservedCalls", "uncertainCalls", "inputTokens", "outputTokens", "cachedInputTokens", "reservedMicros", "accountedMicros"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1, "maxLength": 128},
+        "model": {"type": "string", "pattern": "^[a-zA-Z0-9._:-]{1,128}$"},
+        "calls": {"type": "integer", "minimum": 0},
+        "reportedCalls": {"type": "integer", "minimum": 0},
+        "reservedCalls": {"type": "integer", "minimum": 0},
+        "uncertainCalls": {"type": "integer", "minimum": 0},
+        "inputTokens": {"type": "integer", "minimum": 0},
+        "outputTokens": {"type": "integer", "minimum": 0},
+        "cachedInputTokens": {"type": "integer", "minimum": 0},
+        "reservedMicros": {"type": "integer", "minimum": 0},
+        "accountedMicros": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

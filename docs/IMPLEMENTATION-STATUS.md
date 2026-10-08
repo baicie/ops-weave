@@ -1,5 +1,11 @@
 # 实现状态 · v4
 
+2026-10-07 第159节：完成数据接入后续阶段和运行能力的最终定向复验。显式 JDK21 编译通过；隔离本机 PostgreSQL 实际通过18项（Item Sync 3、Source Connection 4、Source Inspection 6、Model Spend 4、Registered Sync Run Store 1），V061/V062 迁移加载；HTTP 集成实际通过20项（连接检查2、发现4、实例3、扫描2、快照4、运行时3、问题2），失败/错误/跳过均为0。契约1958项、结构化仓库572文件/6个只读 Tool、Java纯领域、Rust默认41/all-features49与all-targets、Web typecheck/build及差异检查均实际通过。测试使用隔离本机 tenant、loopback 和明确 Fixture/合成来源，不提高真实厂商、生产身份/TLS、多实例并发、租约/fencing/HA、容量或部署退出条件；完整目标保持 active。
+
+2026-10-07 第158节：收紧四个旧版 Zabbix 全局入口（Host/Item Sync、History、Problem）。这些兼容路径现在只在配置明确标记为 `fixture` 时可用；`jsonrpc`、`real`、`closed` 或缺少模式的请求统一返回 `503 source_unavailable`，并带 `X-OpsWeave-Legacy: fixture-only`，不会从环境级 endpoint/credential 发起读取。已在 OpenAPI 中标明 legacy fixture-only 语义，注册实例必须使用 v2 固定 revision/endpoint/credential/scope 路径。未增加启动单元、权限、迁移或隐藏回退；真实来源、身份/TLS、多实例并发及生产可靠性继续待验收。
+
+2026-10-07 第157节：完成数据接入后续阶段的受控实现，最终定向复验结果见第159节。实例带有已登记连接配置时，必须解析固定 endpoint、credential pin、tenant 与 host group scope；缺少配置快照或 connection digest 不再静默读取环境级来源，统一返回 `SOURCE_UNAVAILABLE`。仅明确标记为 `fixture` 的兼容实例仍可使用旧 fixture 读取路径。Item Sync 与扫描租约资源迁移 V061/V062 已接入平台运行时资源，scope digest fencing 可在真实 PostgreSQL 中执行；注册 scan scope 的物理 `sourceInstanceId` 由既有 `source_sync_run.source_instance_id` 绑定并在读取时恢复，无需新增迁移。新增租户范围的只读模型调用聚合，时间窗最多366天、最多100个 provider/model 组，仅返回调用状态、Token和配置费率估算，不暴露运行/主体/事件标识；运行时增加本人/租户范围内单条执行记录只读查询，不重新执行或重试。真实来源、身份/TLS、多实例并发与生产可靠性仍未验收，完整目标保持 active。
+
 2026-10-07 第155节：注册连接问题分页补齐实例抽屉只读页签与时间窗操作。默认读取最近一小时，支持本机时区录入、不晚于当前且最多24小时的闭合窗口；翻页固定同一时间窗，仅推进事件游标。响应严格校验固定source/revision、连接与范围摘要、主机组、事件ID和问题时间边界；来源不可用不自动重试。Chromium四项回归、Web typecheck/build、全量契约1955项、定向Java边界测试及仓库检查通过。浏览器使用Fixture，不代表真实PG HTTP或来源验收；目标保持active。
 
 2026-10-07 第154节：修复注册问题分页的 HTTP 边界。Spring 路由与 OpenAPI 统一使用 `{sourceId}` 并显式绑定 `@PathVariable("sourceId")`；统一工作流错误 advice 纳入 `RegisteredProblemController`，来源拒绝/忙/不可用分别返回稳定的 403/429/503，不再落到未处理 500。新增 JUnit 边界测试并通过平台 Java 编译与定向契约回归；真实 PostgreSQL HTTP、多实例并发、真实来源和生产可靠性仍待验收，目标保持 active。

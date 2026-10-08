@@ -64,6 +64,7 @@ METRIC字段为timestamp/metricKey/value/metricType、可选unit。timestamp带�
 | 路径 | 方法与命令 | 返回 |
 |---|---|---|
 | /runtime | GET，无查询参数 | runtime：本人任务及最近20条执行元数据 |
+| /runtime/executions/{id} | GET，UUID；拒绝查询参数 | 单条本人/租户范围内的已持久执行元数据；读取不重新执行、不重试，隐藏其他主体或租户的记录 |
 | /runtime/execute | POST {id,revision,digest,settings,previewId,samples} 或syncRunId | runtime-execution；只允许已发布ENTITY |
 | /runtime/start、/runtime/stop | POST {id,revision,digest,settings,expectedGeneration} | runtime-task；CAS，start仅ZABBIX_HOST |
 

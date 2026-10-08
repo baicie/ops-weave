@@ -25,3 +25,9 @@ def test_pending_receipt_must_remain_explicitly_unknown_and_input_only_usage_is_
     v['estimatedMicros']=0
     with pytest.raises(ValidationError):validate('model-spend-record',v)
     u=example('model-spend-usage');u['outputTokens']=0;validate('model-spend-usage',u)
+
+def test_tenant_model_metrics_example_is_closed_and_bounded():
+    value=example('model-spend-metrics-result')
+    validate('model-spend-metrics-result',value)
+    assert set(value)=={'schemaVersion','storage','from','to','model','items'}
+    assert all(set(item)=={'provider','model','calls','reportedCalls','reservedCalls','uncertainCalls','inputTokens','outputTokens','cachedInputTokens','reservedMicros','accountedMicros'} for item in value['items'])

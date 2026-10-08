@@ -44,3 +44,12 @@ def test_delegated_status_requires_explicit_background_availability():
     x=dict(schemaVersion='2.0',mode='DELEGATED_ENTITY',pollSeconds=5,maxBatchRecords=5,tasks=[],executions=[])
     with pytest.raises(ValidationError):validate('workflow-runtime',x)
     x['backgroundAvailable']=False;validate('workflow-runtime',x)
+
+def test_private_runtime_storage_accepts_explicit_recovery_terminal_state():
+    t=task();t.pop('authorization');t['authority']=None
+    t.update(state='ABANDONED',error='OUTPUT_UNAVAILABLE')
+    validate('workflow-runtime-task-storage',t)
+    public=dict(t);public.pop('authority')
+    validate('workflow-runtime-task',public)
+    t['generation']=1000001
+    validate('workflow-runtime-task-storage',t)

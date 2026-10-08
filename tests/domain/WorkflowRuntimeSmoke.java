@@ -21,7 +21,7 @@ public final class WorkflowRuntimeSmoke {
   var tested=edit.evaluate(p,d.id(),1,0,d.digest(),true,input,null);
   rejects(()->runtime.execute(basic,d.id(),1,d.digest(),settings,tested.receipt().id(),input,null));
   rejects(()->runtime.execute(p,d.id(),1,d.digest(),settings,tested.receipt().id(),List.of(Map.of("raw_name","changed","source_id","stable-1")),null));
-  var result=runtime.execute(p,d.id(),1,d.digest(),settings,tested.receipt().id(),input,null);check(result.written()==1&&result.state().equals("SUCCEEDED"));check(runtime.execute(p,d.id(),1,d.digest(),settings,tested.receipt().id(),input,null).equals(result));check(runtime.executions(p).size()==1);
+  var result=runtime.execute(p,d.id(),1,d.digest(),settings,tested.receipt().id(),input,null);check(result.written()==1&&result.state().equals("SUCCEEDED"));check(runtime.execute(p,d.id(),1,d.digest(),settings,tested.receipt().id(),input,null).equals(result));check(runtime.executions(p).size()==1);check(runtime.execution(p,result.id()).equals(result));rejects(()->runtime.execution(new Principal(new SubjectId("other"),p.tenantId(),p.permissions(),p.resourceScope()),result.id()));
   rejects(()->runtime.execute(p,d.id(),1,d.digest(),settings,tested.receipt().id(),List.of(Map.of("raw_name","changed after write","source_id","stable-1")),null));
   var id=new com.acme.opsweave.sharedkernel.EntityId(UUID.fromString(result.entityIds().getFirst()));var entity=inventory.find(p.tenantId(),id).orElseThrow();check(entity.name().equals("LOCALTEST Runtime")&&entity.attributes().get("workflowId").equals(d.id()));
   rejects(()->runtime.execute(p,d.id(),1,d.digest(),new Settings("other","name"),tested.receipt().id(),input,null));

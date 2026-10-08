@@ -4,6 +4,7 @@ import com.acme.opsweave.identity.api.PrincipalContext;
 import com.acme.opsweave.integration.application.ReadZabbixHistoryUseCase;
 import com.acme.opsweave.integration.domain.HistoryCursor;
 import com.acme.opsweave.integration.domain.HistoryWindow;
+import com.acme.opsweave.platform.OpsweaveProperties;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -16,20 +17,27 @@ import org.springframework.web.bind.annotation.RestController;
 public final class ZabbixHistoryController {
     private final PrincipalContext principals;
     private final ReadZabbixHistoryUseCase history;
+    private final OpsweaveProperties properties;
 
-    public ZabbixHistoryController(PrincipalContext principals, ReadZabbixHistoryUseCase history) {
+    public ZabbixHistoryController(PrincipalContext principals, ReadZabbixHistoryUseCase history,
+                                   OpsweaveProperties properties) {
         this.principals = principals;
         this.history = history;
+        this.properties = properties;
     }
 
     @GetMapping({"/api/v1/integrations/zabbix/items/{itemId}/history", "/api/v1/service/ingestion/items/{itemId}/history"})
     public ResponseEntity<?> read(@PathVariable String itemId, @RequestParam long from, @RequestParam long till,
                                  @RequestParam(required = false) Long afterClock, @RequestParam(required = false) Integer afterNs,
                                  @RequestParam(defaultValue = "100") int limit) {
+        var principal = principals.requirePrincipal();
+        if (!LegacyZabbixCompatibility.fixtureOnly(properties)) {
+            return LegacyZabbixCompatibility.unavailable();
+        }
         try {
             if ((afterClock == null) != (afterNs == null)) throw new IllegalArgumentException("Incomplete cursor");
             var window = new HistoryWindow(from, till, afterClock == null ? null : new HistoryCursor(afterClock, afterNs), limit);
-            var result = history.execute(principals.requirePrincipal(), itemId, window);
+            var result = history.execute(principal, itemId, window);
             if (result.kind() != ReadZabbixHistoryUseCase.Kind.SUCCESS) {
                 int status = switch (result.kind()) {
                     case FORBIDDEN -> 403;

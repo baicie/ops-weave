@@ -40,6 +40,7 @@ def test_workflow_crud_runtime_and_stream_routes_are_registered():
         ("/api/v1/integrations/workflows/preview", "post", "v2/workflow-evaluate-command.schema.json", "previewWorkflow"),
         ("/api/v1/integrations/workflows/run", "post", "v2/workflow-evaluate-command.schema.json", "runWorkflow"),
         ("/api/v1/integrations/workflows/runtime", "get", "v2/workflow-runtime.schema.json", "getWorkflowRuntime"),
+        ("/api/v1/integrations/workflows/runtime/executions/{id}", "get", "v2/workflow-runtime-execution.schema.json", "getWorkflowRuntimeExecution"),
         ("/api/v1/integrations/workflows/runtime/execute", "post", "v2/workflow-runtime-execution.schema.json", "executeWorkflowRuntime"),
         ("/api/v1/integrations/workflows/runtime/{operation}", "post", "v2/workflow-runtime-control-receipt.schema.json", "controlWorkflowRuntime"),
         ("/api/v1/integrations/workflows/host-schedules/{operation}", "post", "v2/workflow-host-schedule-receipt.schema.json", "controlWorkflowHostSchedule"),

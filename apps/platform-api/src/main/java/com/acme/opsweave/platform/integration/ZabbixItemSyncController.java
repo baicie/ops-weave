@@ -4,6 +4,7 @@ import com.acme.opsweave.identity.api.PrincipalContext;
 import com.acme.opsweave.integration.application.IngestZabbixHostsUseCase.SyncOutcome;
 import com.acme.opsweave.integration.application.IngestZabbixItemsUseCase;
 import com.acme.opsweave.integration.domain.SyncFailureCode;
+import com.acme.opsweave.platform.OpsweaveProperties;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -17,15 +18,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class ZabbixItemSyncController {
     private final PrincipalContext principalContext;
     private final IngestZabbixItemsUseCase ingest;
+    private final OpsweaveProperties properties;
 
-    public ZabbixItemSyncController(PrincipalContext principalContext, IngestZabbixItemsUseCase ingest) {
+    public ZabbixItemSyncController(PrincipalContext principalContext, IngestZabbixItemsUseCase ingest,
+                                    OpsweaveProperties properties) {
         this.principalContext = principalContext;
         this.ingest = ingest;
+        this.properties = properties;
     }
 
     @PostMapping("/sync")
     public ResponseEntity<?> sync() {
-        SyncOutcome outcome = ingest.execute(principalContext.requirePrincipal(), null);
+        var principal = principalContext.requirePrincipal();
+        if (!LegacyZabbixCompatibility.fixtureOnly(properties)) {
+            return LegacyZabbixCompatibility.unavailable();
+        }
+        SyncOutcome outcome = ingest.execute(principal, null);
         return switch (outcome.kind()) {
             case DENIED -> ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
             case UNAVAILABLE -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(unavailable(outcome));

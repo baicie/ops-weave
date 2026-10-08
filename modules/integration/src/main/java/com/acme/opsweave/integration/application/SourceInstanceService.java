@@ -76,7 +76,10 @@ public final class SourceInstanceService {
             String mode=previous.dataMode();int revision=previous.configurationRevision();
             if(changed){
                 if(revision>=100)throw new WorkflowFailure(WorkflowFailure.Code.CAPACITY);
-                var connection=connections.resolve(p,previous.source());
+                // Connection changes must resolve the maintained instance inside the
+                // current transaction so registered sources cannot fall back to a
+                // deployment-wide legacy profile.
+                var connection=connections.resolve(p,previous,s);
                 if(!connection.digest().equals(command.connectionDigest()))throw new WorkflowFailure(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
                 mode=connection.dataMode();revision++;
             }

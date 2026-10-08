@@ -42,4 +42,13 @@ class PostgresModelSpendIT extends OwnedInventoryTest {
         assertEquals(reported,openInventory(properties).modelSpend().find(tenant,a.runId()).orElseThrow());assertTrue(store.find(new TenantId("other"),a.runId()).isEmpty());
         assertNotNull(store.reserve(call(now)));assertEquals(reported.policy(),policy);
     }
+    @Test void metricsAggregatePersistedCallsWithinTrustedTenant(){
+        var a=call(now);var store=wiring.modelSpend();store.reserve(a);
+        var metrics=store.metrics(tenant,new ModelSpend.MetricsQuery(now.minusSeconds(1),now.plusSeconds(1),"fixture-model",100),now);
+        assertEquals(1,metrics.size());var metric=metrics.getFirst();
+        assertEquals("rig-openai",metric.provider());assertEquals("fixture-model",metric.model());
+        assertEquals(1,metric.calls());assertEquals(1,metric.reservedCalls());assertEquals(0,metric.reportedCalls());
+        assertEquals(a.reservedMicros(),metric.reservedMicros());assertEquals(a.reservedMicros(),metric.accountedMicros());
+        assertTrue(store.metrics(new TenantId(tenant.value()+"-other"),new ModelSpend.MetricsQuery(now.minusSeconds(1),now.plusSeconds(1),null,100),now).isEmpty());
+    }
 }

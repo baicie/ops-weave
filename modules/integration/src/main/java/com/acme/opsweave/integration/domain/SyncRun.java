@@ -34,12 +34,30 @@ public record SyncRun(
     }
 
     /** Immutable connection revision and normalized host-group scope used by a registered item scan. */
-    public record SourceScope(UUID sourceId,int configurationRevision,String connectionDigest,String scopeDigest) {
+    public record SourceScope(UUID sourceId,int configurationRevision,String connectionDigest,String scopeDigest,String sourceInstanceId) {
+        /** Backward-compatible form for stored/test scopes that predate physical-id binding. */
+        public SourceScope(UUID sourceId,int configurationRevision,String connectionDigest,String scopeDigest) {
+            this(sourceId,configurationRevision,connectionDigest,scopeDigest,null);
+        }
         public SourceScope {
             Objects.requireNonNull(sourceId);
             if(configurationRevision<1||configurationRevision>100)throw new IllegalArgumentException("Invalid source configuration revision");
             WorkflowDefinition.checkDigest(connectionDigest);
             WorkflowDefinition.checkDigest(scopeDigest);
+            if(sourceInstanceId!=null&&!sourceInstanceId.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}"))throw new IllegalArgumentException("Invalid source instance id");
+        }
+        /** Binds a registered scope to the physical source persisted with its run. */
+        public SourceScope bind(String physicalSourceInstanceId) {
+            Objects.requireNonNull(physicalSourceInstanceId, "physicalSourceInstanceId");
+            if (!physicalSourceInstanceId.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")) {
+                throw new IllegalArgumentException("Invalid source instance id");
+            }
+            if (sourceInstanceId != null && !sourceInstanceId.equals(physicalSourceInstanceId)) {
+                throw new IllegalArgumentException("Source scope physical id mismatch");
+            }
+            return sourceInstanceId == null
+                ? new SourceScope(sourceId, configurationRevision, connectionDigest, scopeDigest, physicalSourceInstanceId)
+                : this;
         }
     }
 

@@ -49,6 +49,7 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
 
     @Override
     public SyncRun start(TenantId tenantId,String sourceInstanceId,String objectType,String dataMode,SyncRun.SourceScope sourceScope) {
+        final SyncRun.SourceScope boundScope = sourceScope == null ? null : sourceScope.bind(sourceInstanceId);
         UUID id = UUID.randomUUID();
         Instant startedAt = Instant.now();
         Transactions.run(dataSource, connection -> {
@@ -65,15 +66,15 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
                 statement.setString(4, objectType);
                 statement.setTimestamp(5, Timestamp.from(startedAt));
                 statement.setString(6, dataMode);
-                if(sourceScope==null){statement.setObject(7,null);statement.setObject(8,null);statement.setString(9,null);statement.setString(10,null);}
-                else {statement.setObject(7,sourceScope.sourceId());statement.setInt(8,sourceScope.configurationRevision());statement.setString(9,sourceScope.connectionDigest());statement.setString(10,sourceScope.scopeDigest());}
+                if(boundScope==null){statement.setObject(7,null);statement.setObject(8,null);statement.setString(9,null);statement.setString(10,null);}
+                else {statement.setObject(7,boundScope.sourceId());statement.setInt(8,boundScope.configurationRevision());statement.setString(9,boundScope.connectionDigest());statement.setString(10,boundScope.scopeDigest());}
                 statement.executeUpdate();
             }
             sweep(connection, tenantId, sourceInstanceId, objectType, id);
         });
         return new SyncRun(
             id, tenantId, sourceInstanceId, objectType, SyncStatus.RUNNING, startedAt,
-            null, null, 0, 0, 0, 0, false, dataMode, null, SyncScan.OFFSET_ATTEMPT, 0, sourceScope
+            null, null, 0, 0, 0, 0, false, dataMode, null, SyncScan.OFFSET_ATTEMPT, 0, boundScope
         );
     }
 
@@ -358,7 +359,9 @@ final class PostgresSyncStore implements SyncRunStore, IngestZabbixHostsUseCase.
         UUID sourceId=rows.getObject("source_id",UUID.class);
         if(sourceId==null)return null;
         Integer revision=rows.getObject("source_configuration_revision",Integer.class);
-        return new SyncRun.SourceScope(sourceId,revision,rows.getString("source_connection_digest"),rows.getString("source_scope_digest"));
+        // The physical binding already lives in source_instance_id; reconstruct it for
+        // pre-binding rows so reopening a run does not assume connection-{UUID}.
+        return new SyncRun.SourceScope(sourceId,revision,rows.getString("source_connection_digest"),rows.getString("source_scope_digest"),rows.getString("source_instance_id"));
     }
 
     @Override

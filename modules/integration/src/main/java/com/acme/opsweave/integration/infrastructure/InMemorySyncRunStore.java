@@ -52,6 +52,7 @@ public final class InMemorySyncRunStore implements SyncRunStore {
 
     @Override
     public SyncRun start(TenantId tenantId,String sourceInstanceId,String objectType,String dataMode,SyncRun.SourceScope sourceScope) {
+        sourceScope = sourceScope == null ? null : sourceScope.bind(sourceInstanceId);
         UUID opening = UUID.randomUUID();
         SyncRun run = new SyncRun(
             opening,

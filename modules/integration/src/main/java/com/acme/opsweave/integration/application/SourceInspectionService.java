@@ -108,6 +108,9 @@ public final class SourceInspectionService {
     private View view(WorkflowStore.Session s,Principal p,SourceInstance i,SourceInspection original) {
         var r=original.state().equals("PENDING")&&!now().isBefore(original.deadline())?original.unknown():original;
         if(!r.state().equals("COMPLETED"))return new View(r,"UNVERIFIED");
+        // A persisted receipt is not usable before its server acceptance time. This also keeps
+        // malformed or clock-skewed storage fail-closed instead of exposing a future snapshot.
+        if(r.availableAt().isAfter(now()))return new View(r,"UNVERIFIED");
         if(!now().isBefore(r.expiresAt())||r.metricPage()!=null&&r.metricPage().manifest()!=null&&!now().isBefore(r.metricPage().manifest().expiresAt()))return new View(r,"EXPIRED");
         if(i.configurationRevision()!=r.configurationRevision()||!i.connectionDigest().equals(r.connectionDigest())||!i.dataMode().equals(r.dataMode())||!i.state().equals("ACTIVE"))return new View(r,"STALE");
         SourceSetupService.Connection connection;try {connection=current(s,p,i);}catch(WorkflowFailure changed){if(changed.code()==WorkflowFailure.Code.SOURCE_UNAVAILABLE||changed.code()==WorkflowFailure.Code.CONFLICT)return new View(r,"STALE");throw changed;}

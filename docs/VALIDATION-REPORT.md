@@ -1,5 +1,60 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 159. 2026-10-07 · 数据接入与运行能力最终定向复验
+
+在前一轮因 shell 默认 JDK 不满足项目要求而中止后，本轮显式使用本机 JDK 21 完成数据接入后续阶段的编译、PostgreSQL 定向持久化和 HTTP 集成复验。注册实例仍固定绑定 endpoint、credential pin、tenant、host group scope 与 connection digest；发现快照对缺失配置、摘要漂移、过期和未来 `availableAt` fail-closed。旧版 Zabbix 全局入口的 fixture-only 边界保持不变。模型调用指标只按可信 tenant 聚合，工作流运行记录单条读取只读且按本人/tenant 隔离。
+
+| 实际检查 | 结果 |
+|---|---|
+| Java 21 编译 | `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew :apps:platform-api:compileJava :apps:platform-api:compileTestJava --offline --console=plain`，`BUILD SUCCESSFUL` |
+| PostgreSQL 定向集成 | 使用 `jdbc:postgresql://127.0.0.1:5432/opsweave_history_test`、本机用户和空密码实际执行 18 项，失败/错误/跳过均为 0：Item Sync 3、Source Connection 4、Source Inspection 6、Model Spend 4、Registered Sync Run Store 1；V061/V062 迁移实际加载 |
+| HTTP 集成 | 同一 PostgreSQL 环境实际执行 `SourceConnectionCheckHttpIT` 2、`SourceInspectionHttpIT` 4、`SourceInstanceHttpIT` 3、`SourceScanRunHttpIT` 2、`SourceSnapshotHttpIT` 4、`WorkflowRuntimeHttpIT` 3、`ZabbixProblemHttpIT` 2，共 20 项；XML 汇总失败/错误/跳过均为 0，Gradle `BUILD SUCCESSFUL` |
+| 契约与结构 | `.venv/bin/python -X utf8 -m pytest tests/contracts -o addopts='' -q`：1958 passed；`.venv/bin/python -X utf8 scripts/check_repo.py`：572 个结构化文件、6 个只读 Tool，均退出 0 |
+| 领域、Rust 与 Web | `scripts/check_java_domain.py` 通过；Rust locked 默认 41、all-features 49，all-targets check 通过；Web typecheck/build 通过并保留既有大 chunk warning |
+| 差异 | `git diff --check` 退出 0 |
+
+以上数据使用隔离的本机测试 tenant、loopback 和明确标注的 Fixture/合成来源；不证明真实 Zabbix/VictoriaMetrics、生产身份/TLS、多实例并发、租约/fencing/HA、生产容量或部署。完整目标仍保持 active；未提交或推送。
+
+## 158. 2026-10-07 · 旧版 Zabbix 全局入口边界收紧
+
+四个 v1 兼容入口（Host Sync、Item Sync、History、Problem read/ingest）增加 fixture-only gate。配置不是明确 `fixture` 时，控制器不调用全局 connector/use case，返回 `503 source_unavailable` 并附 `X-OpsWeave-Legacy: fixture-only`；注册实例读取必须使用 v2 固定连接版本路径。OpenAPI、实现状态与路线图已同步 legacy 语义；成功响应 Schema 未增加未登记字段。
+
+| 实际检查 | 结果 |
+|---|---|
+| 差异检查 | `git diff --check` 退出0 |
+| 契约 | `.venv/bin/python -X utf8 -m pytest tests/contracts -o addopts='' -q`，1958 passed，退出0；OpenAPI 路径/请求边界定向7项也通过 |
+| 仓库结构 | `.venv/bin/python -X utf8 scripts/check_repo.py`，572个结构化文件/6个只读 Tool，退出0 |
+| Java 编译 | 本节首次尝试受当前 shell 的 JDK25 默认环境阻断；随后显式使用 JDK21 完成编译，见第159节。 |
+| Spring HTTP/ PostgreSQL | 本节首次尝试未执行；随后在独立本机 PostgreSQL 环境完成 18 项 PG 与 20 项 HTTP 集成复验，见第159节。 |
+
+## 157. 2026-10-07 · 数据接入后续阶段与运行能力定向验证
+
+本轮将 V061/V062 注册连接范围迁移接入 `platform-api` 的资源复制任务，并在本机 PostgreSQL `opsweave_history_test` 上实际执行迁移和定向测试。注册 scan scope 的物理 `sourceInstanceId` 使用既有 `source_sync_run.source_instance_id` 持久化并在读取时恢复，因此没有新增迁移。注册实例继续要求固定 endpoint、credential pin、tenant、host group scope 与 connection digest；缺失固定配置的非 `fixture` 实例返回 `SOURCE_UNAVAILABLE`，不回退环境级来源。模型调用指标按可信 tenant 聚合；运行时单条执行查询按本人/tenant 隔离，只读且不重试。
+
+| 实际检查 | 结果 |
+|---|---|
+| PostgreSQL 定向集成 | 上述首次定向记录为17项；最终显式补跑 Registered Sync Run Store 后为18项，失败/错误/跳过均0，详见第159节 |
+| Java | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:compileJava :apps:platform-api:compileTestJava --offline --console=plain`，`BUILD SUCCESSFUL`；`python3 -X utf8 scripts/check_java_domain.py` 通过，包含 WorkflowRuntimeSmoke 32 checks、WorkflowRuntimeControlSmoke 44 checks |
+| 工作流运行时契约/HTTP | `.venv/bin/python -X utf8 -m pytest tests/contracts/test_workflow_openapi.py tests/contracts/test_workflow_runtime.py -o addopts='' -q`，15 passed；`WorkflowRuntimeHttpIT` 后续在独立 JDBC 环境实际3项通过，详见第159节 |
+| 全量检查 | `.venv/bin/python -X utf8 -m pytest tests/contracts -o addopts='' -q`，1958 passed，退出0；`check_repo.py` 572个结构化文件/6个只读 Tool；Rust默认41/all-features49与all-targets check、Web typecheck/build；本轮新增改动 `git diff --check` 通过 |
+| 平台完整 Gradle（现状记录） | 在共享本机 PostgreSQL 环境实际运行 `:apps:platform-api:test`，568项完成、36项失败、62项跳过；失败集中在既有共享数据库/迁移并发及多组历史 HTTP 集成断言，不能作为本轮全量通过依据；本轮首次独立定向为17项，最终复验为18项，另有20项定向 HTTP 与契约检查，详见第159节 |
+| 尚未验收 | 真实 Zabbix/VictoriaMetrics、生产身份/TLS、多实例并发、持久 RunStore/lease/fencing/恢复引擎及生产可靠性；外部资料私有 policy 路径本轮仍未在仓库中发现，未伪造边界检查通过 |
+
+## 156. 2026-10-07 · 注册连接兼容回退边界
+
+注册实例读取现在要求已登记连接配置完整存在。非 `fixture` 实例缺少 endpoint、credential/configuration snapshot 或 connection digest 不再回退到环境变量来源，而是返回 `SOURCE_UNAVAILABLE`；只有明确标记为 `fixture` 的兼容实例仍可走旧 fixture 读取器。该边界同时覆盖工作流来源解析和注册连接发现读取，保持可信主体提供 tenant/权限，未增加启动单元或隐式重试。第149节中关于 Item Sync 范围未隔离的检查记录属于迁移前状态，当前范围语义以第150、152节的 `scopeDigest` fencing 为准。本轮还验证了租户范围的模型调用聚合 HTTP：只接受有界时间窗、模型和 limit，拒绝未知或重复参数，结果不含运行/主体/事件标识。
+
+| 实际检查 | 结果 |
+|---|---|
+| 契约 | `.venv/bin/python -X utf8 -m pytest tests/contracts -o addopts='' -q`，1957 passed，退出0（首次运行补齐本机 `rfc3339-validator==0.1.4` 后重跑） |
+| 仓库结构 | `.venv/bin/python -X utf8 scripts/check_repo.py`，572个结构化文件、6个只读 Tool，退出0 |
+| Java | `python3 -X utf8 scripts/check_java_domain.py` 通过；JDK21 `./gradlew :apps:platform-api:compileJava :apps:platform-api:compileTestJava --offline --console=plain` BUILD SUCCESSFUL；定向 `SourceInspectionHttpIT`、`SourceConnectionCheckHttpIT` BUILD SUCCESSFUL |
+| 模型指标 HTTP | `JAVA_HOME=<jdk21> ./gradlew :apps:platform-api:test --tests com.acme.opsweave.platform.ModelSpendHttpIT --offline --console=plain`，BUILD SUCCESSFUL；包含租户聚合、未知/重复 query、limit 边界 |
+| Rust | `cargo test --workspace --locked` 41项通过；`cargo test --workspace --all-features --locked` 49项通过；`cargo check --workspace --all-targets --all-features --locked` 通过 |
+| Web | `pnpm install --frozen-lockfile --ignore-scripts`、`pnpm --filter @opsweave/web-console typecheck`、`pnpm --filter @opsweave/web-console build` 均退出0，保留既有大 chunk warning |
+| 差异 | `git diff --check` 退出0 |
+| 未执行 | 未设置 `OPSWEAVE_TEST_JDBC_URL/USER/PASSWORD`，真实 PostgreSQL HTTP 用例由环境门禁跳过；未完成多实例并发、真实来源/身份/TLS和生产可靠性验收。外部资料边界本轮没有找到可用的仓库外私有 policy，未伪造该检查通过结果。 |
+
 ## 155. 2026-10-07 · 注册连接问题页交互与边界验证
 
 在接入实例维护抽屉加入问题读取页签。首次打开自动读取最近一小时；开始/结束时间按本机时区编辑，查询转换为UTC秒，拒绝未来时间、逆序或超过24小时的范围。下一页保留已读取页的时间窗并只推进事件游标；改时间后从第一页重读。页面回显固定source UUID、配置revision、connection digest、host group和scope digest，严格校验页、事件及时间边界；503保持当前状态并要求用户显式刷新。

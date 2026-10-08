@@ -4,6 +4,7 @@ import com.acme.opsweave.alerting.domain.ExternalProblem;
 import com.acme.opsweave.identity.api.PrincipalContext;
 import com.acme.opsweave.integration.application.ReadZabbixProblemsUseCase;
 import com.acme.opsweave.integration.domain.*;
+import com.acme.opsweave.platform.OpsweaveProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
 import org.springframework.http.ResponseEntity;
@@ -17,17 +18,22 @@ public class ZabbixProblemController {
     private final ReadZabbixProblemsUseCase reader;
     private final com.acme.opsweave.integration.application.IngestZabbixProblemsUseCase ingest;
     private final String storage;
+    private final OpsweaveProperties properties;
     public ZabbixProblemController(PrincipalContext principal, ReadZabbixProblemsUseCase reader,
-            com.acme.opsweave.integration.application.IngestZabbixProblemsUseCase ingest, com.acme.opsweave.platform.persistence.InventoryWiring wiring) {
+            com.acme.opsweave.integration.application.IngestZabbixProblemsUseCase ingest,
+            com.acme.opsweave.platform.persistence.InventoryWiring wiring, OpsweaveProperties properties) {
         this.principal = principal; this.reader = reader; this.ingest = ingest; storage = wiring.label();
+        this.properties = properties;
     }
     @PostMapping(path = "/ingest", consumes = "application/json")
     public Object ingest(HttpServletRequest request) {
+        var trustedPrincipal = principal.requirePrincipal();
+        if (!LegacyZabbixCompatibility.fixtureOnly(properties)) return LegacyZabbixCompatibility.unavailable();
         var body = com.acme.opsweave.platform.incident.IncidentController.object(request, Set.of("from", "till", "afterEventId", "limit"));
         if (!body.get("from").isIntegralNumber() || !body.get("till").isIntegralNumber() || !body.get("limit").isIntegralNumber()
             || !body.get("from").canConvertToLong() || !body.get("till").canConvertToLong() || !body.get("limit").canConvertToInt()
             || !(body.get("afterEventId").isNull() || body.get("afterEventId").isString())) throw new IllegalArgumentException();
-        var result = ingest.execute(principal.requirePrincipal(), new ProblemReadWindow(body.get("from").asLong(), body.get("till").asLong(),
+        var result = ingest.execute(trustedPrincipal, new ProblemReadWindow(body.get("from").asLong(), body.get("till").asLong(),
             body.get("afterEventId").isNull() ? null : body.get("afterEventId").asString(), Math.toIntExact(body.get("limit").asLong())));
         var response = new LinkedHashMap<String,Object>(); response.put("storage", storage); response.put("dataMode", result.dataMode());
         response.put("sourceInstanceId", result.sourceInstanceId()); response.put("accepted", result.saved().accepted());
@@ -37,9 +43,11 @@ public class ZabbixProblemController {
     @GetMapping
     public Object read(@RequestParam long from, @RequestParam long till, @RequestParam(required = false) String afterEventId,
             @RequestParam(defaultValue = "25") int limit, HttpServletRequest request) {
+        var trustedPrincipal = principal.requirePrincipal();
+        if (!LegacyZabbixCompatibility.fixtureOnly(properties)) return LegacyZabbixCompatibility.unavailable();
         if (!Set.of("from", "till", "afterEventId", "limit").containsAll(request.getParameterMap().keySet())
             || request.getParameterMap().values().stream().anyMatch(values -> values.length != 1)) throw new IllegalArgumentException();
-        var result = reader.execute(principal.requirePrincipal(), new ProblemReadWindow(from, till, afterEventId, limit));
+        var result = reader.execute(trustedPrincipal, new ProblemReadWindow(from, till, afterEventId, limit));
         var body = new LinkedHashMap<String,Object>();
         body.put("schemaVersion", "1.0"); body.put("storage", "not-persisted"); body.put("dataMode", result.dataMode());
         body.put("sourceInstanceId", result.sourceInstanceId()); body.put("sourceContract", "zabbix-7.0-event-v1");

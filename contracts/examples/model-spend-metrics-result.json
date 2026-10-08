@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "memory",
+  "from": "2026-09-21T00:00:00Z",
+  "to": "2026-09-22T00:00:00Z",
+  "model": null,
+  "items": [
+    {
+      "provider": "mock-deterministic",
+      "model": "mock-current-v1",
+      "calls": 2,
+      "reportedCalls": 1,
+      "reservedCalls": 0,
+      "uncertainCalls": 1,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cachedInputTokens": 0,
+      "reservedMicros": 0,
+      "accountedMicros": 0
+    }
+  ]
+}

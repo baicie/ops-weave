@@ -16,7 +16,7 @@ class RegisteredSyncRunStoreTest {
         var store = new InMemorySyncRunStore();
         var tenant = new TenantId("tenant-registered-runs");
         var sourceId = UUID.randomUUID();
-        var scope = new SyncRun.SourceScope(sourceId, 3, digest('a'), digest('b'));
+        var scope = new SyncRun.SourceScope(sourceId, 3, digest('a'), digest('b'), "zabbix-registered");
 
         var registered = store.start(tenant, "zabbix-registered", "item", "zabbix-jsonrpc", scope);
         store.succeed(tenant, registered.id(), "itemid-watermark-snapshot", 7);
@@ -33,7 +33,8 @@ class RegisteredSyncRunStoreTest {
         assertNull(legacyRestored.sourceScope());
         assertEquals(0, legacyRestored.retired());
 
-        var incomplete = store.start(tenant, "zabbix-incomplete", "item", "zabbix-jsonrpc", scope);
+        var incompleteScope = new SyncRun.SourceScope(sourceId, 3, digest('a'), digest('b'), "zabbix-incomplete");
+        var incomplete = store.start(tenant, "zabbix-incomplete", "item", "zabbix-jsonrpc", incompleteScope);
         assertThrows(IllegalArgumentException.class,
             () -> store.succeed(tenant, incomplete.id(), "offset-scan-attempt", 1));
         assertThrows(IllegalArgumentException.class,

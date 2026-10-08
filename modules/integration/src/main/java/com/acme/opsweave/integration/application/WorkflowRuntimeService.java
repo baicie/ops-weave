@@ -59,6 +59,13 @@ public final class WorkflowRuntimeService {
     }
     public List<Task> tasks(Principal p) { authorizeRead(p); return store.transaction(p.tenantId(),s->s.tasks(p.subjectId().value())); }
     public List<Execution> executions(Principal p) { authorizeRead(p); return store.transaction(p.tenantId(),s->s.executions(p.subjectId().value()).stream().limit(20).toList()); }
+    /** Read one persisted execution without widening the owner or tenant scope. */
+    public Execution execution(Principal p, UUID id) {
+        authorizeRead(p);
+        Objects.requireNonNull(id);
+        return store.transaction(p.tenantId(), s -> s.execution(p.subjectId().value(), id)
+            .orElseThrow(() -> fail(WorkflowFailure.Code.NOT_FOUND)));
+    }
 
     public WorkflowRuntimeControl.Receipt controlReceipt(Principal p,UUID requestId) {
         authorizeRead(p);

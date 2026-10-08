@@ -105,7 +105,14 @@ public final class IngestZabbixItemsUseCase {
         if (sourceInstanceId == null || !sourceInstanceId.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")) {
             return SyncOutcome.denied("SOURCE_MISMATCH");
         }
-        if (!sourceInstanceId.equals("connection-"+sourceScope.sourceId())) return SyncOutcome.denied("SOURCE_MISMATCH");
+        // New registrations use the deterministic connection-{UUID} physical id, while a
+        // legacy Host setup keeps its original physical id after binding. The controller binds
+        // that actual id into the private scope; never accept a different id for the scope.
+        if (sourceScope.sourceInstanceId() != null) {
+            if (!sourceInstanceId.equals(sourceScope.sourceInstanceId())) return SyncOutcome.denied("SOURCE_MISMATCH");
+        } else if (!sourceInstanceId.equals("connection-"+sourceScope.sourceId())) {
+            return SyncOutcome.denied("SOURCE_MISMATCH");
+        }
         return execute(principal, sourceInstanceId, registeredConnector, "zabbix-jsonrpc", registeredSecretRef, true, sourceScope);
     }
 

@@ -192,6 +192,8 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V058__entity_relation_write.sql", "V058__entity_relation_write");
         new SchemaMigrator(dataSource).apply("db/migration/V059__entity_instance_write.sql", "V059__entity_instance_write");
         new SchemaMigrator(dataSource).apply("db/migration/V060__entity_model_pin.sql", "V060__entity_model_pin");
+        new SchemaMigrator(dataSource).apply("db/migration/V061__registered_item_sync_scope.sql", "V061__registered_item_sync_scope");
+        new SchemaMigrator(dataSource).apply("db/migration/V062__registered_scan_lease_scope.sql", "V062__registered_scan_lease_scope");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);

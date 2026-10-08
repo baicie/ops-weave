@@ -22,4 +22,8 @@ public final class InMemoryModelSpendStore implements ModelSpendStore {
         var result=old.report(usage,now); calls.put(key,result); return result;
     }
     @Override public synchronized Optional<ModelSpend.Call> find(TenantId tenant,UUID run) { return Optional.ofNullable(calls.get(new Key(tenant,run))); }
+    @Override public synchronized List<ModelSpend.Metric> metrics(TenantId tenant, ModelSpend.MetricsQuery query, Instant now) {
+        var matching = calls.values().stream().filter(call -> call.tenantId().equals(tenant)).toList();
+        return ModelSpend.aggregate(matching, query, now);
+    }
 }

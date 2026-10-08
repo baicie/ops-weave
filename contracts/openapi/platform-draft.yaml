@@ -261,6 +261,8 @@ paths:
     get:
       operationId: readServiceItemHistory
       description: >
+        Legacy compatibility endpoint, available only for the explicitly labelled local fixture;
+        registered non-fixture connections must use the v2 source-instance history endpoint.
         Disabled by default. Dedicated OAuth client_credentials RFC 9068 RS256 at+jwt access token,
         exact issuer/audience opsweave-history/scope opsweave.history.read; maximum 900 second lifetime.
         Verified client_id and sub map through operator-owned history-service-grants to tenant, entity,
@@ -521,7 +523,9 @@ paths:
     post:
       operationId: syncZabbixHosts
       description: >
-        An omitted body pins the built-in zabbix-host-default revision 1, never latest.
+        Legacy compatibility endpoint. It is available only for the explicitly labelled local fixture;
+        registered non-fixture connections must use the v2 source-instance endpoints. An omitted body
+        pins the built-in zabbix-host-default revision 1, never latest.
         An explicit version must already be published in the principal tenant and configured source.
         Its digest is verified and its immutable run pin is stored before fetching.
         Host inventory writes and missing-host reconciliation require an internal source-scoped lease
@@ -558,7 +562,14 @@ paths:
           description: Source closed, ingestion failed, or host scan lease busy/lost/expired; committed partial writes may remain. A status failure after successful reconciliation cannot undo that reconciliation.
           content:
             application/json:
-              schema: {$ref: '../schemas/v1/host-sync-failure.schema.json'}
+              schema:
+                oneOf:
+                  - {$ref: '../schemas/v1/host-sync-failure.schema.json'}
+                  - type: object
+                    additionalProperties: false
+                    required: [error]
+                    properties:
+                      error: {const: source_unavailable}
   /api/v1/integrations/zabbix/hosts/pipeline/versions:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -800,13 +811,60 @@ paths:
         '404': {description: Run or version absent}
         '409': {description: Run still running, lineage unavailable or digest mismatch}
         '503': {description: Storage unavailable or concurrency budget exhausted}
+  /api/v1/integrations/zabbix/items/sync:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: syncLegacyZabbixItems
+      description: >
+        Legacy compatibility endpoint. It is available only for the explicitly labelled local fixture;
+        registered non-fixture connections must use the v2 source-instance Item Sync endpoint. The
+        server controls source identity, endpoint, credential reference and tenant scope. A non-fixture
+        request returns 503 source_unavailable and never falls back to the environment-level connector.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Fixture item scan result; history points are not fetched or persisted
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [fetched, accepted, rejected, retired, pages, snapshotComplete, dataMode, inventoryStore, scanConsistency]
+                properties:
+                  fetched: {type: integer, minimum: 0}
+                  accepted: {type: integer, minimum: 0}
+                  rejected: {type: integer, minimum: 0}
+                  retired: {type: integer, minimum: 0}
+                  pages: {type: integer, minimum: 0}
+                  snapshotComplete: {type: boolean}
+                  dataMode: {const: labeled-fixture}
+                  inventoryStore: {type: string, minLength: 1}
+                  scanConsistency: {enum: [offset-scan-attempt, hostid-watermark-snapshot, itemid-watermark-snapshot, none]}
+                  syncRunId: {type: string, format: uuid}
+        '401': {description: Unauthenticated}
+        '403': {description: Forbidden}
+        '503':
+          description: Legacy endpoint disabled for non-fixture mode, source failure, or scan lease conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {$ref: ../schemas/v1/host-sync-failure.schema.json}
+                  - type: object
+                    additionalProperties: false
+                    required: [error]
+                    properties:
+                      error: {const: source_unavailable}
   /api/v1/integrations/zabbix/items/{itemId}/history:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
     get:
       operationId: readZabbixNumericHistory
       description: >
-        Read one active binding in the configured source, authorized by source.sync,
+        Legacy compatibility endpoint, available only for the explicitly labelled local fixture.
+        Registered non-fixture connections must use the v2 source-instance endpoints. Read one active binding in the configured source, authorized by source.sync,
         metric.read and entity.read including source, metric and entity scope.
         At most 3600 inclusive seconds in the past and 500 returned points.
         afterClock and afterNs must appear together and refer to this same item/window.
@@ -870,7 +928,8 @@ paths:
     get:
       operationId: readZabbixProblems
       description: >
-        Source-administrator read requiring source.sync on the configured source.
+        Legacy compatibility endpoint, available only for the explicitly labelled local fixture.
+        Registered non-fixture connections must use the v2 source-instance endpoints. Source-administrator read requiring source.sync on the configured source.
         Zabbix 7.0 event.get contract: problems active during an inclusive UTC seconds
         window of at most 24 hours. Limit 1..100, numeric event ID cursor, at most two
         upstream calls per page, process-local concurrency two, no retry or fallback.
@@ -900,7 +959,8 @@ paths:
     post:
       operationId: ingestZabbixProblemPage
       description: >
-        Explicit bounded page import requiring source.sync. The caller selects only a window and cursor;
+        Legacy compatibility endpoint, available only for the explicitly labelled local fixture.
+        Registered non-fixture connections must use the v2 source-instance endpoints. Explicit bounded page import requiring source.sync. The caller selects only a window and cursor;
         identity, source, data mode and connector are server controlled. Fetch failure writes nothing.
         Occurrence, initial Incident, entity links and timeline are written in one transaction.
         Duplicate tenant/source/problem IDs reuse the Incident. Empty pages do not close or delete anything.
@@ -1302,6 +1362,24 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/modelSpend'}
         default: {$ref: '#/components/responses/toolFailure'}
+  /api/v1/ai/model-calls/metrics:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: query, name: from, required: true, schema: {type: string, format: date-time}}
+      - {in: query, name: to, required: true, schema: {type: string, format: date-time}}
+      - {in: query, name: model, required: false, schema: {type: string, pattern: '^[a-zA-Z0-9._:-]{1,128}$'}}
+      - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 100}}
+    get:
+      operationId: readModelSpendMetrics
+      description: >
+        Read-only aggregate for the authenticated tenant. The server derives tenant identity from the trusted
+        authentication boundary; query values cannot select a tenant. The window is half-open and bounded to 366 days.
+        Results contain provider/model counts, token totals and configured-price estimates, never run, session, incident
+        or subject identifiers. RESERVED and UNCERTAIN calls remain accounted at their reservation amount.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200': {$ref: '#/components/responses/modelSpendMetrics'}
+        default: {$ref: '#/components/responses/toolFailure'}
   /api/v1/ai/insights:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -1698,6 +1776,21 @@ paths:
             application/json:
               schema: {$ref: '../schemas/v2/workflow-runtime.schema.json'}
         default: {description: 401 unauthenticated; 403 denied; 503 runtime unavailable}
+  /api/v1/integrations/workflows/runtime/executions/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkflowRuntimeExecution
+      description: Read one owner-scoped persisted runtime execution by UUID. This is a read-only lookup and never reruns or retries the execution.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Runtime execution
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-runtime-execution.schema.json'}
+        default: {description: 401 unauthenticated; 403 denied; 404 hidden execution; 503 runtime unavailable}
   /api/v1/integrations/workflows/runtime/host-scans/{id}:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -3327,6 +3420,11 @@ components:
       content:
         application/json:
           schema: {$ref: ../schemas/v1/model-spend-result.schema.json}
+    modelSpendMetrics:
+      description: Tenant-scoped model call aggregates for a bounded time window
+      content:
+        application/json:
+          schema: {$ref: ../schemas/v1/model-spend-metrics-result.schema.json}
     toolFailure:
       description: >
         400 invalid request; 401 unauthenticated; 403 denied; 404 absent/hidden session or evidence;

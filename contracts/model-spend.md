@@ -1,6 +1,6 @@
 # 模型用量及费用准入 v1
 
-唯一 wire 定义为 `schemas/v1/model-spend-{policy,usage,reserve,report,record,result}.schema.json`；OpenAPI 列出三条固定接口。金额单位 USD micro，所有数量为非负安全整数，服务端整数计算、Web 用 BigInt 复核乘积与进位。示例费率只用于测试，不是当前市场报价。
+唯一 wire 定义为 `schemas/v1/model-spend-{policy,usage,reserve,report,record,result,metrics-result}.schema.json`；OpenAPI 列出四条固定接口。金额单位 USD micro，所有数量为非负安全整数，服务端整数计算、Web 用 BigInt 复核乘积与进位。示例费率只用于测试，不是当前市场报价。
 
 预留请求只含 runId/sessionId/inputDigest/inputBytes，不接收 tenant/subject/model/rates/budget。可信 Runtime 同时携带用户凭据（dev 或有界 OIDC 委托）与进程证明；不是模型 Tool。已有 run 永远不能重新得到许可。平台记录的 policy 是当次原始配置快照。
 
@@ -11,6 +11,8 @@
 一条报告用量不能改写；相同报告幂等返回原时间/原费率回执。OIDC 委托额外限制一次 report，客户端不会自动重试。读取支持诊断失败后的独立费用核对，但仍要求原主体及当前诊断/Incident/关联实体权限，不暴露其他主体的记录。HTTP 404 只表示当前身份查不到记录。
 
 预留是配置费率估算而非外部计费保证；价格、输入 Token 上界假设与未提供的核销/对账/留存见 [ADR-033](../docs/adr/033-model-spend-admission.md)。日志不保存输入正文或提供方响应。Schema 不触发网络下载。
+
+`GET /api/v1/ai/model-calls/metrics` 是租户范围只读聚合，身份和 tenant 只来自可信认证边界。`from`/`to` 为半开 UTC 时间窗，最多 366 天；可选 `model` 精确筛选，结果最多 100 个 provider/model 组。聚合不返回 run、session、incident 或 subject 标识；RESERVED/UNCERTAIN 记录按预留金额计入，指标仍是配置费率估算而非供应商账单。
 
 ## 显式兼容协议（2026-09-27）
 

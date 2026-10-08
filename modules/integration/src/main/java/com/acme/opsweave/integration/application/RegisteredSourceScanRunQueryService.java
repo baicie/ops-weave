@@ -38,7 +38,12 @@ public final class RegisteredSourceScanRunQueryService {
     }
 
     public Page recent(Principal principal, UUID sourceId, int revision, String after, int limit) {
-        authorize(principal, sourceId, revision);
+        return recent(principal, sourceId, revision, SourceConnectionConfiguration.physicalId(sourceId), after, limit);
+    }
+
+    /** Reads history against the physical source id resolved from the maintained instance. */
+    public Page recent(Principal principal, UUID sourceId, int revision, String sourceInstanceId, String after, int limit) {
+        authorize(principal, sourceId, revision, sourceInstanceId);
         if (limit < 1 || limit > MAX_LIMIT) throw new SourceScanRunException(SourceScanRunException.Code.INVALID_REQUEST);
         SyncRunCursor cursor;
         try {
@@ -52,7 +57,7 @@ public final class RegisteredSourceScanRunQueryService {
         var ids = new java.util.HashSet<UUID>();
         for (int index = 0; index < rows.size(); index++) {
             SyncRun run = rows.get(index);
-            requireScope(principal, sourceId, revision, run);
+            requireScope(principal, sourceId, revision, sourceInstanceId, run);
             if (!ids.add(run.id())) throw hidden();
             if (index > 0 && newerThan(run, rows.get(index - 1))) throw hidden();
         }
@@ -63,43 +68,49 @@ public final class RegisteredSourceScanRunQueryService {
             ? new SyncRunCursor(selected.getLast().startedAt(), selected.getLast().id()).encode()
             : null;
         List<Entry> items = selected.stream().map(Entry::new).toList();
-        int retained = runs.retained(principal.tenantId(), SourceConnectionConfiguration.physicalId(sourceId), "item");
+        int retained = runs.retained(principal.tenantId(), sourceInstanceId, "item");
         return new Page(items, hasMore, nextCursor,
             new Retention(retention.maxRunsPerScope(), retention.maxRunsPerTenant(), retained));
     }
 
     public Entry find(Principal principal, UUID sourceId, int revision, UUID runId) {
-        authorize(principal, sourceId, revision);
+        return find(principal, sourceId, revision, SourceConnectionConfiguration.physicalId(sourceId), runId);
+    }
+
+    /** Reads one history row against the physical source id resolved from the maintained instance. */
+    public Entry find(Principal principal, UUID sourceId, int revision, String sourceInstanceId, UUID runId) {
+        authorize(principal, sourceId, revision, sourceInstanceId);
         if (runId == null) throw new SourceScanRunException(SourceScanRunException.Code.INVALID_REQUEST);
         SyncRun run = runs.find(principal.tenantId(), runId)
             .orElseThrow(() -> new SourceScanRunException(SourceScanRunException.Code.NOT_FOUND));
-        requireScope(principal, sourceId, revision, runId, run);
+        requireScope(principal, sourceId, revision, sourceInstanceId, runId, run);
         return new Entry(run);
     }
 
-    private void authorize(Principal principal, UUID sourceId, int revision) {
+    private void authorize(Principal principal, UUID sourceId, int revision, String sourceInstanceId) {
         if (principal == null) throw new SourceScanRunException(SourceScanRunException.Code.FORBIDDEN);
-        if (sourceId == null || revision < 1 || revision > 100)
+        if (sourceId == null || revision < 1 || revision > 100 || sourceInstanceId == null
+            || !sourceInstanceId.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}"))
             throw new SourceScanRunException(SourceScanRunException.Code.INVALID_REQUEST);
-        String physicalId = SourceConnectionConfiguration.physicalId(sourceId);
-        if (authorization.authorize(principal, ResourceRef.source(principal.tenantId(), physicalId), Permission.SOURCE_SYNC).denied())
+        if (authorization.authorize(principal, ResourceRef.source(principal.tenantId(), sourceInstanceId), Permission.SOURCE_SYNC).denied())
             throw new SourceScanRunException(SourceScanRunException.Code.FORBIDDEN);
     }
 
-    private static void requireScope(Principal principal, UUID sourceId, int revision, SyncRun run) {
-        requireScope(principal, sourceId, revision, null, run);
+    private static void requireScope(Principal principal, UUID sourceId, int revision, String sourceInstanceId, SyncRun run) {
+        requireScope(principal, sourceId, revision, sourceInstanceId, null, run);
     }
 
-    private static void requireScope(Principal principal, UUID sourceId, int revision, UUID expectedRunId, SyncRun run) {
+    private static void requireScope(Principal principal, UUID sourceId, int revision, String sourceInstanceId, UUID expectedRunId, SyncRun run) {
         SyncRun.SourceScope scope = run.sourceScope();
         if (!run.tenantId().equals(principal.tenantId())
             || expectedRunId != null && !run.id().equals(expectedRunId)
-            || !run.sourceInstanceId().equals(SourceConnectionConfiguration.physicalId(sourceId))
+            || !run.sourceInstanceId().equals(sourceInstanceId)
             || !run.objectType().equals("item")
             || !run.dataMode().equals("zabbix-jsonrpc")
             || scope == null
             || !scope.sourceId().equals(sourceId)
-            || scope.configurationRevision() != revision) {
+            || scope.configurationRevision() != revision
+            || scope.sourceInstanceId() != null && !scope.sourceInstanceId().equals(run.sourceInstanceId())) {
             throw hidden();
         }
     }

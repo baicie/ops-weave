@@ -10,6 +10,7 @@ public final class ModelSpend {
     private ModelSpend() {}
     public static final int MAX_INPUT_BYTES = 73_728, MAX_INPUT_TOKENS = 81_920, MAX_OUTPUT_TOKENS = 2_048;
     public static final int MAX_RECORDS = 10_000;
+    public static final int MAX_METRIC_GROUPS = 100;
     public static final long MAX_MONEY = 1_000_000_000_000L;
     public record Policy(String provider, String model, String priceVersion, long inputMicrosPerMillion,
             long outputMicrosPerMillion, long maxCallMicros, long dailyMicros) {
@@ -57,6 +58,54 @@ public final class ModelSpend {
             if(usage != null) { if(!usage.equals(value)) throw new ToolFailure(ToolFailure.Code.INPUT_CHANGED); return this; }
             return new Call(tenantId,subjectId,runId,sessionId,incidentId,inputDigest,inputBytes,policy,reservedAt,deadlineAt,value,now);
         }
+    }
+
+    /** Server-side, tenant-scoped aggregate. It deliberately contains no run, subject or incident identifiers. */
+    public record Metric(String provider, String model, long calls, long reportedCalls, long reservedCalls,
+            long uncertainCalls, long inputTokens, long outputTokens, long cachedInputTokens,
+            long reservedMicros, long accountedMicros) {
+        public Metric {
+            new InsightSubmission.ModelRef(provider, model);
+            for (long value : new long[]{calls, reportedCalls, reservedCalls, uncertainCalls, inputTokens,
+                    outputTokens, cachedInputTokens, reservedMicros, accountedMicros}) if (value < 0) invalid();
+            if (reportedCalls + reservedCalls + uncertainCalls != calls) invalid();
+            if (cachedInputTokens > inputTokens) invalid();
+        }
+    }
+
+    public record MetricsQuery(Instant from, Instant to, String model, int limit) {
+        public MetricsQuery {
+            Objects.requireNonNull(from); Objects.requireNonNull(to);
+            if (!to.isAfter(from) || to.isAfter(from.plus(Duration.ofDays(366))) || limit < 1 || limit > MAX_METRIC_GROUPS
+                    || (model != null && !model.matches("[a-zA-Z0-9._:-]{1,128}"))) invalid();
+        }
+    }
+
+    /** Aggregates immutable calls without exposing tenant or object identifiers. */
+    public static List<Metric> aggregate(Collection<Call> calls, MetricsQuery query, Instant now) {
+        Objects.requireNonNull(calls); Objects.requireNonNull(query); Objects.requireNonNull(now);
+        var grouped = new TreeMap<String, long[]>();
+        for (var call : calls) {
+            if (!call.reservedAt().isBefore(query.to()) || call.reservedAt().isBefore(query.from())
+                    || (query.model() != null && !query.model().equals(call.policy().model()))) continue;
+            var key = call.policy().provider() + "\u0000" + call.policy().model();
+            var values = grouped.computeIfAbsent(key, ignored -> new long[9]);
+            values[0] = Math.addExact(values[0], 1);
+            var state = call.state(now);
+            if ("REPORTED".equals(state)) values[1]++; else if ("RESERVED".equals(state)) values[2]++; else values[3]++;
+            if (call.usage() != null) {
+                values[4] = Math.addExact(values[4], call.usage().inputTokens());
+                values[5] = Math.addExact(values[5], call.usage().outputTokens());
+                values[6] = Math.addExact(values[6], call.usage().cachedInputTokens());
+            }
+            values[7] = Math.addExact(values[7], call.reservedMicros());
+            values[8] = Math.addExact(values[8], call.chargedMicros());
+        }
+        if (grouped.size() > query.limit()) throw new ToolFailure(ToolFailure.Code.READ_LIMIT);
+        return grouped.entrySet().stream().map(entry -> {
+            var split = entry.getKey().split("\u0000", 2); var v = entry.getValue();
+            return new Metric(split[0], split[1], v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]);
+        }).toList();
     }
     public static void admit(Call call, long accountedMicros, long retainedRecords) {
         if(call.usage()!=null || accountedMicros < 0 || retainedRecords < 0) invalid();

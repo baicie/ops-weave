@@ -39,6 +39,11 @@ public final class ModelSpendSmoke {
         check(store.report(TENANT,USER,a.runId(),a.sessionId(),used,NOW.plusSeconds(3)).equals(reported));
         fails(ToolFailure.Code.INPUT_CHANGED,()->store.report(TENANT,USER,a.runId(),a.sessionId(),new ModelSpend.Usage(101,10,50,"provider-reported"),NOW.plusSeconds(2)));
         check(store.reserve(call(TENANT,POLICY,NOW))!=null);check(store.find(new TenantId("other"),a.runId()).isEmpty());
+        var metrics=store.metrics(TENANT,new ModelSpend.MetricsQuery(NOW.minusSeconds(60),NOW.plusSeconds(60),null,100),NOW);
+        check(metrics.size()==1);check(metrics.getFirst().calls()==2);check(metrics.getFirst().reportedCalls()==1);check(metrics.getFirst().reservedCalls()==1);
+        check(metrics.getFirst().inputTokens()==100);check(metrics.getFirst().accountedMicros()==184_620);
+        fails(ToolFailure.Code.INVALID_REQUEST,()->new ModelSpend.MetricsQuery(NOW,NOW.plus(Duration.ofDays(367)),null,100));
+        fails(ToolFailure.Code.INVALID_REQUEST,()->store.metrics(TENANT,new ModelSpend.MetricsQuery(NOW.minusSeconds(60),NOW.plusSeconds(60),null,0),NOW));
         var mock=call(new TenantId("mock"),ModelSpend.Policy.mock(),NOW);store.reserve(mock);
         check(store.report(mock.tenantId(),USER,mock.runId(),mock.sessionId(),new ModelSpend.Usage(0,0,0,"mock-no-call"),NOW).chargedMicros()==0);
         fails(ToolFailure.Code.INVALID_REQUEST,()->a.report(new ModelSpend.Usage(0,0,0,"mock-no-call"),NOW));

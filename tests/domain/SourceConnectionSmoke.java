@@ -49,6 +49,17 @@ public final class SourceConnectionSmoke {
   var interrupted=duringIo.run(principal,id,"TEST",new SourceInspectionService.Command(UUID.randomUUID(),beforeIo.configurationRevision(),beforeIo.connectionDigest()));check(interrupted.inspection().state().equals("UNKNOWN"));check(interrupted.inspection().check()==null);
   while(instances.read(principal,id).configurationRevision()<100){var i=instances.read(principal,id);String address=cat.endpoint.address().contains("192.0.2.10")?"https://192.0.2.11/api_jsonrpc.php":"https://192.0.2.10/api_jsonrpc.php";cat.endpoint=SourceEndpoint.registered(oldEndpoint.id(),oldEndpoint.name(),address);connections.write(principal,id,command(UUID.randomUUID(),i.editVersion(),"Fixture capacity",cat.endpoint,rotated.pin()),false);}
   var full=instances.read(principal,id);check(connections.history(principal,id).size()==100);cat.endpoint=SourceEndpoint.registered(oldEndpoint.id(),oldEndpoint.name(),"https://192.0.2.12/api_jsonrpc.php");fails(WorkflowFailure.Code.CAPACITY,()->connections.write(principal,id,command(UUID.randomUUID(),full.editVersion(),"Fixture over capacity",cat.endpoint,rotated.pin()),false));check(instances.read(principal,id).equals(full));
+  // A legacy-looking instance without a fixed snapshot must use the instance-scoped
+  // resolver for a digest change; the source-only resolver is intentionally unavailable.
+  var controlledId=UUID.randomUUID();var controlledDigest="sha256:"+"c".repeat(64);
+  var controlledSetup=new SourceSetupService(store,(p,target)->{throw new AssertionError();},(p,source)->new SourceSetupService.Connection(legacyDigest,"zabbix-jsonrpc"),time).confirm(principal,new SourceSetupService.Command(controlledId,"Controlled source","",new WorkflowDefinition.Source("ZABBIX_HOST","controlled-source"),legacyDigest,null)).setup();
+  var controlledConnections=new SourceSetupService.Connections(){
+    public SourceSetupService.Connection resolve(Principal p,WorkflowDefinition.Source source){throw new AssertionError("legacy source resolver used");}
+    public SourceSetupService.Connection resolve(Principal p,SourceInstance instance,WorkflowStore.Session session){return new SourceSetupService.Connection(controlledDigest,"zabbix-jsonrpc",true);}
+  };
+  var controlledInstances=new SourceInstanceService(store,controlledConnections,time);
+  var controlled=controlledInstances.edit(principal,controlledId,new SourceInstanceService.Edit(UUID.randomUUID(),1,"Controlled source","",controlledDigest,"ACTIVE"));
+  check(controlled.instance().configurationRevision()==2&&controlled.instance().connectionDigest().equals(controlledDigest));
   System.out.println("Source connection smoke: "+checks+" checks passed");
  }
 }

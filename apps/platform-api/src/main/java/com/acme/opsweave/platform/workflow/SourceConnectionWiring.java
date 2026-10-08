@@ -16,7 +16,14 @@ public final class SourceConnectionWiring {
         service=new SourceConnectionService(wiring.workflows(),new SourceEndpointService(endpoints),new SourceCredentialService(wiring.workflows(),vault,Clock.systemUTC()),Clock.systemUTC());var legacy=new ManagedSourceConnections(properties);
         connections=new SourceSetupService.Connections(){
             public SourceSetupService.Connection resolve(Principal p,WorkflowDefinition.Source source){return legacy.resolve(p,source);}
-            public SourceSetupService.Connection resolve(Principal p,SourceInstance instance,WorkflowStore.Session session){var fixed=service.resolve(p,instance,session);return fixed==null?legacy.resolve(p,instance.source()):fixed;}
+            public SourceSetupService.Connection resolve(Principal p,SourceInstance instance,WorkflowStore.Session session){
+                var fixed=service.resolve(p,instance,session);
+                if(fixed!=null)return fixed;
+                // A registered connection must remain pinned to endpoint, credential and scope.
+                // Only the explicitly labeled fixture setup may use the legacy compatibility path.
+                if(!instance.dataMode().equals("fixture"))throw new WorkflowFailure(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
+                return legacy.resolve(p,instance.source());
+            }
         };
     }
     public SourceConnectionService service(){return service;}public SourceSetupService.Connections connections(){return connections;}

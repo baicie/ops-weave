@@ -50,14 +50,15 @@ public final class RegisteredItemScanRunController {
     ) {
         query(request, PAGE_QUERY);
         Principal principal = principals.requirePrincipal();
+        String sourceInstanceId = connections.read(principal, id).instance().source().instanceId();
         SourceConnectionConfiguration fixed = configuration(principal, id, revision);
         String after = request.getParameter("after");
         int limit = request.getParameter("limit") == null
             ? RegisteredSourceScanRunQueryService.DEFAULT_LIMIT
             : Integer.parseInt(request.getParameter("limit"));
-        var page = runs.recent(principal, id, revision, after, limit);
+        var page = runs.recent(principal, id, revision, sourceInstanceId, after, limit);
 
-        Map<String, Object> body = envelope(principal, id, revision, fixed);
+        Map<String, Object> body = envelope(principal, id, revision, sourceInstanceId, fixed);
         body.put("limit", limit);
         body.put("after", after);
         body.put("hasMore", page.hasMore());
@@ -75,9 +76,10 @@ public final class RegisteredItemScanRunController {
     ) {
         query(request, Set.of());
         Principal principal = principals.requirePrincipal();
+        String sourceInstanceId = connections.read(principal, id).instance().source().instanceId();
         SourceConnectionConfiguration fixed = configuration(principal, id, revision);
-        Map<String, Object> body = envelope(principal, id, revision, fixed);
-        body.put("run", run(runs.find(principal, id, revision, syncRunId).run(), id, revision, fixed));
+        Map<String, Object> body = envelope(principal, id, revision, sourceInstanceId, fixed);
+        body.put("run", run(runs.find(principal, id, revision, sourceInstanceId, syncRunId).run(), id, revision, fixed));
         return body;
     }
 
@@ -91,6 +93,7 @@ public final class RegisteredItemScanRunController {
         Principal principal,
         UUID id,
         int revision,
+        String sourceInstanceId,
         SourceConnectionConfiguration fixed
     ) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -99,7 +102,7 @@ public final class RegisteredItemScanRunController {
         body.put("dataMode", "scan-log");
         body.put("tenantId", principal.tenantId().value());
         body.put("sourceId", id.toString());
-        body.put("sourceInstanceId", SourceConnectionConfiguration.physicalId(id));
+        body.put("sourceInstanceId", sourceInstanceId);
         body.put("configurationRevision", revision);
         body.put("connectionDigest", fixed.connectionDigest());
         body.put("hostGroupIds", fixed.hostGroupIds());

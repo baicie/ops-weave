@@ -36,6 +36,11 @@ public final class ModelSpendService {
     public ModelSpend.Call report(Principal p,UUID run,UUID session,ModelSpend.Usage usage) {
         get(p,run); return store.report(p.tenantId(),p.subjectId(),run,session,usage,clock.instant());
     }
+    public List<ModelSpend.Metric> metrics(Principal p, ModelSpend.MetricsQuery query) {
+        if (!p.has(Permission.AI_INSIGHT_READ) || !p.resourceScope().isTenantWide())
+            throw new ToolFailure(ToolFailure.Code.FORBIDDEN);
+        return store.metrics(p.tenantId(), query, clock.instant());
+    }
     public void requireReport(Principal p,InsightSubmission submission) {
         // Historical mock submissions remain compatible. New current Runtime always reserves and reports mock no-call usage.
         var found=store.find(p.tenantId(),submission.runId());

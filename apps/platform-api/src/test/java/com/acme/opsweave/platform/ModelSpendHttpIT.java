@@ -53,6 +53,8 @@ class ModelSpendHttpIT {
         var reported=ok(call("/api/v1/ai/model-calls/reports",report,null,true,true));assertEquals("REPORTED",reported.get("record").get("state").asString());assertEquals(0,reported.get("record").get("accountedMicros").asLong());
         assertEquals(reported,ok(call("/api/v1/ai/model-calls/reports",report,null,true,true)));
         assertEquals(reported,ok(call("/api/v1/ai/model-calls/"+input.get("runId"),null,null,false,true)));
+        var now=Instant.now();var metrics=ok(call("/api/v1/ai/model-calls/metrics?from="+now.minusSeconds(60)+"&to="+now.plusSeconds(60),null,null,false,true));
+        assertEquals("1.0",metrics.get("schemaVersion").asString());assertTrue(metrics.get("items").isArray());assertTrue(metrics.get("items").size()>=1);
         var artifacts=Path.of("../../.tmp/model-spend-http");Files.createDirectories(artifacts);Files.writeString(artifacts.resolve("model-spend-reserved.json"),reserved.toString());Files.writeString(artifacts.resolve("model-spend-result.json"),reported.toString());
     }
     @Test void rejectsMissingAttestationIdentityOverridesAndOverflowBeforeStore()throws Exception {
@@ -64,5 +66,16 @@ class ModelSpendHttpIT {
         assertEquals(400,call("/api/v1/ai/model-calls/reports",Map.of("runId",input.get("runId"),"sessionId",input.get("sessionId"),"usage",usage),null,true,true).statusCode());
         assertEquals(400,call(path,"{\"runId\":\"a\",\"runId\":\"b\"}",null,true,true).statusCode());
         assertEquals(404,call("/api/v1/ai/model-calls/"+UUID.randomUUID(),null,null,false,true).statusCode());
+    }
+    @Test void readsTenantScopedModelMetricsWithBoundedQuery()throws Exception {
+        var s=session();String sid=s.get("id").asString();
+        var evidence=ok(call("/api/v1/tools/incident.get/2.0.0",Map.of("incidentId",s.get("incidentId").asString()),sid,false,true));
+        ok(call("/api/v1/tools/evidence.get/2.0.0",Map.of("evidenceId",evidence.get("data").get("evidence").get("id").asString()),sid,false,true));
+        var input=reserve(sid);ok(call("/api/v1/ai/model-calls/reservations",input,null,true,true));
+        var path="/api/v1/ai/model-calls/metrics?from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z&limit=100";
+        var result=ok(call(path,null,null,false,true));assertEquals("1.0",result.get("schemaVersion").asString());assertTrue(result.get("items").isArray());
+        assertEquals(400,call(path+"&tenantId=forged",null,null,false,true).statusCode());
+        assertEquals(400,call(path+"&limit=100",null,null,false,true).statusCode());
+        assertEquals(400,call("/api/v1/ai/model-calls/metrics?from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z&limit=101",null,null,false,true).statusCode());
     }
 }

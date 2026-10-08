@@ -42,7 +42,7 @@ class PostgresItemSyncIT extends OwnedInventoryTest {
         var tenant = new TenantId(tenantValue);
         var wiring = openInventory(properties(tenantValue));
         var sourceId = UUID.randomUUID();
-        var scope = new SyncRun.SourceScope(sourceId, 4, digest('c'), digest('d'));
+        var scope = new SyncRun.SourceScope(sourceId, 4, digest('c'), digest('d'), "zabbix-registered");
 
         var run = wiring.syncRuns().start(tenant, "zabbix-registered", "item", "zabbix-jsonrpc", scope);
         wiring.syncRuns().succeed(tenant, run.id(), "itemid-watermark-snapshot", 5);

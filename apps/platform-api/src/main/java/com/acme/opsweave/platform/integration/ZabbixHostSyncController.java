@@ -24,19 +24,25 @@ public class ZabbixHostSyncController {
     private final IngestZabbixHostsUseCase ingest;
     private final InventoryWiring wiring;
     private final String source;
+    private final OpsweaveProperties properties;
 
     public ZabbixHostSyncController(PrincipalContext principalContext, IngestZabbixHostsUseCase ingest, InventoryWiring wiring, OpsweaveProperties properties) {
         this.principalContext = principalContext;
         this.ingest = ingest;
         this.wiring = wiring;
+        this.properties = properties;
         this.source = properties.zabbix().sourceInstanceId();
     }
 
     @PostMapping("/sync")
     public ResponseEntity<?> sync(HttpServletRequest request) throws IOException {
+        var principal = principalContext.requirePrincipal();
+        if (!LegacyZabbixCompatibility.fixtureOnly(properties)) {
+            return LegacyZabbixCompatibility.unavailable();
+        }
         var input = PipelineJson.read(request, true);
         if (input != null) PipelineJson.fields(input, Set.of("pipelineVersion"));
-        SyncOutcome outcome = ingest.execute(principalContext.requirePrincipal(), null,
+        SyncOutcome outcome = ingest.execute(principal, null,
             input == null ? null : PipelineJson.ref(input.get("pipelineVersion")));
         return switch (outcome.kind()) {
             case DENIED -> ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
