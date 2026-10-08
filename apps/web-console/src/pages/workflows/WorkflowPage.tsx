@@ -26,6 +26,7 @@ import { WorkflowEditorToolbar } from '../../components/workflows/WorkflowEditor
 import { issueLabels } from '../../api/workflow-runs.ts'
 import { WorkflowCanvas } from '../../adapters/graph/WorkflowCanvas.tsx'
 import { workflowSelection } from '../../state/workflow-selection.ts'
+import { PageBody, PageHeader } from '../../components/PageLayout.tsx'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -338,7 +339,8 @@ export function WorkflowPage() {
   function compare(entry:Entry) { if (busy || dirty) return; setComparisonRequest({nonce:++comparisonSequence.current,entry}) }
   function createWorkflow(kind: 'ENTITY' | 'ZABBIX_HOST' | 'LOG' | 'METRIC') { if (kind === 'ENTITY') chooseTemplate('MANUAL_SAMPLE'); else if (kind === 'ZABBIX_HOST') chooseTemplate(kind); else chooseOutput(kind, true) }
   return <section className="workflow-page workflow-studio" data-page="workflows">
-    <header className="studio-heading"><div><h2>数据工作流</h2></div><div className="studio-heading-actions" hidden={!!definition}><a href="#/integrations/workflows/runs">运行记录</a><Button variant="outline" aria-label="读取工作流" disabled={busy || !ready || dirty} onClick={() => void action('load')}>{workspace ? '刷新列表' : '打开工作流库'}</Button></div></header>
+    <PageHeader title="数据工作流" description="设计、预览并发布数据处理流程。" actions={!definition ? <div className="studio-heading-actions"><a href="#/integrations/workflows/runs">运行记录</a><Button variant="outline" aria-label="读取工作流" disabled={busy || !ready || dirty} onClick={() => void action('load')}>{workspace ? '刷新列表' : '打开工作流库'}</Button></div> : null} />
+    <PageBody className="workflow-page-body">
     {!ready ? <p className="source-access-hint" role="status">{localPreviewMode ? '本地会话连接中；连接失败时使用页面顶部的重新连接。' : oidcMode ? '请先登录平台。' : '请先在页面顶部建立开发会话。'}</p> : null}
     {error ? <p className="studio-alert" role="alert">{error}</p> : <p role="alert" hidden />}
     <p className="studio-notice" role="status" hidden={!busy && !notice}>{busy ? '正在处理…' : notice}</p>
@@ -385,6 +387,7 @@ export function WorkflowPage() {
       <WorkflowComparisonPanel active={pageActive} requested={comparisonRequest} entries={[...workspace.drafts.items,...workspace.published.items]} truncated={workspace.drafts.truncated||workspace.published.truncated}/>
 
     </> : null}
+    </PageBody>
   </section>
 }
 function NodeOption(props: { node: WorkflowNode; label: string }) {

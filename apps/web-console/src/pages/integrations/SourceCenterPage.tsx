@@ -16,6 +16,7 @@ import { SourceMetricCatalog } from './SourceMetricCatalog.tsx'
 import { SourceInstancePanel } from './SourceInstancePanel.tsx'
 import { SourceCredentialPanel } from './SourceCredentialPanel.tsx'
 import type { InstancePage } from '../../api/source-instances.ts'
+import { PageBody, PageHeader } from '../../components/PageLayout.tsx'
 export function SourceCenterPage() {
   const pageActive = usePageActive()
   const pageActiveRef = useRef(pageActive)
@@ -132,10 +133,11 @@ export function SourceCenterPage() {
   const matchedTypes = sourceCatalog.filter(t => (typeFilter === 'ALL' || typeFilter === t.id) && (titles[t.id] + ' ' + t.category + ' ' + t.description + ' ' + t.capabilities.join(' ')).toLowerCase().includes(query.trim().toLowerCase()))
   const matchedTasks = (page?.setups.items ?? []).filter(s => (typeFilter === 'ALL' || s.source.kind === typeFilter) && (s.name + ' ' + titles[s.source.kind] + ' ' + s.source.instanceId).toLowerCase().includes(query.trim().toLowerCase()))
   return <section className="source-center integration-center" data-page="source-center">
-    <header className="source-heading"><div><h2>数据源中心</h2><p>选择来源，查看配置版本并继续编排处理流程</p></div><div className="source-heading-actions">{tab === 'catalog' || tab === 'tasks' ? <Button variant="outline" aria-label="读取数据源" disabled={busy || !ready} onClick={load}>{busy ? '正在读取…' : error && !page ? '重试读取' : '刷新列表'}</Button> : null}{tab !== 'catalog' ? <Button onClick={catalog}>选择接入类型</Button> : null}</div></header>
-    {!ready ? <p className="source-access-hint" role="status">{localPreviewMode ? '本地会话尚未就绪，请使用页面上方的重新连接按钮。' : oidcMode ? '尚未登录平台。请先在页面顶部登录，再创建接入配置。' : '尚未建立开发会话。请在页面顶部填写平台开发 Token。'}</p> : null}
-    <IntegrationViewTabs label="数据源视图" value={tab} items={[{ id: 'instances', label: '已配置接入' + (instancePage ? '（' + instancePage.items.length + (instancePage.truncated ? '+' : '') + '）' : '') }, { id: 'catalog', label: '接入类型' }, { id: 'credentials', label: '凭据管理' }, { id: 'tasks', label: '接入回执' }]} change={value => { setTypeFilter('ALL'); setQuery(''); setTab(value as typeof tab) }}/>
-    <div className="integration-surface">
+    <PageHeader title="数据源中心" description="管理数据源接入、配置版本与处理回执。" actions={<div className="source-heading-actions">{tab === 'catalog' || tab === 'tasks' ? <Button variant="outline" aria-label="读取数据源" disabled={busy || !ready} onClick={load}>{busy ? '正在读取…' : error && !page ? '重试读取' : '刷新列表'}</Button> : null}{tab !== 'catalog' ? <Button onClick={catalog}>选择接入类型</Button> : null}</div>} />
+    <PageBody className="integration-page-body">
+      {!ready ? <p className="source-access-hint" role="status">{localPreviewMode ? '本地会话尚未就绪，请使用页面上方的重新连接按钮。' : oidcMode ? '尚未登录平台。请先在页面顶部登录，再创建接入配置。' : '尚未建立开发会话。请在页面顶部填写平台开发 Token。'}</p> : null}
+      <IntegrationViewTabs label="数据源视图" value={tab} items={[{ id: 'instances', label: '已配置接入' + (instancePage ? '（' + instancePage.items.length + (instancePage.truncated ? '+' : '') + '）' : '') }, { id: 'catalog', label: '接入类型' }, { id: 'credentials', label: '凭据管理' }, { id: 'tasks', label: '接入回执' }]} change={value => { setTypeFilter('ALL'); setQuery(''); setTab(value as typeof tab) }}/>
+      <div className="integration-surface">
       <div hidden={tab === 'instances' || tab === 'credentials'} inert={tab === 'instances' || tab === 'credentials'}>
       <IntegrationSearchField label={tab === 'catalog' ? '搜索接入类型' : '搜索接入任务'} placeholder={tab === 'catalog' ? '搜索接入类型，例如 Zabbix' : '搜索接入名称或来源实例'} value={query} onChange={setQuery} clearLabel="清除接入搜索"/>
       <div className="integration-category-filters" aria-label="接入分类"><button data-slot="button" aria-pressed={typeFilter === 'ALL'} onClick={() => setTypeFilter('ALL')}>全部</button>{sourceCatalog.map(t => <button data-slot="button" key={t.id} aria-pressed={typeFilter === t.id} onClick={() => setTypeFilter(t.id)}>{t.category}</button>)}</div>
@@ -154,7 +156,8 @@ export function SourceCenterPage() {
       <SourceInstancePanel requested={instanceRequest} active={pageActive && tab === 'instances'} sources={page} guard={setInstanceGuard} report={setInstancePage} refresh={instanceRefresh} kind={typeFilter} kindChange={setTypeFilter}/>
       <SourceCredentialPanel active={pageActive && tab === 'credentials'} guard={setCredentialGuard}/>
     </div>
-    <p role="alert">{error}</p><p role="status">{busy ? '正在处理…' : notice}</p>
+      <p role="alert">{error}</p><p role="status">{busy ? '正在处理…' : notice}</p>
+    </PageBody>
     <SourceSetupDrawer ref={dialogRef} active={pageActive} kind={kind} connection={option?.connection} models={page?.models ?? []} view={view} probe={probe} pending={pending} busy={busy} disabled={disabled} name={name} description={description} changeName={setName} changeDescription={setDescription} error={error} notice={notice} close={close} closed={() => focusRef.current?.focus()} test={test} confirm={confirm} go={go} metricsContent={enabled => <SourceMetricCatalog enabled={enabled} />} />
   </section>
 }

@@ -8,6 +8,11 @@
 .console-page-actions [data-slot=button] { height:34px;border-radius:4px;font-size:12px; }
 .console-page-actions a { font-size:12px;white-space:nowrap;color:var(--ow-accent); }
 .console-page-body { min-width:0;padding:0;border:0;background:var(--ow-surface); }
+.integration-page-body,.workflow-page-body { min-width:0; }
+.integration-page-body > .integration-tabs { margin-top:0; }
+.integration-page-body > .integration-surface { margin-top:0; }
+.workflow-page-body { display:grid;gap:16px;align-content:start; }
+.workflow-page-body > .studio-editor { margin-top:0; }
 .console-page-body>p:first-child { margin-top:0; }
 .console-page-body>p { font-size:12px;line-height:1.75;color:var(--ow-muted);overflow-wrap:anywhere; }
 .console-page-body>h3 { font-size:14px;font-weight:600;margin:24px 0 14px; }
