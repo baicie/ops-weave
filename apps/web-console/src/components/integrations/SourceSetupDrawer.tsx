@@ -10,7 +10,7 @@ import { sourceTitles } from './source-catalog.ts'
 import { SourceFieldReference } from './SourceFieldReference.tsx'
 import { SourceSetupGuide } from './SourceSetupGuide.tsx'
 
-const tabs = [{ id: 'config', label: '接入配置', icon: Settings2 }, { id: 'fields', label: '数据字段', icon: TableProperties }, { id: 'metrics', label: '监控指标', icon: Activity }, { id: 'guide', label: '接入教程', icon: BookOpen }] as const
+const tabs = [{ id: 'config', label: '接入配置', icon: Settings2 }, { id: 'fields', label: '数据字段', icon: TableProperties }, { id: 'metrics', label: '指标定义参考', icon: Activity }, { id: 'guide', label: '接入教程', icon: BookOpen }] as const
 type Tab = typeof tabs[number]['id']
 type Props = {
   ref: Ref<HTMLDialogElement>; active: boolean; kind: SourceType; connection?: Connection | null; models: Model[];

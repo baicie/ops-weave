@@ -56,7 +56,17 @@ export function usePlatformSession(clear: (change: SessionChange) => void) {
 
 export function useSessionLifecycle() {
   useEffect(() => {
-    const leave = () => platformCredentials.clear('pagehide')
+    let pendingPagehide: number | undefined
+    const leave = (event?: PageTransitionEvent) => {
+      // A persisted pagehide is a browser-history cache transition; the current
+      // tab session must remain available when the cached page is restored.
+      if (event?.persisted) return
+      if (pendingPagehide !== undefined) window.clearTimeout(pendingPagehide)
+      pendingPagehide = window.setTimeout(() => {
+        pendingPagehide = undefined
+        platformCredentials.clear('pagehide')
+      }, 0)
+    }
     const resume = () => platformCredentials.expire()
     const timer = window.setInterval(resume, 1000)
     const channel = oidcMode && typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('opsweave-session') : null
@@ -64,6 +74,10 @@ export function useSessionLifecycle() {
     const unsubscribe = platformCredentials.subscribe(change => { if (change.reason === 'logout') channel?.postMessage('logout') })
     let restore: AbortController | undefined
     const show = (event: PageTransitionEvent) => {
+      if (event.persisted && pendingPagehide !== undefined) {
+        window.clearTimeout(pendingPagehide)
+        pendingPagehide = undefined
+      }
       if (event.persisted && (oidcMode || localPreviewMode)) {
         restore?.abort()
         const active = new AbortController()
@@ -81,11 +95,12 @@ export function useSessionLifecycle() {
       unsubscribe()
       restore?.abort()
       channel?.close()
+      if (pendingPagehide !== undefined) window.clearTimeout(pendingPagehide)
       window.clearInterval(timer)
       window.removeEventListener('pageshow', show)
       window.removeEventListener('pagehide', leave)
       document.removeEventListener('visibilitychange', resume)
-      leave()
+      platformCredentials.clear('pagehide')
     }
   }, [])
 }

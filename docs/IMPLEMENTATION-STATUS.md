@@ -1,6 +1,6 @@
 # 实现状态 · v4
 
-2026-10-08 第160节：完成列表首次读取与隐藏页签门禁的收口。资产列表在可信会话建立后自动读取一次，凭据变化清理旧数据但不隐式重读；关系实例页在活动页签才读取目录、资产和关系，离开页签会取消迟到响应。新增实体实例 PostgreSQL 幂等/CAS 以及关系实例幂等、端点版本 CAS、`asOf`/游标/租户边界集成用例。实际通过：契约1958项、结构检查575个文件/6个只读Tool、Java领域smoke、Rust all-features 49项、Web typecheck/build、资产与初始读取Playwright 11项、关系实例Playwright 6项、布局/主题/多页签Playwright 14项及`git diff --check`。本机PostgreSQL定向用例实际执行但 Entity/Relation 各2项均因 `OPSWEAVE_TEST_JDBC_URL` 缺失而跳过，不能计为数据库通过；完整目标保持active。
+2026-10-08 第161节：收口数据接入目录与回执入口。默认页签仍为“已配置接入”，授权后自动读取；“接入类型”提供紧凑卡片网格，能力标签进入搜索索引，卡片数量和截断标记统一取接入回执列表；“查看任务”进入接入回执而不是实例维护。配置抽屉指标页签改为“指标定义参考”，完整指标键可搜索并跳转定义，正文区分平台定义目录和当前来源发现。补充浏览器缓存过渡下的会话保留逻辑。实际通过：Web typecheck、生产 build、修正文案断言后的 `integration-lists.spec.ts` 8/8；`source-center.spec.ts` 首轮19/21（浏览器历史会话用例仍暴露既有导航生命周期问题，未宣称通过）；缺失 Playwright 内置浏览器时的失败仅为环境问题，已使用系统 Chrome 复跑。契约、Java领域、Rust和完整Web回归沿用第160节结果，完整目标保持active。
 
 2026-10-07 第159节：完成数据接入后续阶段和运行能力的最终定向复验。显式 JDK21 编译通过；隔离本机 PostgreSQL 实际通过18项（Item Sync 3、Source Connection 4、Source Inspection 6、Model Spend 4、Registered Sync Run Store 1），V061/V062 迁移加载；HTTP 集成实际通过20项（连接检查2、发现4、实例3、扫描2、快照4、运行时3、问题2），失败/错误/跳过均为0。契约1958项、结构化仓库572文件/6个只读 Tool、Java纯领域、Rust默认41/all-features49与all-targets、Web typecheck/build及差异检查均实际通过。测试使用隔离本机 tenant、loopback 和明确 Fixture/合成来源，不提高真实厂商、生产身份/TLS、多实例并发、租约/fencing/HA、容量或部署退出条件；完整目标保持 active。
 

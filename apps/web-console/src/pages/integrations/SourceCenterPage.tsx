@@ -125,14 +125,14 @@ export function SourceCenterPage() {
   }
 
   function tasks(type: SourceType | 'ALL' = 'ALL') {
-    setTab('instances'); setTypeFilter(type); setQuery('')
+    setTab('tasks'); setTypeFilter(type); setQuery('')
   }
   useInitialPageRead({ ready, loaded: !!page, pending: busy, blocked: tab !== 'catalog' && tab !== 'tasks', read: load })
   function catalog() { setTab('catalog'); setTypeFilter('ALL'); setQuery('') }
-  const matchedTypes = sourceCatalog.filter(t => (typeFilter === 'ALL' || typeFilter === t.id) && (titles[t.id] + ' ' + t.category + ' ' + t.description).toLowerCase().includes(query.trim().toLowerCase()))
+  const matchedTypes = sourceCatalog.filter(t => (typeFilter === 'ALL' || typeFilter === t.id) && (titles[t.id] + ' ' + t.category + ' ' + t.description + ' ' + t.capabilities.join(' ')).toLowerCase().includes(query.trim().toLowerCase()))
   const matchedTasks = (page?.setups.items ?? []).filter(s => (typeFilter === 'ALL' || s.source.kind === typeFilter) && (s.name + ' ' + titles[s.source.kind] + ' ' + s.source.instanceId).toLowerCase().includes(query.trim().toLowerCase()))
   return <section className="source-center integration-center" data-page="source-center">
-    <header className="source-heading"><div><h2>数据源中心</h2><p>管理接入配置与处理流程</p></div><div className="source-heading-actions">{tab === 'catalog' || tab === 'tasks' ? <Button variant="outline" aria-label="读取数据源" disabled={busy || !ready} onClick={load}>{busy ? '正在读取…' : error && !page ? '重试读取' : '刷新列表'}</Button> : null}<Button onClick={catalog}>创建接入</Button></div></header>
+    <header className="source-heading"><div><h2>数据源中心</h2><p>选择来源，查看配置版本并继续编排处理流程</p></div><div className="source-heading-actions">{tab === 'catalog' || tab === 'tasks' ? <Button variant="outline" aria-label="读取数据源" disabled={busy || !ready} onClick={load}>{busy ? '正在读取…' : error && !page ? '重试读取' : '刷新列表'}</Button> : null}{tab !== 'catalog' ? <Button onClick={catalog}>选择接入类型</Button> : null}</div></header>
     {!ready ? <p className="source-access-hint" role="status">{localPreviewMode ? '本地会话尚未就绪，请使用页面上方的重新连接按钮。' : oidcMode ? '尚未登录平台。请先在页面顶部登录，再创建接入配置。' : '尚未建立开发会话。请在页面顶部填写平台开发 Token。'}</p> : null}
     <IntegrationViewTabs label="数据源视图" value={tab} items={[{ id: 'instances', label: '已配置接入' + (instancePage ? '（' + instancePage.items.length + (instancePage.truncated ? '+' : '') + '）' : '') }, { id: 'catalog', label: '接入类型' }, { id: 'credentials', label: '凭据管理' }, { id: 'tasks', label: '接入回执' }]} change={value => { setTypeFilter('ALL'); setQuery(''); setTab(value as typeof tab) }}/>
     <div className="integration-surface">
@@ -142,8 +142,8 @@ export function SourceCenterPage() {
       {tab === 'catalog' ? <SourceCatalog items={matchedTypes.map(t => {
         const connection = page?.types.find(option => option.id === t.id)
         return { ...t,
-          savedCount: instancePage?.items.filter(s => s.source.kind === t.id).length,
-          truncated: instancePage?.truncated ?? false,
+          savedCount: page?.setups.items.filter(s => s.source.kind === t.id).length,
+          truncated: page?.setups.truncated ?? false,
           createDisabled: busy || !!page && connection?.status !== 'AVAILABLE',
           note: t.id === 'ZABBIX_HOST' ? connection?.connection?.dataMode === 'fixture' ? 'Fixture · 合成来源' : connection?.status === 'AVAILABLE' ? '已有连接 · 可显式测试' : page ? '当前身份无可用连接' : '选择后读取连接' : t.id === 'MANUAL_SAMPLE' ? '手工 JSON · 1–5 条记录' : '已有快照导入入口',
         }

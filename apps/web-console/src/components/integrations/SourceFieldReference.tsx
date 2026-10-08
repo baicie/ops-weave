@@ -41,7 +41,7 @@ export function SourceFieldReference(props: { host: boolean; models: Model[] }) 
     <p className="source-reference-note">{query ? '筛选结果 ' : '当前格式 '}{shown.length} 个字段{props.host ? ' · Host 批次最多读取5条。' : ' · JSON 样本为1–5条对象，每条最多32个标量字段。'}</p>
     {!props.host && format !== 'ENTITY' ? <details className="source-sample-reference"><summary>{format === 'METRIC' ? '查看指标样本' : '查看日志样本'}（Fixture）</summary><p>合成示例仅供参考，不会自动填入或发送。手工样本在工作流测试区填写。</p><pre>{JSON.stringify(examples[format], null, 2)}</pre></details> : null}
     {!props.host && format === 'METRIC' ? <p className="source-reference-note">上表为一条指标记录的5个格式字段，不是监控指标数量。<a href="#/modeling/metrics">查看完整指标标识与定义 ↗</a></p> : null}
-    {props.host ? <p className="source-capability-note">此接入的处理流程仅支持主机实体。监控指标的语义、单位与来源映射可在“监控指标”中查阅，实际采样请到指标页面核对。</p> : <p className="source-capability-note">日志和指标支持有界转换预览与版本测试；连续采集及日志、指标存储写入尚未接入此流程。</p>}
+    {props.host ? <p className="source-capability-note">此接入的处理流程仅支持主机实体。指标定义语义、单位与来源映射可在“指标定义参考”中查阅，实际采样请到指标页面核对。</p> : <p className="source-capability-note">日志和指标支持有界转换预览与版本测试；连续采集及日志、指标存储写入尚未接入此流程。</p>}
   </section>
 }
 function modelDescription(field: ModelField) {
