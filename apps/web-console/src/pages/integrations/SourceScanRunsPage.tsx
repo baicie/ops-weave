@@ -5,6 +5,7 @@ import { PageHeader, PageBody, QueryToolbar, SummaryGrid, SummaryCard } from '..
 import { Input } from '@/components/ui/input'
 import { sourceScanRuns, sourceScanRun, ScanRunError, type ScanObjectType, type ScanRun, type ScanRunPage, type ScanRunRead } from '../../api/source-scan-runs.ts'
 import { SourceConnectionCheckPanel } from './SourceConnectionCheckPanel.tsx'
+import { RunStatusBadge } from '../../components/runs/RunStatusBadge.tsx'
 
 const statusLabel: Record<ScanRun['status'], string> = { RUNNING: '进行中', SUCCEEDED: '成功', FAILED: '失败' }
 const objectLabel: Record<ScanObjectType, string> = { host: 'Host', item: 'Item' }
@@ -66,7 +67,8 @@ export function SourceScanRunsPage() {
         <div className="source-scan-context"><div><strong>{objectLabel[page.objectType]} 采集批次</strong><span>{page.sourceInstanceId} · {page.storage} · {page.dataMode}</span></div><span>本页 {page.items.length} 条</span></div>
         <SummaryGrid label="采集运行统计"><SummaryCard label="本页记录" value={counts.total} hint="当前分页" /><SummaryCard label="成功" value={counts.SUCCEEDED} hint="完整快照" tone="success" /><SummaryCard label="失败" value={counts.FAILED} hint="保留失败原因" tone="danger" /><SummaryCard label="进行中" value={counts.RUNNING} hint="受保护记录" /></SummaryGrid>
         <section className="source-scan-list" data-scan-run-list>
-          <div className="source-scan-list-head"><div><h3>最近采集批次</h3><p>按开始时间倒序排列；选择一条记录查看完整边界、分页和映射版本。</p></div><Button variant="outline" disabled={disabled || !page.nextCursor} onClick={() => load(page.nextCursor ?? null)}>下一页扫描运行</Button></div>
+          <div className="source-scan-list-head"><div><h3>最近采集批次</h3><span>{page.items.length} 条记录</span></div><Button variant="outline" aria-label="下一页扫描运行" disabled={disabled || !page.nextCursor} onClick={() => load(page.nextCursor ?? null)}>下一页</Button></div>
+          <div className="source-scan-table-head" role="row" aria-hidden="true"><span>批次 / 状态</span><span>开始时间</span><span>处理量</span><span>快照边界</span><span>映射版本</span><span>操作</span></div>
           <div className="source-scan-legacy-text" aria-hidden="true">{`${page.tenantId} · ${page.sourceInstanceId} · ${page.objectType} · ${page.storage} · 本页 ${page.items.length} 条`}</div>
           {page.items.length === 0 ? <p data-scan-run-empty>本页没有存储的扫描运行；这不代表该来源从未被扫描过。</p> : null}
           {page.items.map(item => <ScanRunRow key={item.syncRunId} run={item} open={inspect} />)}
@@ -86,16 +88,18 @@ export function SourceScanRunsPage() {
 
 function ScanRunRow(props: { run: ScanRun; open: (run: ScanRun) => void }) {
   const run = props.run
-  return <article data-scan-run-id={run.syncRunId} className="source-scan-row">
-    <div className="source-scan-row-main"><div><div className="source-scan-row-title"><span className="run-badge" data-outcome={run.status}>{statusLabel[run.status]}</span><strong>{objectLabel[run.objectType]} 采集</strong></div><code>{run.syncRunId}</code></div><div className="source-scan-row-time"><time dateTime={run.startedAt}>{formatTime(run.startedAt)}</time><span>{elapsed(run)}</span></div></div>
-    <div className="source-scan-row-stats"><span>页数 <b>{run.pages}</b></span><span>抓取 <b>{run.fetched}</b></span><span>采纳 <b>{run.accepted}</b></span><span>拒绝 <b>{run.rejected}</b></span><span>快照 <b>{run.snapshotComplete ? '完整' : '未完成'}</b></span></div>
-    <div className="source-scan-row-foot"><span>{consistencyLabel(run.scanConsistency)} · {run.dataMode}</span><Button variant="ghost" onClick={() => props.open(run)}>查看详情</Button></div>
+  return <article data-scan-run-id={run.syncRunId} className="source-scan-row" role="row">
+    <div className="source-scan-row-main"><div className="source-scan-row-title"><RunStatusBadge status={run.status} label={statusLabel[run.status]} /><strong>{objectLabel[run.objectType]} 采集</strong><code>{run.syncRunId}</code></div></div>
+    <div className="source-scan-row-time"><time dateTime={run.startedAt}>{formatTime(run.startedAt)}</time><span>{elapsed(run)}</span></div>
+    <div className="source-scan-row-stats"><span>抓取 <b>{run.fetched}</b></span><span>采纳 <b>{run.accepted}</b></span><span>拒绝 <b>{run.rejected}</b></span><small>{run.pages} 页</small></div>
+    <div className="source-scan-row-boundary"><strong>{run.snapshotComplete ? '完整快照' : '快照未完成'}</strong><span>{consistencyLabel(run.scanConsistency)} · {run.dataMode}</span></div>
+    <div className="source-scan-row-pipeline">{run.pipelineVersion ? <><strong>{run.pipelineVersion.id}</strong><span>修订 {run.pipelineVersion.revision}</span></> : <span>未固定映射</span>}</div>
+    <div className="source-scan-row-action"><Button variant="ghost" onClick={() => props.open(run)}>查看详情</Button></div>
     {run.failureCode ? <div className="source-scan-row-failure" data-scan-run-failure><strong>{run.failureCode}：</strong><span>{run.failureSummary}</span></div> : null}
-    {run.pipelineVersion ? <div className="source-scan-row-pipeline">映射版本 {run.pipelineVersion.id} · 修订 {run.pipelineVersion.revision}</div> : null}
     <div className="source-scan-legacy-text" aria-hidden="true">{`${run.objectType} · ${run.status} · ${run.startedAt} → ${run.completedAt ?? '未完成'}`}<br />{`游标 ${run.cursor ?? '无'} · 页数 ${run.pages} · 抓取 ${run.fetched} · 采纳 ${run.accepted} · 拒绝 ${run.rejected} · 完整快照 ${run.snapshotComplete ? '是' : '否'} · ${run.dataMode}`}<br />{`边界 ${consistencyLabel(run.scanConsistency)}`}{run.failureCode ? <><br /><span data-scan-run-failure>{`${run.failureCode}：${run.failureSummary}`}</span></> : null}{run.pipelineVersion ? <><br />{`映射版本 ${run.pipelineVersion.id} 修订 ${run.pipelineVersion.revision} · ${run.pipelineVersion.digest}`}</> : null}</div>
   </article>
 }
 
 function ScanRunDetails({ run }: { run: ScanRun }) {
-  return <div className="source-scan-detail-content"><div className="source-scan-detail-status"><span className="run-badge" data-outcome={run.status}>{statusLabel[run.status]}</span><span>{formatTime(run.startedAt)} → {formatTime(run.completedAt)}</span></div><dl className="source-scan-meta"><div><dt>对象类型</dt><dd>{objectLabel[run.objectType]}</dd></div><div><dt>执行耗时</dt><dd>{elapsed(run)}</dd></div><div><dt>数据模式</dt><dd>{run.dataMode}</dd></div><div><dt>扫描边界</dt><dd>{consistencyLabel(run.scanConsistency)}</dd></div><div><dt>游标</dt><dd><code>{run.cursor ?? '无'}</code></dd></div><div><dt>快照状态</dt><dd>{run.snapshotComplete ? '完整快照' : '尚未完成'}</dd></div></dl><div className="source-scan-counts"><span><b>{run.pages}</b>页</span><span><b>{run.fetched}</b>抓取</span><span><b>{run.accepted}</b>采纳</span><span><b>{run.rejected}</b>拒绝</span></div>{run.failureCode ? <div className="source-scan-failure"><strong>{run.failureCode}</strong><p>{run.failureSummary}</p></div> : null}{run.pipelineVersion ? <div className="source-scan-pipeline"><span>映射版本</span><strong>{run.pipelineVersion.id} · 修订 {run.pipelineVersion.revision}</strong><code>{run.pipelineVersion.digest}</code></div> : null}<p className="source-scan-read-note">扫描记录仅保存批次元数据与结果计数，未保存来源正文。查看不会清理记录，也不会改变来源状态。</p></div>
+  return <div className="source-scan-detail-content"><div className="source-scan-detail-status"><RunStatusBadge status={run.status} label={statusLabel[run.status]} /><span>{formatTime(run.startedAt)} → {formatTime(run.completedAt)}</span></div><dl className="source-scan-meta"><div><dt>对象类型</dt><dd>{objectLabel[run.objectType]}</dd></div><div><dt>执行耗时</dt><dd>{elapsed(run)}</dd></div><div><dt>数据模式</dt><dd>{run.dataMode}</dd></div><div><dt>扫描边界</dt><dd>{consistencyLabel(run.scanConsistency)}</dd></div><div><dt>游标</dt><dd><code>{run.cursor ?? '无'}</code></dd></div><div><dt>快照状态</dt><dd>{run.snapshotComplete ? '完整快照' : '尚未完成'}</dd></div></dl><div className="source-scan-counts"><span><b>{run.pages}</b>页</span><span><b>{run.fetched}</b>抓取</span><span><b>{run.accepted}</b>采纳</span><span><b>{run.rejected}</b>拒绝</span></div>{run.failureCode ? <div className="source-scan-failure"><strong>{run.failureCode}</strong><p>{run.failureSummary}</p></div> : null}{run.pipelineVersion ? <div className="source-scan-pipeline"><span>映射版本</span><strong>{run.pipelineVersion.id} · 修订 {run.pipelineVersion.revision}</strong><code>{run.pipelineVersion.digest}</code></div> : null}<p className="source-scan-read-note">扫描记录仅保存批次元数据与结果计数，未保存来源正文。查看不会清理记录，也不会改变来源状态。</p></div>
 }

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { localPreviewMode, oidcMode, usePlatformSession } from '../../state/platform-session.ts'
 import { readWorkspace, readWorkflow, type Entry, type Run, type Workspace } from '../../api/workflows.ts'
 import { readWorkflowRun, nodeLabels, issueLabels, runOutcome, outcomeLabels, type RunDetail, type TraceRow, type TraceStep } from '../../api/workflow-runs.ts'
+import { RunStatusBadge } from '../../components/runs/RunStatusBadge.tsx'
 const rowLabels = { ACCEPTED: '成功', REJECTED: '失败', FILTERED: '过滤' }
 const stepLabels = { OK: '通过', ERROR: '失败', FILTERED: '已过滤', SKIPPED: '未执行' }
 export function WorkflowRunsPage() {
@@ -122,7 +123,7 @@ export function WorkflowRunsPage() {
     {page?.runs.truncated ? <p>仅展示最近20次；筛选只作用于当前列表。更早的记录可按运行 ID 查询。</p> : null}
     <div className="run-lookup"><label>按运行 ID 回查<input aria-label="查询运行 ID" placeholder="输入完整 UUID" maxLength={36} value={runId} onInput={e => setRunId((e.target as HTMLInputElement).value)} /></label><button type="button" disabled={busy || !runId.trim()} onClick={() => inspect(runId)}>查询详情</button></div>
     {detail ? <section className="run-detail" data-run-detail>
-      <header><div><div className="model-eyebrow">RUN DETAIL · 运行明细</div><h3>{detail.run.workflowId + ' · v' + detail.run.revision}</h3><code>{detail.run.receipt.id}</code></div><span className="run-badge" data-outcome={runOutcome(detail.run)}>{outcomeLabels[runOutcome(detail.run)]}</span></header>
+      <header><div><div className="model-eyebrow">RUN DETAIL · 运行明细</div><h3>{detail.run.workflowId + ' · v' + detail.run.revision}</h3><code>{detail.run.receipt.id}</code></div><RunStatusBadge status={runOutcome(detail.run)} label={outcomeLabels[runOutcome(detail.run)]} /></header>
       <p>{(detail.run.mode === 'PREVIEW' ? '草稿预览' : '版本测试') + ' · ' + detail.run.receipt.origin + ' · ' + detail.run.receipt.createdAt}</p>
       <div className="workflow-result-counts"><span>{'成功 ' + detail.run.receipt.accepted}</span><span>{'失败 ' + detail.run.receipt.rejected}</span><span>{'过滤 ' + detail.run.receipt.filtered}</span></div>
       {!detail.trace ? <p className="source-access-hint">这是一条旧版计数回执，未保存逐条明细。历史错误原因无法补回；重新测试会产生新的运行记录。</p> : null}
@@ -141,11 +142,11 @@ export function WorkflowRunsPage() {
   </section>
 }
 function HistoryRow(p: { run: Run; busy: boolean; open: (id: string) => void }) {
-  return <tr><td><strong>{p.run.workflowId + ' · v' + p.run.revision}</strong><small>{p.run.receipt.id}</small></td><td><span>{new Date(p.run.receipt.createdAt).toLocaleString()}</span><small>{(p.run.mode === 'PREVIEW' ? '草稿预览' : '版本测试') + ' · ' + p.run.receipt.origin}</small></td><td><span className="run-badge" data-outcome={runOutcome(p.run)}>{outcomeLabels[runOutcome(p.run)]}</span></td><td>{p.run.receipt.accepted + ' / ' + p.run.receipt.rejected + ' / ' + p.run.receipt.filtered}</td><td><button type="button" disabled={p.busy} onClick={() => p.open(p.run.receipt.id)}>查看明细</button></td></tr>
+  return <tr><td><strong>{p.run.workflowId + ' · v' + p.run.revision}</strong><small>{p.run.receipt.id}</small></td><td><span>{new Date(p.run.receipt.createdAt).toLocaleString()}</span><small>{(p.run.mode === 'PREVIEW' ? '草稿预览' : '版本测试') + ' · ' + p.run.receipt.origin}</small></td><td><RunStatusBadge status={runOutcome(p.run)} label={outcomeLabels[runOutcome(p.run)]} /></td><td>{p.run.receipt.accepted + ' / ' + p.run.receipt.rejected + ' / ' + p.run.receipt.filtered}</td><td><button type="button" disabled={p.busy} onClick={() => p.open(p.run.receipt.id)}>查看明细</button></td></tr>
 }
 function RecordRow(p: { row: TraceRow; telemetry: boolean }) {
   const terminal = p.row.steps.find(s => s.status === 'ERROR' || s.status === 'FILTERED')
-  return <details className="run-record" open={p.row.status === 'REJECTED'}><summary><strong>{'记录 ' + (p.row.index + 1)}</strong><span className="run-badge" data-outcome={p.row.status}>{rowLabels[p.row.status]}</span><span>{terminal ? (terminal.type === 'VALIDATE' && p.telemetry ? '格式校验' : nodeLabels[terminal.type]) + ' · ' + terminal.nodeId : '所有节点通过'}</span></summary><ol>{p.row.steps.map(step => <StepRow key={step.nodeId} step={step} telemetry={p.telemetry} />)}</ol></details>
+  return <details className="run-record" open={p.row.status === 'REJECTED'}><summary><strong>{'记录 ' + (p.row.index + 1)}</strong><RunStatusBadge status={p.row.status} label={rowLabels[p.row.status]} /><span>{terminal ? (terminal.type === 'VALIDATE' && p.telemetry ? '格式校验' : nodeLabels[terminal.type]) + ' · ' + terminal.nodeId : '所有节点通过'}</span></summary><ol>{p.row.steps.map(step => <StepRow key={step.nodeId} step={step} telemetry={p.telemetry} />)}</ol></details>
 }
 function NodeStat(p: { step: TraceStep; rows: TraceRow[]; telemetry: boolean }) {
   return <div><strong>{p.step.type === 'VALIDATE' && p.telemetry ? '格式校验' : nodeLabels[p.step.type]}</strong><small>{p.step.nodeId}</small><span>{(['OK', 'ERROR', 'FILTERED', 'SKIPPED'] as const).map(status => stepLabels[status] + ' ' + p.rows.filter(r => r.steps.find(s => s.nodeId === p.step.nodeId)?.status === status).length).join(' · ')}</span></div>

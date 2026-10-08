@@ -1,5 +1,22 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 163. 2026-10-08 · 运行记录统一列表与详情抽屉复验
+
+工作流历史的节点明细已切换为右侧全高只读抽屉；采集运行记录使用稳定列的批次表格；两页共享状态徽章组件。分页、运行 ID 回查、失败/未知结果、快照边界、映射版本、连接自检和身份切换清理均保持原契约。
+
+| 实际检查 | 结果 |
+|---|---|
+| Web 类型检查 | `pnpm --filter @opsweave/web-console typecheck`，退出0 |
+| Web 生产构建 | Playwright webServer 实际执行 `pnpm build`，退出0；保留既有大 chunk warning |
+| 浏览器定向回归 | 使用 `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe` 执行 `workflow-history.spec.ts`、`workflow-runs.spec.ts`、`source-scan-runs.spec.ts`，61/61通过，覆盖1440/1024/390、明暗主题、抽屉、分页、空态、错误回执和身份清理 |
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q --tb=short`，1958 passed，退出0 |
+| Java 纯领域 | `python -X utf8 scripts/check_java_domain.py` 通过；各领域 smoke 均报告 checks passed |
+| Rust | 隔离 target 执行 `cargo test --workspace --locked -j 4` 与 `cargo test --workspace --all-features --locked -j 4`，默认与 all-features 均通过（41/49） |
+| 仓库与资料边界 | 隔离 Python 执行 `scripts/check_repo.py` 通过（575 个结构化文件、6 个只读 Tool）；私有 `check_reference_boundary.py --policy C:\\Users\\20555\\opsweave-reference-policy.json` 通过（2209 个提交候选文件） |
+| 差异检查 | `git diff --check`，退出0 |
+
+本轮只修改前端展示组件与样式，没有新增后端端口、数据库、权限或执行行为。Fixture 浏览器结果不代表真实来源、生产身份/TLS、PostgreSQL HTTP、多实例并发、生产容量或部署验收；完整目标保持 active。
+
 ## 162. 2026-10-08 · 运行记录工作台视觉与交互复验
 
 工作流运行历史和采集运行记录统一为紧凑的运维列表。工作流历史验证版本摘要、状态徽章、结果计数与节点明细入口；采集记录验证批次列表、状态/耗时/计数、保留边界、分页、运行 ID 回查和右侧只读详情抽屉。采集页的连接自检保持原能力但收纳到次级折叠区。详情抽屉使用非模态 `dialog`，因此身份撤销仍可从页面会话栏操作；会话变化清理列表、查询标识和详情。
