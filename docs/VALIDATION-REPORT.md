@@ -1,5 +1,21 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 162. 2026-10-08 · 运行记录工作台视觉与交互复验
+
+工作流运行历史和采集运行记录统一为紧凑的运维列表。工作流历史验证版本摘要、状态徽章、结果计数与节点明细入口；采集记录验证批次列表、状态/耗时/计数、保留边界、分页、运行 ID 回查和右侧只读详情抽屉。采集页的连接自检保持原能力但收纳到次级折叠区。详情抽屉使用非模态 `dialog`，因此身份撤销仍可从页面会话栏操作；会话变化清理列表、查询标识和详情。
+
+| 实际检查 | 结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts= -q --tb=short`，1958 passed，退出0 |
+| Java 纯领域 | `python -X utf8 scripts/check_java_domain.py` 通过；包含采集扫描、工作流历史和运行时相关 smoke |
+| Rust 默认 | `CARGO_TARGET_DIR=.tmp/dev-checks/rust-current-default cargo test --workspace --locked -j 4`，41 项通过 |
+| Rust all-features | `CARGO_TARGET_DIR=.tmp/dev-checks/rust-current-all cargo test --workspace --all-features --locked -j 4`，49 项通过 |
+| Web | `pnpm --filter @opsweave/web-console typecheck` 与 `build` 均退出0；保留既有大 chunk warning |
+| 浏览器 | `OPSWEAVE_TEST_CHROMIUM_EXECUTABLE=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe pnpm --filter @opsweave/web-console exec playwright test e2e/source-scan-runs.spec.ts e2e/workflow-runs.spec.ts --project=chromium`，32/32 passed |
+| 仓库与资料边界 | `scripts/check_repo.py` 通过（575个结构化文件、6个只读 Tool）；私有 `check_reference_boundary.py` 通过（2208个提交候选文件）；`git diff --check` 通过 |
+
+浏览器场景使用契约 Fixture，不证明真实来源、生产身份/TLS、真实 PostgreSQL HTTP、多实例并发、生产容量或部署。默认 target 的并行 Rust 构建曾因运行中 Windows 可执行文件锁失败，随后使用隔离 target 顺序复验并通过；该环境失败不计为代码失败。
+
 ## 161. 2026-10-08 · 数据接入目录与回执交互复验
 
 本轮保持数据源中心默认的已配置接入表，并把接入类型目录整理为可搜索、可分类的紧凑卡片；卡片显示已创建回执数量，查看任务进入独立回执页签。配置抽屉的指标页签统一为指标定义参考，完整指标键可进入定义页，并明确平台定义目录不等于当前来源已发现或启用采集。会话生命周期在浏览器缓存过渡期间不主动清除当前标签页凭据，真正卸载时仍清理。
