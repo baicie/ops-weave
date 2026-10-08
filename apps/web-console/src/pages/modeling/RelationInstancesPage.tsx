@@ -4,10 +4,12 @@ import { readCatalog, type CatalogPage, type ModelDefinition } from '../../api/m
 import { pageEntities, type EntityItem, type EntityPage } from '../../api/entities.ts'
 import { createEntityRelation, pageEntityRelations, type EntityRelationPage } from '../../api/entity-relations.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
+import { usePageActive } from '../../state/page-workspace.ts'
 
 type EntityDirectory = ReturnType<typeof useEntityDirectory>
 
 export function RelationInstancesPage() {
+  const active = usePageActive()
   const [catalog, setCatalog] = useState<CatalogPage | null>(null), [catalogError, setCatalogError] = useState('')
   const [selected, setSelected] = useState<EntityItem | null>(null), [relations, setRelations] = useState<EntityRelationPage | null>(null)
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [drawer, setDrawer] = useState(false)
@@ -19,7 +21,7 @@ export function RelationInstancesPage() {
     directoryRef.current?.reset()
     setCatalog(null); setRelations(null); setSelected(null); setDrawer(false); setError(''); setCatalogError('')
   })
-  const directory = useEntityDirectory(ready)
+  const directory = useEntityDirectory(ready && active)
   directoryRef.current = directory
   const entities = ready ? directory.page : null
 
@@ -32,7 +34,12 @@ export function RelationInstancesPage() {
   useEffect(() => () => { request.current?.abort(); catalogRequest.current?.abort() }, [])
 
   useEffect(() => {
-    if (!ready || catalog || catalogStarted.current) return
+    if (!ready || !active) {
+      catalogRequest.current?.abort()
+      if (!catalog) catalogStarted.current = false
+      return
+    }
+    if (catalog || catalogStarted.current) return
     catalogStarted.current = true
     const controller = new AbortController(); catalogRequest.current = controller
     setCatalogError('')
@@ -40,14 +47,18 @@ export function RelationInstancesPage() {
       .catch(e => { if (!controller.signal.aborted) setCatalogError(e instanceof Error ? e.message : '关系目录读取失败') })
       .finally(() => { if (catalogRequest.current === controller) catalogRequest.current = null })
     return () => controller.abort()
-  }, [ready, catalog, catalogError])
+  }, [ready, active, catalog, catalogError])
 
   useEffect(() => { if (!selected && entities?.items.length) setSelected(entities.items[0]!) }, [entities, selected])
   useEffect(() => {
-    if (!selected || !ready) { setRelations(null); return }
+    if (!selected || !ready || !active) {
+      request.current?.abort()
+      setRelations(null)
+      return
+    }
     setRelations(null)
     run(async signal => { const next = await pageEntityRelations(selected.id, selected.tenantId, null, null, signal); if (!signal.aborted) setRelations(next) })
-  }, [selected?.id, ready])
+  }, [selected?.id, ready, active])
 
   const relationModels = useMemo(() => {
     if (!catalog) return []
@@ -95,7 +106,7 @@ export function RelationInstancesPage() {
         })
       }} entities={[...(selected ? [selected] : []), ...(entities?.items ?? [])]} /> : null}
     </PageBody>
-    {drawer && ready ? <RelationDrawer models={relationModels} publishedTruncated={catalog?.published.truncated ?? false} onClose={() => setDrawer(false)} onCreated={() => {
+    {drawer && ready && active ? <RelationDrawer active={active} models={relationModels} publishedTruncated={catalog?.published.truncated ?? false} onClose={() => setDrawer(false)} onCreated={() => {
       setDrawer(false)
       if (selected) run(async signal => setRelations(await pageEntityRelations(selected.id, selected.tenantId, null, null, signal)))
     }} /> : null}
@@ -148,8 +159,8 @@ function matchesEndpoint(entity: EntityItem, modelType: string | undefined) {
   return candidates.has(normalizedType(entity.entityType))
 }
 
-function EndpointPicker(props: { label: string; value: EntityItem | null; onChange: (entity: EntityItem | null) => void; modelType?: string }) {
-  const directory = useEntityDirectory(true)
+function EndpointPicker(props: { enabled: boolean; label: string; value: EntityItem | null; onChange: (entity: EntityItem | null) => void; modelType?: string }) {
+  const directory = useEntityDirectory(props.enabled)
   const compatible = directory.page?.items.filter(entity => matchesEndpoint(entity, props.modelType)) ?? []
   const options = props.value && matchesEndpoint(props.value, props.modelType) && !compatible.some(entity => entity.id === props.value?.id)
     ? [props.value, ...compatible]
@@ -177,7 +188,7 @@ function EndpointPicker(props: { label: string; value: EntityItem | null; onChan
   </div>
 }
 
-function RelationDrawer(props: { models: ModelDefinition[]; publishedTruncated: boolean; onClose: () => void; onCreated: () => void }) {
+function RelationDrawer(props: { active: boolean; models: ModelDefinition[]; publishedTruncated: boolean; onClose: () => void; onCreated: () => void }) {
   const [modelId, setModelId] = useState(props.models[0] ? `${props.models[0].id}@${props.models[0].revision}` : '')
   const [from, setFrom] = useState<EntityItem | null>(null), [to, setTo] = useState<EntityItem | null>(null)
   const [submitting, setSubmitting] = useState(false), [error, setError] = useState('')
@@ -237,8 +248,8 @@ function RelationDrawer(props: { models: ModelDefinition[]; publishedTruncated: 
         {props.publishedTruncated ? <p className="model-muted" role="status">已发布模型目录达到返回上限，部分较早的自定义关系类型可能未显示。</p> : null}
         <label>关系类型<select data-autofocus value={modelId} onChange={event => setModelId(event.target.value)}>{props.models.map(item => <option key={`${item.id}@${item.revision}`} value={`${item.id}@${item.revision}`}>{item.label} · {item.id}@{item.revision}</option>)}</select></label>
         {model ? <>
-          <EndpointPicker label="起点资产" value={from} onChange={setFrom} modelType={model.endpoints?.from.id} />
-          <EndpointPicker label="终点资产" value={to} onChange={setTo} modelType={model.endpoints?.to.id} />
+          <EndpointPicker enabled={props.active} label="起点资产" value={from} onChange={setFrom} modelType={model.endpoints?.from.id} />
+          <EndpointPicker enabled={props.active} label="终点资产" value={to} onChange={setTo} modelType={model.endpoints?.to.id} />
         </> : <p className="model-muted">当前目录没有可用的已发布关系类型。</p>}
         {error ? <p role="alert">{error}</p> : null}
         <footer><button type="button" className="button button-quiet" disabled={submitting} onClick={props.onClose}>取消</button><button type="submit" className="button button-primary" disabled={submitting || !model || !from || !to || from.id === to.id}>{submitting ? '提交中…' : '创建关系'}</button></footer>

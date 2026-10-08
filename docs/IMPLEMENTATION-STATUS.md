@@ -1,5 +1,7 @@
 # 实现状态 · v4
 
+2026-10-08 第160节：完成列表首次读取与隐藏页签门禁的收口。资产列表在可信会话建立后自动读取一次，凭据变化清理旧数据但不隐式重读；关系实例页在活动页签才读取目录、资产和关系，离开页签会取消迟到响应。新增实体实例 PostgreSQL 幂等/CAS 以及关系实例幂等、端点版本 CAS、`asOf`/游标/租户边界集成用例。实际通过：契约1958项、结构检查575个文件/6个只读Tool、Java领域smoke、Rust all-features 49项、Web typecheck/build、资产与初始读取Playwright 11项、关系实例Playwright 6项、布局/主题/多页签Playwright 14项及`git diff --check`。本机PostgreSQL定向用例实际执行但 Entity/Relation 各2项均因 `OPSWEAVE_TEST_JDBC_URL` 缺失而跳过，不能计为数据库通过；完整目标保持active。
+
 2026-10-07 第159节：完成数据接入后续阶段和运行能力的最终定向复验。显式 JDK21 编译通过；隔离本机 PostgreSQL 实际通过18项（Item Sync 3、Source Connection 4、Source Inspection 6、Model Spend 4、Registered Sync Run Store 1），V061/V062 迁移加载；HTTP 集成实际通过20项（连接检查2、发现4、实例3、扫描2、快照4、运行时3、问题2），失败/错误/跳过均为0。契约1958项、结构化仓库572文件/6个只读 Tool、Java纯领域、Rust默认41/all-features49与all-targets、Web typecheck/build及差异检查均实际通过。测试使用隔离本机 tenant、loopback 和明确 Fixture/合成来源，不提高真实厂商、生产身份/TLS、多实例并发、租约/fencing/HA、容量或部署退出条件；完整目标保持 active。
 
 2026-10-07 第158节：收紧四个旧版 Zabbix 全局入口（Host/Item Sync、History、Problem）。这些兼容路径现在只在配置明确标记为 `fixture` 时可用；`jsonrpc`、`real`、`closed` 或缺少模式的请求统一返回 `503 source_unavailable`，并带 `X-OpsWeave-Legacy: fixture-only`，不会从环境级 endpoint/credential 发起读取。已在 OpenAPI 中标明 legacy fixture-only 语义，注册实例必须使用 v2 固定 revision/endpoint/credential/scope 路径。未增加启动单元、权限、迁移或隐藏回退；真实来源、身份/TLS、多实例并发及生产可靠性继续待验收。

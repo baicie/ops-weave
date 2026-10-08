@@ -34,4 +34,43 @@ class PostgresEntityInstanceIT extends OwnedInventoryTest {
         assertTrue(results.stream().allMatch(result->result.entity().model().equals(pin)));
         assertEquals(pin,wiring.query().find(tenant,id).orElseThrow().model());
     }
+
+    @Test void requestReplayKeepsModelPinAndCasRejectsStaleUpdate() {
+        var requestId = UUID.randomUUID();
+        var id = new EntityId(UUID.randomUUID());
+        var createdAt = Instant.parse("2026-10-06T00:00:00Z");
+        var pin = new EntityModelPin("builtin.application", 1, "sha256:" + "b".repeat(64));
+        var entity = new Entity(id, tenant, "Application", "Pinned application", Lifecycle.ACTIVE, 1,
+            createdAt, Map.of("name", "Pinned application"));
+
+        var first = wiring.entityInstances().write(tenant, requestId, entity, null,
+            pin.id(), pin.revision(), pin.digest());
+        assertFalse(first.replayed());
+        assertEquals(pin, first.entity().model());
+
+        var replay = wiring.entityInstances().write(tenant, requestId, entity, null,
+            pin.id(), pin.revision(), pin.digest());
+        assertTrue(replay.replayed());
+        assertEquals(first.entity(), replay.entity());
+
+        var otherPin = new EntityModelPin("builtin.service", 1, "sha256:" + "c".repeat(64));
+        assertThrows(com.acme.opsweave.inventory.api.EntityInstanceStore.Conflict.class,
+            () -> wiring.entityInstances().write(tenant, requestId, entity, null,
+                otherPin.id(), otherPin.revision(), otherPin.digest()));
+
+        var updated = new Entity(id, tenant, "Application", "Pinned application v2", Lifecycle.ACTIVE, 2,
+            createdAt.plusSeconds(1), Map.of("name", "Pinned application v2"));
+        var update = wiring.entityInstances().write(tenant, UUID.randomUUID(), updated, Long.valueOf(1),
+            pin.id(), pin.revision(), pin.digest());
+        assertFalse(update.replayed());
+        assertEquals(2, update.entity().version());
+        assertEquals(pin, wiring.query().find(tenant, id).orElseThrow().model());
+
+        var stale = new Entity(id, tenant, "Application", "stale", Lifecycle.ACTIVE, 2,
+            createdAt.plusSeconds(2), Map.of("name", "stale"));
+        assertThrows(com.acme.opsweave.inventory.api.EntityInstanceStore.Conflict.class,
+            () -> wiring.entityInstances().write(tenant, UUID.randomUUID(), stale, Long.valueOf(1),
+                pin.id(), pin.revision(), pin.digest()));
+        assertEquals("Pinned application v2", wiring.query().find(tenant, id).orElseThrow().name());
+    }
 }

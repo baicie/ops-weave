@@ -1,5 +1,7 @@
 # OpsWeave（观织）产品与 Zeus 生态协同路线图
 
+2026-10-08 第160节：收口数据接入页面的自动读取和多页签生命周期。资产页在会话就绪后自动读取一次，身份变化清除旧私有状态并等待显式读取；关系实例页只在当前页签读取目录、资产和关系，并取消离开页签后的迟到响应。新增实体/关系 PostgreSQL 幂等、CAS、`asOf`、游标与租户边界用例。契约1958、结构检查575文件/6个只读Tool、Java领域smoke、Rust all-features49、Web构建及相关Chromium回归均实际通过；本机PG定向用例各2项均因测试连接变量缺失跳过，不能提升数据库验收。真实来源、生产身份/TLS、多实例并发、容量、租约/fencing/HA和整链退出条件继续保持active。
+
 2026-10-07 第159节：数据接入后续阶段和运行能力完成最终定向复验。显式 JDK21 编译通过；隔离本机 PostgreSQL 实际通过18项（Item Sync 3、连接4、发现6、模型账本4、注册扫描存储1），HTTP 集成实际通过20项（连接检查2、发现4、实例3、扫描2、快照4、运行时3、问题2），失败/错误/跳过均为0。契约1958项、结构化检查572文件/6个只读 Tool、Java纯领域、Rust默认41/all-features49与all-targets、Web typecheck/build和差异检查均通过。检查使用本机 loopback、隔离 tenant 与明确 Fixture/合成来源，不宣称真实厂商、生产身份/TLS、多实例并发、租约/fencing/HA、容量或部署验收；完整目标保持active。
 
 2026-10-07 第158节：旧版 Zabbix 全局入口明确收敛为 fixture-only legacy compatibility。Host/Item Sync、History、Problem 的 v1 路径在 `fixture` 以外不再读取环境级 endpoint/credential，直接返回 `503 source_unavailable` 并标记 `X-OpsWeave-Legacy: fixture-only`；已登记连接必须走 v2 固定 revision、连接摘要和对象范围。没有新增启动单元、数据库或权限；真实来源、身份/TLS、多实例并发及生产可靠性继续按既有路线验收。

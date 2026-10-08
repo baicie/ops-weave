@@ -1,5 +1,20 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 160. 2026-10-08 · 列表自动读取与多页签生命周期复验
+
+本轮验证资产列表会在可信会话建立后自动读取一次；身份变化清理旧列表且不隐式重读。关系实例页仅在活动页签读取目录、资产和关系，离开页签会取消请求并阻止迟到响应填充隐藏页面。新增实体实例与关系实例 PostgreSQL 定向用例覆盖幂等、模型/端点版本 CAS、`asOf`、游标和租户边界。
+
+| 实际检查 | 结果 |
+|---|---|
+| 契约 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 -m pytest tests/contracts -o addopts='' -q`，1958 passed，退出0 |
+| 仓库结构 | `.tmp/mvp-check-venv/Scripts/python.exe -X utf8 scripts/check_repo.py`，575 个结构化文件、6 个只读 Tool，退出0 |
+| Java/Rust/Web | `python scripts/check_java_domain.py` 通过；`cargo test --workspace --all-features --locked` 49 项通过；`pnpm --filter @opsweave/web-console typecheck` 与 `build` 均退出0，保留既有大 chunk warning；平台 `compileTestJava` BUILD SUCCESSFUL |
+| 浏览器回归 | 显式系统 Chrome 路径运行 `inventory.spec.ts` + `integration-initial-read.spec.ts` 共11项、`relation-instances.spec.ts` 6项、`workspace-layout.spec.ts` 14项，均通过；覆盖自动首次读取、隐藏页签取消、身份清理、关系分页、三种宽度和明暗主题 |
+| PostgreSQL 定向 | `PostgresEntityInstanceIT` 2 tests/2 skipped、`PostgresRelationIT` 2 tests/2 skipped，0 failures/errors；Docker daemon、127.0.0.1:5432 和 `OPSWEAVE_TEST_JDBC_URL/USER/PASSWORD` 均不可用，不能计为 PostgreSQL 通过 |
+| 差异 | `git diff --check` 退出0 |
+
+以上浏览器响应使用契约 Fixture，服务端真实授权仍由应用边界负责；本轮未运行真实来源、生产身份/TLS、多实例并发、完整平台套件或部署验收。完整目标继续保持 active。
+
 ## 159. 2026-10-07 · 数据接入与运行能力最终定向复验
 
 在前一轮因 shell 默认 JDK 不满足项目要求而中止后，本轮显式使用本机 JDK 21 完成数据接入后续阶段的编译、PostgreSQL 定向持久化和 HTTP 集成复验。注册实例仍固定绑定 endpoint、credential pin、tenant、host group scope 与 connection digest；发现快照对缺失配置、摘要漂移、过期和未来 `availableAt` fail-closed。旧版 Zabbix 全局入口的 fixture-only 边界保持不变。模型调用指标只按可信 tenant 聚合，工作流运行记录单条读取只读且按本人/tenant 隔离。

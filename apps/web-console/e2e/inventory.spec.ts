@@ -101,7 +101,6 @@ test.describe('inventory page', () => {
     })
     await page.goto('/#/inventory')
     await page.getByRole('textbox', { name: '平台开发 Token（仅保存在当前标签页内存）' }).fill(TOKEN_OK)
-    await page.getByRole('button', { name: '刷新列表' }).click()
     await expect(page.locator('[data-inventory-page]')).toContainText('第 1 页 · 本页 25 条')
     await expect(page.locator('[data-stat="total"]')).toHaveText('25')
     await expect(page.locator('[data-stat="active"]')).toHaveText('25')
@@ -145,22 +144,21 @@ test.describe('inventory page', () => {
   })
 
   test('changing identity discards an in-flight response and clears prior data', async ({ page }) => {
-    let release: (() => void) | undefined
+    const releases: (() => void)[] = []
     let delayed = false
     await page.route('**/api/v1/entities/page?**', async route => {
-      if (delayed) await new Promise<void>(resolve => { release = resolve })
+      if (delayed) await new Promise<void>(resolve => { releases.push(resolve) })
       await route.fulfill({ json: body(route.request().url()) }).catch(() => {})
     })
     await page.goto('/#/inventory')
     const token = page.getByRole('textbox', { name: '平台开发 Token（仅保存在当前标签页内存）' })
     await token.fill(TOKEN_OK)
-    await page.getByRole('button', { name: '刷新列表' }).click()
     await expect(page.getByRole('cell', { name: 'Zabbix server' })).toBeVisible()
     delayed = true
     await page.getByRole('button', { name: '刷新列表' }).click()
-    await expect.poll(() => Boolean(release)).toBe(true)
+    await expect.poll(() => releases.length).toBe(1)
     await token.fill('another-developer-token-32-characters-long')
-    release!()
+    releases.forEach(release => release())
     await expect(page.getByRole('table')).toHaveCount(0)
     await expect(page.locator('[data-inventory-page]')).toHaveCount(0)
     await expect(page.locator('[data-stat="total"]')).toHaveText('—')

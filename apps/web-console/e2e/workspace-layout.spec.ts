@@ -185,12 +185,14 @@ test('sidebar activation restores the remembered query and unsubmitted filter wi
   await expect(page).toHaveURL(url => url.hash === remembered)
   await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('unsubmitted fixture')
   await expect(tabs(page).getByRole('tab')).toHaveCount(2)
-  expect(calls).toHaveLength(1)
+  expect(calls).toHaveLength(2)
+  expect(new URL(calls[0]!).searchParams.get('q')).toBe('')
+  expect(new URL(calls[1]!).searchParams.get('q')).toBe('applied fixture')
   await page.goBack()
   await expect(page.getByRole('main')).toHaveAttribute('data-route', 'source-center')
   await page.goForward()
   await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('unsubmitted fixture')
-  expect(calls).toHaveLength(1)
+  expect(calls).toHaveLength(2)
 })
 
 test('late reads from an inactive page cannot restore private data after identity changes', async ({ page }) => {
@@ -208,16 +210,14 @@ test('late reads from an inactive page cannot restore private data after identit
   await page.goto('/#/inventory')
   await token(page).fill(TOKEN_OK)
   await layout(page)
-  const requested = page.waitForRequest('**/api/v1/entities/page?*')
-  await page.getByRole('button', { name: '刷新列表', exact: true }).click()
-  await requested
+  await expect.poll(() => calls).toBe(1)
   await open(page, 'source-center')
   await token(page).fill('changed-fixture-token-32-characters')
   await expect(page.locator('[data-page-route=inventory]')).toHaveCount(0)
   release(); await finished
   await open(page, 'inventory')
-  await expect(page.getByText('准备读取资产', { exact: true })).toBeVisible()
-  expect(calls).toBe(1)
+  await expect(page.locator('[data-inventory-page]')).toContainText('本页 0 条')
+  expect(calls).toBe(2)
 })
 
 test('tabs support keyboard navigation, active closure and close all with a fresh home page', async ({ page }) => {
@@ -293,7 +293,7 @@ for (const width of [1440, 1024, 390]) test('all tabbed product pages and themes
       expect(await breadcrumb.locator('ol').evaluate(element => element.getBoundingClientRect().left)).toBeCloseTo(panel!.x, 0)
     }
   }
-  await expect(tabs(page).getByRole('tab')).toHaveCount(15)
+  await expect(tabs(page).getByRole('tab')).toHaveCount(16)
   expect(errors).toEqual([])
   expect(calls).toEqual([])
 })

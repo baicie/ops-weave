@@ -9,6 +9,7 @@ import { SourcePresence } from './SourcePresence.tsx'
 import { AssetIdentities } from './AssetIdentities.tsx'
 import { resolveIdentity, identityPin, type IdentityPin } from '../../api/asset-identities.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
+import { useInitialPageRead } from '../../state/initial-page-read.ts'
 import { useViewLocation, useSelectionSessionReset } from '../../state/view-location.ts'
 import { inventoryDefault, inventoryHash, inventorySelection, type InventorySelection } from '../../state/view-selection.ts'
 import { ObservationHistory } from './ObservationHistory.tsx'
@@ -73,6 +74,14 @@ export function InventoryPage() {
     applySelection(selection); setSync(null)
     if (reset) { setRouteError(''); location.write(selection, true) }
     if (change.error) setError(change.error.message)
+  })
+  useInitialPageRead({
+    ready: authenticated,
+    loaded,
+    pending: busy,
+    blocked: routeError !== '',
+    rereadOnCredentials: false,
+    read: () => { void run('list') },
   })
   function resetFilters() { applySelection(inventoryDefault()); setRouteError(''); location.write(inventoryDefault()) }
   function changeAssetUuid(value: string) { abortRef.current?.abort(); requestIdRef.current++; setBusy(false); setError(''); setDetail(null); setDetailModel(null); setDetailModelError(''); setResolvedPin(undefined); setAssetUuid(value) }
@@ -215,7 +224,7 @@ export function InventoryPage() {
       <p role="alert">{routeError || error}</p>
       {sync ? <SyncStatusLine result={sync} /> : null}
       {loaded ? <p data-inventory-page>{`${cursor && previous.length === 0 ? '恢复的游标页' : `第 ${previous.length + 1} 页`} · 本页 ${items.length} 条 · ${storage === 'postgres' ? 'PostgreSQL' : '开发内存'}`}</p> : null}
-      {!loaded ? <div className="inventory-empty"><RouteIcon name="inventory" /><strong>准备读取资产</strong><p>配置当前会话后，点击「刷新列表」查看授权范围内的资产。</p></div> : null}
+      {!loaded ? <div className="inventory-empty"><RouteIcon name="inventory" /><strong>{busy ? '正在读取资产' : '准备读取资产'}</strong><p>{busy ? '正在读取授权范围内的资产。' : '建立会话后将自动读取当前列表。'}</p></div> : null}
       {loaded && items.length === 0 ? <div className="inventory-empty"><RouteIcon name="inventory" /><strong>当前筛选范围没有可见资产。</strong><p>可以调整筛选条件后重新读取。</p></div> : null}
       {items.length > 0 ? (
         <div className="pipeline-table"><table>
