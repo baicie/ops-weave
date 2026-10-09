@@ -7,7 +7,6 @@ import { WorkspaceTabs, type WorkspaceTab } from '../components/navigation/Works
 import { PageBreadcrumb } from '../components/navigation/PageBreadcrumb.tsx'
 import { RoutePage } from './page-registry.tsx'
 import { PlatformSessionBar } from './PlatformSessionBar.tsx'
-import { PageGuide } from './PageGuide.tsx'
 
 type Guards = MutableRefObject<Map<RouteName, () => PageCloseReason>>
 const entry = (route: RouteName, hash: string): WorkspaceTab => ({ route, hash, key: crypto.randomUUID() })
@@ -45,7 +44,6 @@ function PagePane(props: { page: WorkspaceTab; active: boolean; tabbed: boolean;
     <PageWorkspaceContext.Provider value={context}>
       {route !== 'diagnose' && route !== 'start' ? <PlatformSessionBar /> : null}
       <RoutePage route={route} />
-      {route !== 'start' ? <PageGuide route={route} /> : null}
     </PageWorkspaceContext.Provider>
   </div>
 }

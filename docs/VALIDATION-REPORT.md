@@ -1,5 +1,20 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 166. 2026-10-09 · 移除页面底部指引复验
+
+按用户决定先移除页面底部的逐页指引，使用说明方案待重新设计：删除 `PageGuide` 组件与 `PageWorkspace` 挂载点、`workspace.css` 中全部 `.page-guide`/`guide-*` 规则以及 `page-guide.spec.ts`；`graph-workspace.spec.ts` 中原先借助指引文案的检查改为断言从工作台进入后到达数据源中心与 Host 接入流水线页面，并继续要求全程无 `/api` 请求。
+
+| 实际检查 | 结果 |
+|---|---|
+| Web 类型检查 | `pnpm --filter @opsweave/web-console typecheck`，退出0 |
+| Web 生产构建 | `pnpm --filter @opsweave/web-console build`，退出0；保留既有大 chunk warning |
+| 全量浏览器套件 | 系统 Chrome 执行 `node node_modules/@playwright/test/cli.js test --workers=2`，907 项中 874 通过 / 33 失败，耗时 11.5 分钟；失败项与本次删除的组件、样式和用例无交集 |
+| 失败基线核对 | `git stash` 后在干净 HEAD 上重跑 `workspace-layout.spec.ts` 与 `navigation.spec.ts`，18 通过 / 10 失败，与带改动结果一致（navigation 6 项、workspace-layout 4 项），确认这 10 项并非本次引入；其余 23 项失败分布在会话清理、视图恢复、来源检查、初始读取和工作流用例，未单独重跑基线 |
+| 本机运行栈复核 | Go 管理器启动的四组件 200/200 下，用系统 Chrome 实查数据源中心、数据工作流、工作流运行记录、工作台、Host 接入流水线五页，`.page-guide` 计数均为 0，未捕获 pageerror |
+| 残留检索 | `rg 'page-guide|guide-mark|guide-chevron|guide-summary' apps/web-console` 无匹配 |
+
+本轮只做前端删除与文档同步；契约、Java 领域、Rust 未在本轮重跑。全量套件中的 33 项失败在改动前已存在（其中 10 项经干净 HEAD 复现），不代表本轮引入，也未在本轮修复。
+
 ## 165. 2026-10-09 · 页面指引与关系定义图检查复验
 
 页面底部的“使用说明”已改为默认收起的“页面指引”：收起时只有一行入口，展开后显示页面用途、三步操作与相关页面链接；样式只保留在 `workspace.css`，管理台、控制台与工作流样式中的重复覆盖一并删除。新增 `page-guide.spec.ts`，覆盖默认收起、展开内容、再次收起以及 390px 视口无横向溢出；`graph-workspace.spec.ts` 的关系定义图检查改为先展开默认折叠的“模型关系图”再断言 G6 内容。

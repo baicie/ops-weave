@@ -1,5 +1,7 @@
 # 实现状态 · v4
 
+2026-10-09 第166节：按用户决定移除页面底部的逐页“页面指引”，使用说明方案待重新设计。删除 `PageGuide` 组件及其在 `PageWorkspace` 的挂载、`workspace.css` 中全部 `.page-guide`/`guide-*` 规则和 `page-guide.spec.ts`；`graph-workspace.spec.ts` 中原先借助指引文案的检查改为断言从工作台进入后到达数据源中心与 Host 接入流水线页面，并继续要求全程无 `/api` 请求。页面不再渲染全局指导文案，操作约束仍保留在相关操作附近。未新增接口、数据库、权限或执行行为。实际通过：Web typecheck、Web production build、本机运行栈（四组件 200/200）下系统 Chrome 复核数据源中心/数据工作流/工作流运行记录/工作台/Host 接入流水线五页 `.page-guide` 计数为 0 且无 pageerror。全量浏览器套件 907 项为 874 通过 / 33 失败；其中 `navigation.spec.ts` 6 项与 `workspace-layout.spec.ts` 4 项在 `git stash` 后的干净 HEAD 上复现同样失败（18 通过/10 失败），确认不是本次改动引入；其余 23 项失败位于本次未修改的会话、视图恢复、来源检查与工作流用例，未单独重跑基线。契约、Java、Rust 未在本轮重跑。
+
 2026-10-09 第165节：页面底部“使用说明”改为轻量“页面指引”。默认收起为一行入口，展开后才显示页面用途、三步操作和相关入口；四处冲突的 `.page-guide` 样式收敛到 `workspace.css` 单一实现，窄屏隐藏辅助短句并改用单列布局。新增 `page-guide.spec.ts` 覆盖收起/展开与 390px 无横向溢出；同时修正 `graph-workspace.spec.ts` 中关系定义图检查，改为先展开折叠的“模型关系图”再断言 G6 内容（此前该用例在 main 上因默认折叠而失败）。未新增接口、数据库、权限或执行行为。实际通过：Web typecheck、Web production build、系统 Chrome 定向 19 项（page-guide 2、graph-workspace 5、workspace-layout 12）、私有参考边界检查 2210 个候选文件、`git diff --check`。契约、Java、Rust检查沿用第164节及更早结果，不代表本轮重跑。
 
 2026-10-08 第164节：统一数据源中心与数据工作流的页面壳层。两页改用共享 `PageHeader/PageBody`，标题说明、操作区、正文起始位置和响应式间距保持一致；数据源页保留视图页签与实例/目录/回执内容，工作流页保留工作流库、画布、节点库、测试区和版本操作。未新增接口、数据库、权限或执行行为。实际通过：Web typecheck、Web production build、`git diff --check`，并使用本机浏览器复核数据源中心与数据工作流的已加载列表、工作流编辑态。完整契约、Java、Rust检查沿用第163节结果，真实来源、生产身份/TLS、多实例并发、容量、租约/fencing/HA和部署退出条件继续待验收。
