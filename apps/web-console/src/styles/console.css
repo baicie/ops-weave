@@ -224,8 +224,6 @@
 .console-workspace .dashboard-stat strong { font-size:26px;margin:10px 0 5px; }
 .console-workspace .admin-card-header { padding:18px 20px 0; }
 .console-workspace .admin-card-content { padding:18px 20px; }
-.console-workspace .page-guide { margin-top:20px;border-radius:6px; }
-.console-workspace .page-guide summary { padding:12px 15px; }
 @media(max-width:1050px) {
   .console-page-header { align-items:flex-start;gap:16px; }
   .console-page-header>div:first-child { flex:1; }

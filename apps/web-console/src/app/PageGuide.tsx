@@ -1,4 +1,5 @@
 import { pathFor, ROUTES, type RouteName } from '../state/routes.ts'
+import { BookOpen, ChevronDown } from 'lucide-react'
 type Guide = { purpose: string; steps: string[]; next: RouteName[] }
 const guides: Record<RouteName, Guide> = {
   start: { purpose: '从任务出发，找到对应页面。', steps: [], next: [] },
@@ -27,19 +28,26 @@ export function PageGuide(props: { route: RouteName }) {
   return (
     <details className="page-guide">
       <summary>
-        <span className="guide-mark">?</span>
-        <b>使用说明</b>
+        <span className="guide-mark" aria-hidden="true"><BookOpen size={13} strokeWidth={1.8} /></span>
+        <span className="guide-summary-copy">
+          <b>页面指引</b>
+          <small>查看操作步骤与相关入口</small>
+        </span>
+        <ChevronDown className="guide-chevron" size={15} aria-hidden="true" />
       </summary>
       <div className="page-guide-body">
-        <p>{guide.purpose}</p>
-        <ol>
-          {guide.steps.map(step => <li key={step}>{step}</li>)}
-        </ol>
-        <div>
+        <div className="page-guide-content">
+          <p>{guide.purpose}</p>
+          <ol>
+            {guide.steps.map(step => <li key={step}>{step}</li>)}
+          </ol>
+        </div>
+        <nav className="page-guide-related" aria-label="相关页面">
+          <span>相关页面</span>
           {guide.next.map(item => (
             <a key={item} href={pathFor(item)}>{ROUTES.find(r => r.name === item)?.label + ' →'}</a>
           ))}
-        </div>
+        </nav>
       </div>
     </details>
   )

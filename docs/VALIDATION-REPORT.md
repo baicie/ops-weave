@@ -1,5 +1,19 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 165. 2026-10-09 · 页面指引与关系定义图检查复验
+
+页面底部的“使用说明”已改为默认收起的“页面指引”：收起时只有一行入口，展开后显示页面用途、三步操作与相关页面链接；样式只保留在 `workspace.css`，管理台、控制台与工作流样式中的重复覆盖一并删除。新增 `page-guide.spec.ts`，覆盖默认收起、展开内容、再次收起以及 390px 视口无横向溢出；`graph-workspace.spec.ts` 的关系定义图检查改为先展开默认折叠的“模型关系图”再断言 G6 内容。
+
+| 实际检查 | 结果 |
+|---|---|
+| Web 类型检查 | `pnpm --filter @opsweave/web-console typecheck`，退出0 |
+| Web 生产构建 | `pnpm --filter @opsweave/web-console build`，退出0；保留既有大 chunk warning |
+| 浏览器定向回归 | 系统 Chrome 实际运行 `page-guide.spec.ts`、`graph-workspace.spec.ts`、`workspace-layout.spec.ts` 共19项，全部通过；其中首次运行 `graph-workspace.spec.ts:10` 因关系图默认折叠仍按展开断言而失败，确认该失败在 main 已存在，改为显式展开后复验通过 |
+| 私有参考边界 | `python scripts/check_reference_boundary.py --policy <本机词表>`，通过 2210 个提交候选文件；词表与对标资料仍在仓库外 |
+| 差异检查 | `git diff --check`，退出0 |
+
+本轮仅调整前端页面指引、关系定义图测试与相应样式；契约、Java 领域、Rust与全量浏览器套件未在本轮重跑，沿用第164节及更早已实际通过结果。Fixture 数据不代表真实来源或生产验收。
+
 ## 164. 2026-10-08 · 数据接入页面壳层统一复验
 
 数据源中心与数据工作流现在共用 `PageHeader/PageBody`。数据源页的视图页签、实例表格和接入目录继续保持原交互；工作流页的流程列表、编辑器、节点库、画布和测试区继续保持原交互。统一内容边界、标题分隔线和操作区布局，未改变请求、权限或执行语义。

@@ -198,8 +198,6 @@
   .workflow-studio .workflow-preview>section+section { border-left:0;border-top:1px solid var(--ow-line); }
 }
 /* Existing optional help and recovery controls. */
-.page-guide { margin-top:20px; }
-.page-guide summary { justify-content:flex-start; }
 [data-page=retention] .retention-policy-note { margin:18px 0;color:var(--ow-muted);font-size:12px; }
 [data-page=retention] .retention-policy-note summary,[data-page=retention] .retention-receipt-lookup summary { cursor:pointer; }
 [data-page=retention] .retention-receipt-lookup { margin-top:24px;padding-top:16px;border-top:1px solid var(--ow-line); }

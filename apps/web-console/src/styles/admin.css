@@ -16,9 +16,6 @@
 .session-bar[data-oidc-session] { display: flex; flex-wrap: wrap; }
 .session-bar[data-oidc-session] h2 { font-size: 14px; margin: 0; }
 .session-bar[data-oidc-session] p { margin: 0; }
-.page-guide { margin: 28px 0 0; border: 1px solid var(--ow-line); border-radius: 8px; background: var(--ow-surface); }
-.page-guide summary { padding: 12px 16px; }
-.page-guide-body { padding: 2px 16px 16px 44px; }
 .stat-card, .asset-workspace, .topology-workbench, .model-card, .workflow-editor, .run-detail, .source-empty, .workflow-saved { background: var(--ow-surface); }
 .stat-grid { gap: 16px; margin: 22px 0; }
 .stat-value { font-size: 28px; font-weight: 700; }
@@ -177,9 +174,6 @@ button.admin-tab[data-state=active] { color: var(--ow-ink); background: var(--ow
   .dashboard-boundary > span { flex: 1; }
   .dashboard-boundary a { width: 100%; margin-left: 24px; }
   .workspace > footer { margin-inline: 16px; }
-  .page-guide summary { padding: 12px; }
-  .page-guide summary > span:nth-child(2) { font-size: 11px; }
-  .page-guide-body { padding-left: 30px; }
   .onboarding-steps > a { gap: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .is-spinning { animation: none; } }
