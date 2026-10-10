@@ -377,6 +377,141 @@ paths:
         '403': {description: Entity permission or scope denied}
         '404': {description: Entity unavailable in the trusted tenant}
         '503': {description: Storage or response budget failure; no empty fallback}
+  /api/v1/catalog/extensions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: listModelExtensions
+      description: >
+        Read the trusted tenant's tenant-namespaced model extension overlays and the caller's
+        private extension drafts. Extensions add optional scalar fields to a fixed built-in or
+        already published entity model version and never modify the base model body: built-in
+        definitions stay immutable and field identity, semantics and system metadata cannot be
+        overwritten. At most 50 published versions and 50 drafts are returned with explicit
+        truncated flags. The request never accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Bounded tenant extension versions and private drafts
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/model-extension-page.schema.json}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read on the catalog scope}
+        '503': {description: Catalog storage unavailable; no empty fallback}
+  /api/v1/catalog/extensions/drafts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: saveModelExtensionDraft
+      description: >
+        Save the caller's private extension draft for one fixed base model version with optimistic
+        editVersion compare-and-swap; zero creates. Extension fields are optional bounded scalars,
+        must not collide with the base model fields or reserved system metadata and cannot change
+        published field semantics; the base model body is never modified. A published immutable
+        extension version can only be created through the publish command. The request never
+        accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/model-extension-command.schema.json}
+      responses:
+        '200':
+          description: Private extension draft entry with the next edit version
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/model-extension-entry.schema.json}
+        '400': {description: Invalid closed JSON, field name, type, duplicate or bound}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage on the catalog scope}
+        '404': {description: Base model version unavailable in the trusted tenant}
+        '409': {description: Draft edit version conflict or field identity collision}
+        '503': {description: Catalog storage unavailable; no fallback}
+  /api/v1/catalog/extensions/publish:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: publishModelExtension
+      description: >
+        Publish exactly the caller's saved extension draft as the next immutable extension revision
+        under tenant advisory locking. Revisions are consecutive and additive: existing field
+        semantics are pinned and only optional fields may be added, so records written against an
+        earlier extension revision stay readable. The base model body and earlier extension
+        versions are never rewritten. The request never accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/model-extension-publish-command.schema.json}
+      responses:
+        '200':
+          description: Published immutable extension entry
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/model-extension-entry.schema.json}
+        '400': {description: Invalid closed JSON or digest}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage on the catalog scope}
+        '404': {description: Draft or base model version unavailable in the trusted tenant}
+        '409': {description: Draft edit version or digest conflict, or an incompatible extension revision}
+        '503': {description: Catalog storage unavailable; no fallback}
+  /api/v1/entities/model-pins/backfill:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: backfillEntityModelPins
+      description: >
+        Explicit bounded administrative command that backfills the model pin {id, revision, digest}
+        on legacy entity rows that predate model pinning. The command names one published entity
+        model version and its entity type; the server resolves and digests the model, and only rows
+        whose stored attributes verifiably conform to that published model receive the pin.
+        Indeterminable rows keep no pin and are reported as counts instead of being guessed.
+        Entities with an existing pin and source-managed entities are never touched. requestId is
+        the idempotency key: retries return the original receipt and the same requestId with
+        changed content conflicts. Nothing is rewritten implicitly outside this command. The
+        request never accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-model-pin-backfill-command.schema.json}
+      responses:
+        '200':
+          description: Durable backfill receipt with per-category counts
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-model-pin-backfill-receipt.schema.json}
+        '400': {description: Invalid closed JSON, entity type, model reference or update budget}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing tenant-wide entity.manage scope}
+        '404': {description: Named model version unavailable in the trusted tenant}
+        '409': {description: Request reuse with changed content}
+        '503': {description: Inventory storage unavailable; resolve by requestId before retry}
+  /api/v1/entities/model-pins/backfill/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getEntityModelPinBackfillReceipt
+      description: >
+        Read the stored receipt of one backfill command by its own requestId. An unknown requestId
+        returns 404 instead of inventing a result; receipts never contain entity contents.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Stored backfill receipt
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-model-pin-backfill-receipt.schema.json}
+        '400': {description: Invalid requestId}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing tenant-wide entity.manage scope}
+        '404': {description: Unknown requestId in the trusted tenant}
+        '503': {description: Inventory storage unavailable}
   /api/v1/entities:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -515,8 +650,273 @@ paths:
         '401': {description: Unauthenticated}
         '403': {description: Missing entity.manage or endpoint scope}
         '404': {description: Endpoint unavailable in the trusted tenant}
-        '409': {description: Request reuse, stale endpoint version, unpublished model or endpoint type mismatch}
+        '409': {description: Request reuse, stale endpoint version, unpublished model, endpoint type mismatch, or a relation for the same endpoints and type already exists (terminated rows are never silently resurrected)}
         '503': {description: Relation storage unavailable; resolve by requestId before retry}
+  /api/v1/entities/{entityId}/relations/history:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageEntityRelationHistory
+      description: >
+        Read the bounded maintenance history of relation instances touching the path entity,
+        including terminated relations with their recorded close reason. Rows are kept, never
+        deleted; the visibility budget and both-endpoint read authorization match the active
+        relation page. The page is ordered by relation id and anchored by the same opaque cursor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: after, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 25}}
+      responses:
+        '200':
+          description: Authorized relation history entries
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-history-page.schema.json}
+        '400': {description: Invalid entity, cursor or limit}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read or object scope}
+        '404': {description: Entity unavailable in the trusted tenant}
+        '503': {description: Relation storage unavailable; no empty fallback}
+  /api/v1/entities/{entityId}/relations/{relationId}/close:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: relationId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: closeEntityRelation
+      description: >
+        Terminate one relation instance by writing its effective end time and the operator reason;
+        the row and its history are retained. entity.manage is required on both endpoints and the
+        relation version is checked in the write transaction. requestId is the idempotency key:
+        retries return the original receipt, a different body with the same requestId conflicts,
+        and closing an already closed relation with a new requestId conflicts. The request never
+        accepts a tenant override.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-relation-close-command.schema.json}
+      responses:
+        '200':
+          description: Durable relation close receipt; the close reason is recorded server-side and returned in history
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-receipt.schema.json}
+        '400': {description: Invalid closed JSON, relation path mismatch, time or version}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage or endpoint scope}
+        '404': {description: Relation unavailable in the trusted tenant}
+        '409': {description: Request reuse, stale relation version or relation already closed}
+        '503': {description: Relation storage unavailable; resolve by requestId before retry}
+  /api/v1/entities/{entityId}/relations/{relationId}/correct:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: relationId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: correctEntityRelation
+      description: >
+        Correct one active relation instance through an explicit correction record: the original row
+        is kept and only receives its effective end time and the correction reason, while the new
+        endpoints and relation type are established as a new relation instance record linked to the
+        original. The correction never rewrites the original endpoints, type, source annotation or
+        reason in place, and correcting an already terminated relation is explicitly rejected instead
+        of reviving it. The command carries the complete new endpoint and type state plus the current
+        relation version as CAS; a changed relation, an unpublished model, endpoint type mismatch,
+        cardinality overflow or corrected endpoints and type that already exist conflict explicitly
+        instead of silently winning. entity.manage is required on the original and the new endpoints.
+        requestId is an independent idempotency key: retries return the original receipt, the same
+        requestId with changed content conflicts. The request never accepts a tenant or actor, and the
+        correction reason is retained server-side and returned in the correction record.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-relation-correction-command.schema.json}
+      responses:
+        '200':
+          description: Durable correction receipt; the reason is retained server-side and not echoed
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-correction-receipt.schema.json}
+        '400': {description: Invalid closed JSON, relation path mismatch, reason, version, or a correction that changes nothing}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage on an original or new endpoint}
+        '404': {description: Relation unavailable in the trusted tenant}
+        '409': {description: 'RELATION_CORRECTION_CONFLICT: request reuse with changed content, stale relation version, terminated relation, unpublished model, endpoint type mismatch, cardinality overflow, or the corrected endpoints and type already exist'}
+        '503': {description: Relation storage unavailable; resolve by requestId before retry}
+  /api/v1/entities/{entityId}/relations/corrections:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pageEntityRelationCorrections
+      description: >
+        Bounded authorized read-only page of relation correction records touching the path entity,
+        ordered by the correction request id. Each record links the terminated previous relation to
+        its corrected replacement and keeps the operator reason, so corrected-away assertions stay
+        traceable instead of being rewritten. Both endpoints of both relations must stay visible to
+        the reader; the request never accepts a tenant or actor and never mutates anything.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: after, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 25}}
+      responses:
+        '200':
+          description: Authorized relation correction records
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-correction-page.schema.json}
+        '400': {description: Invalid entity, cursor or limit}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read or object scope}
+        '404': {description: Entity unavailable in the trusted tenant}
+        '503': {description: Relation storage unavailable or read budget exceeded; no empty fallback}
+  /api/v1/entities/{entityId}/relations/{relationId}/confirmations:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: relationId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: confirmEntityRelationSource
+      description: >
+        Record one independent source confirmation (or one manual assertion) on the single relation
+        instance record. Confirmation entries never create additional relation instances and never
+        rewrite another entry or the relation row: source text and the manual assertion stay separate
+        and conflicting content is rejected instead of letting the last writer win. The entry key is
+        deterministic (source kind, explicit source identity and batch/execution reference), so
+        replays across executions return the recorded entry instead of double counting. Confirming a
+        terminated relation is rejected. entity.manage is required on both endpoints, requestId is
+        the idempotency key for the command body, and the request never accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-relation-confirmation-command.schema.json}
+      responses:
+        '200':
+          description: Durable confirmation receipt with the recorded entry state
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-confirmation-receipt.schema.json}
+        '400': {description: Invalid closed JSON, relation path mismatch, source kind, source key, batch reference or data mode}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage or endpoint scope}
+        '404': {description: Relation unavailable in the trusted tenant}
+        '409': {description: 'RELATION_CONFIRMATION_CONFLICT: request reuse with changed content, conflicting entry content, an already withdrawn entry, a terminated relation, or the per-relation confirmation capacity is reached'}
+        '503': {description: Relation storage unavailable; resolve by requestId before retry}
+    get:
+      operationId: readEntityRelationConfirmations
+      description: >
+        Read the multi-source confirmation view of one relation instance record: every independent
+        confirmation entry with its source kind, explicit source identity, batch/execution reference,
+        data mode, confirmation time and withdrawal state, plus the relation state. A single source
+        invalidation only withdraws that source's own entry and never erases entries other sources
+        still confirm. Requires entity.read on both endpoints; the request never accepts a tenant or
+        actor and never mutates anything.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Authorized multi-source confirmation view
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-confirmation-view.schema.json}
+        '400': {description: Invalid relation identifiers}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read or object scope}
+        '404': {description: Relation unavailable in the trusted tenant}
+        '503': {description: Relation storage unavailable; no empty fallback}
+  /api/v1/entities/{entityId}/relations/{relationId}/confirmations/withdraw:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {name: entityId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: relationId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: withdrawEntityRelationSourceConfirmation
+      description: >
+        Withdraw exactly one confirmation entry of one relation instance record, identified by its
+        deterministic source key. A source failure or batch revocation only withdraws that source's
+        own entry: entries other sources (or the manual assertion) still confirm remain recorded and
+        the relation stays valid. When the withdrawal removes the last still-confirmed entry, the
+        relation is terminated through the same effective-end-time write with the withdrawal reason
+        and its history kept. Withdrawals are idempotent on the entry: a replayed withdrawal returns
+        the recorded withdrawal without rewriting its reason or time, entries are never deleted, and
+        a requestId reused for different content conflicts. entity.manage is required on both
+        endpoints and the request never accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/entity-relation-confirmation-withdraw-command.schema.json}
+      responses:
+        '200':
+          description: Durable withdrawal receipt with the recorded entry state
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/entity-relation-confirmation-receipt.schema.json}
+        '400': {description: Invalid closed JSON, relation path mismatch, source kind, source key, batch reference or reason}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage or endpoint scope}
+        '404': {description: Relation or confirmation entry unavailable in the trusted tenant}
+        '409': {description: 'RELATION_CONFIRMATION_CONFLICT: request reuse with changed content, or the withdrawal would close the relation before it starts'}
+        '503': {description: Relation storage unavailable; resolve by requestId before retry}
+  /api/v1/external-links:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: registerExternalLink
+      description: >
+        Deterministically register one external object key (namespace, objectType, externalKey,
+        generation) onto an existing entity in the trusted tenant. entity.manage is required on the
+        target. This is the only way to make an unresolved workflow relation endpoint resolvable;
+        registration never resolves names or IP addresses and never rewrites an existing entity
+        binding. requestId is the idempotency key: retries return the original receipt, the same
+        requestId with changed content conflicts, and a key already bound to a different entity
+        conflicts instead of being silently rebound. The request never accepts a tenant or actor.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: ../schemas/v1/external-link-registration.schema.json}
+      responses:
+        '200':
+          description: Durable registration receipt; the reason is retained server-side and not echoed
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/external-link-registration-receipt.schema.json}
+        '400': {description: Invalid closed JSON, namespace, object type, key, generation or reason}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.manage or object scope}
+        '404': {description: Target entity unavailable in the trusted tenant}
+        '409': {description: Request reuse with changed content, or the external key is already bound to a different entity (never silently rebound)}
+        '503': {description: External link storage unavailable; resolve by requestId before retry}
+    get:
+      operationId: pageExternalLinks
+      description: >
+        Bounded authorized read-only page of registered external links, ordered by the registration
+        request id. Requires entity.read and object scope; tenant and identity come from the trusted
+        principal. The page is live and bounded and never resolves names or addresses.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: namespace, in: query, schema: {type: string}}
+        - {name: after, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 25}}
+      responses:
+        '200':
+          description: Authorized registered external links
+          content:
+            application/json:
+              schema: {$ref: ../schemas/v1/external-link-page.schema.json}
+        '400': {description: Invalid namespace, cursor or limit}
+        '401': {description: Unauthenticated}
+        '403': {description: Missing entity.read or object scope}
+        '503': {description: External link storage unavailable; no empty fallback}
   /api/v1/integrations/zabbix/hosts/sync:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}

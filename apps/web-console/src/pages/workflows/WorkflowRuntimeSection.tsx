@@ -3,6 +3,7 @@ import { WorkflowRuntimePanel } from '../../components/workflows/WorkflowRuntime
 import { WorkflowRuntimeControlStatus } from '../../components/workflows/WorkflowRuntimeControlStatus.tsx'
 import { controlRuntime, readRuntimeControl, executeRuntime, readRuntime, RuntimeRequestError, type RuntimeStatus, type RuntimeSettings, type RuntimeControlCommand, type RuntimeControlReceipt } from '../../api/workflow-runtime.ts'
 import { evaluateWorkflow, type Entry } from '../../api/workflows.ts'
+import { outputKind } from '../../api/workflow-output.ts'
 import { usePageActive, usePageCloseGuard } from '../../state/page-workspace.ts'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { readHostScan, type HostScan } from '../../api/workflow-host-scan.ts'
@@ -20,7 +21,7 @@ export function WorkflowRuntimeSection({ entry, sample, batch, names, onBusy }: 
  const task=status?.tasks.find(value=>value.workflowId===entry.definition.id)
  const sameVersion=Boolean(task&&task.revision===entry.definition.revision&&task.digest===entry.digest)
  const pendingPage=hostScan?.batches.find(value=>value.id===hostScan.checkpoint.pendingBatchId)
- const replaceVersion=Boolean(task&&entry.definition.revision>task.revision&&task.state!=='RUNNING'&&(task.state==='ABANDONED'||hostLoaded&&(!hostScan?.checkpoint.pendingBatchId||pendingPage?.state==='FAILED'&&pendingPage.entityIds.length===0)))
+ const replaceVersion=Boolean(task&&entry.definition.revision>task.revision&&task.state!=='RUNNING'&&(task.state==='ABANDONED'||hostLoaded&&(!hostScan?.checkpoint.pendingBatchId||pendingPage?.state==='FAILED'&&pendingPage.entityIds.length===0&&!pendingPage.relationIds?.length)))
  const otherVersion=Boolean(task&&!sameVersion&&!replaceVersion)
  usePageCloseGuard(busy?{message:'流程执行正在处理，请等待回执后关闭。',blocked:true}:controlPending.current?{message:'任务控制结果待确认，请查询原请求回执。',blocked:true}:pending.current?{message:'流程写入结果待确认，请先刷新运行回执。',blocked:true}:null)
 
@@ -50,7 +51,7 @@ export function WorkflowRuntimeSection({ entry, sample, batch, names, onBusy }: 
     if(!pending.current){const values:unknown=entry.definition.source.kind==='MANUAL_SAMPLE'?JSON.parse(sample):undefined;const preview=await evaluateWorkflow(entry,values,batch,controller.signal);if(!current())return;pending.current={id:preview.receipt.id,values,batch,settings:{identityField:identity,nameField:name}}}
     const submission=pending.current
     const result=await executeRuntime(entry,submission.settings,submission.values,submission.batch,submission.id,controller.signal)
-    if(current()){pending.current=null;setStatus(value=>value?{...value,executions:[result,...value.executions.filter(item=>item.id!==result.id)].slice(0,20)}:value);setNotice(result.state==='SUCCEEDED'?'已确认写入 '+result.entityIds.length+' 条资产，可到资产页查看。':'执行失败，已确认写入 '+result.entityIds.length+' 条，请检查回执。')}
+    if(current()){pending.current=null;setStatus(value=>value?{...value,executions:[result,...value.executions.filter(item=>item.id!==result.id)].slice(0,20)}:value);const relation=outputKind(entry.definition.target)==='RELATION',written=relation?result.relationIds?.length??0:result.entityIds.length,open=result.pending?.length??0;setNotice(result.state==='SUCCEEDED'?relation?'已确认写入 '+written+' 条关系'+(open?'、待处理 '+open+' 条':'')+'，可到关系实例页查看。':'已确认写入 '+written+' 条资产，可到资产页查看。':relation?'执行失败，已确认写入 '+written+' 条关系、待处理 '+open+' 条，请检查回执。':'执行失败，已确认写入 '+written+' 条，请检查回执。')}
    }else{
     if(kind==='start'||kind==='stop'||kind==='resume'){
      controlPending.current={requestId:crypto.randomUUID(),id:entry.definition.id,revision:entry.definition.revision,digest:entry.digest,settings:kind==='resume'&&task?task.settings:{identityField:identity,nameField:name},expectedGeneration:task?.generation??0,operation:kind==='start'?'START':kind==='resume'?'RESUME':'STOP'}

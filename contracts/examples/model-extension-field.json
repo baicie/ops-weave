@@ -1,0 +1,7 @@
+{
+  "id": "business_code",
+  "label": "业务编码",
+  "type": "TEXT",
+  "required": false,
+  "maxLength": 64
+}

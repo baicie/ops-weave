@@ -52,7 +52,7 @@ export function parseWorkflow(v: unknown): Definition {
   const s = parseWorkflowSource(d.source)
   const t = parseOutput(d.target)
   if(s.kind==='ZABBIX_LOG'&&(!('kind' in t)||t.kind!=='LOG'))invalid()
-  if ('kind' in t && s.kind === 'ZABBIX_HOST' || s.kind==='ZABBIX_METRIC' && (!('mappingPin' in t)||!t.mappingPin)) invalid()
+  if ('kind' in t && t.kind !== 'RELATION' && s.kind === 'ZABBIX_HOST' || s.kind==='ZABBIX_METRIC' && (!('mappingPin' in t)||!t.mappingPin)) invalid()
   const nodes = arr(d.nodes, 16); if (nodes.length < 4) invalid(); const ids: string[] = []
   for (const value of nodes) {
     const n = obj(value, !!value && typeof value === 'object' && Object.hasOwn(value,'operatorDigest') ? ['id','type','version','config','operatorDigest'] : ['id','type','version','config']); if ('operatorDigest' in n) digest(n.operatorDigest); text(n.id, 32); if (!/^[a-z][a-z0-9_-]{0,31}$/.test(n.id) || ids.includes(n.id) || !kinds.includes(n.type as NodeType) || n.version !== '1') invalid(); ids.push(n.id)
@@ -117,4 +117,13 @@ export function telemetryTemplate(kind: 'LOG' | 'METRIC', source: Definition['so
 export function standardMetricTemplate(mapping:MappingDefinition,source:Definition['source'],catalog:OperatorCatalog):Definition {
  if(source.kind==='ZABBIX_HOST'||source.kind==='ZABBIX_LOG'||!supportsStandardMetricMapping(mapping)||source.metric&&source.metric.sourceKey!==mapping.sourceKey)throw new Error('这份映射不能用于当前指标格式');
  const d=telemetryTemplate('METRIC',{kind:'MANUAL_SAMPLE',instanceId:'manual'},catalog);return {...d,source,name:mapping.displayName+'转换',target:{kind:'METRIC',schemaVersion:'1.1',metricKey:mapping.metricKey,mappingPin:mapping.mappingPin},nodes:d.nodes.map(n=>n.type==='MAP'?{...n,config:{timestamp:'timestamp',sourceKey:'sourceKey',value:'value'}}:n)};
+}
+
+/** RELATION output keeps explicit endpoint identity fields; endpoints resolve only through registered external links. */
+export function relationTemplate(relation:Model,source:Definition['source'],catalog:OperatorCatalog):Definition {
+ if(source.kind!=='MANUAL_SAMPLE'&&source.kind!=='ZABBIX_HOST')throw new Error('关系输出仅支持手工样本或 Zabbix 主机批次来源');
+ const fromField='from_identity',toField='to_identity';
+ const mapping:Record<string,string>=source.kind==='ZABBIX_HOST'?{entity_id:fromField}:{[fromField]:fromField,[toField]:toField};
+ const nodes:WorkflowNode[]=[{id:'source',type:'SOURCE',version:'1',config:{}},{id:'mapping',type:'MAP',version:'1',config:mapping},{id:'trim',type:'TRIM',version:'1',config:{}},{id:'validate',type:'VALIDATE',version:'1',config:{}},{id:'output',type:'OUTPUT',version:'1',config:{}}];
+ return connect({schemaVersion:'2.0',id:'flow-'+crypto.randomUUID().slice(0,8),revision:1,name:source.kind==='ZABBIX_HOST'?'Zabbix 主机关联清洗':'关系样本清洗',source,target:{kind:'RELATION',schemaVersion:'1.0',relation:{id:relation.definition.id,revision:relation.definition.revision,digest:relation.digest},fromField,toField},nodes:nodes.map(n=>pinNode(n,catalog)),edges:[]});
 }

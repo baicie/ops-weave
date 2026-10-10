@@ -26,6 +26,21 @@ Until an explicit instance migration workflow is implemented, revisions are cons
 
 Digest algorithm opsweave-model-v1 hashes UTF-8 components prefixed with their byte length and a colon. It includes type identity/revision/kind/label/description/profile, fields sorted by stable id (including choices in order), and relation endpoints/cardinality. Decimal bounds use canonical plain notation. Database JSON property order does not affect integrity.
 
+## Tenant extension overlays
+
+Tenant-namespaced extension overlays add optional bounded scalar fields to one fixed base model version. The base model body is immutable: an overlay never edits built-in or published definitions, never shadows base field identities or reserved system metadata and never becomes a new model identity. Only additive optional fields are allowed; combined base + overlay fields stay within the 32-field budget.
+
+- GET /api/v1/catalog/extensions: at most 50 published overlay versions and 50 current-subject drafts with explicit truncated flags. Overlay versions are selected by base {id, revision}; the request never accepts a tenant or actor.
+- POST /api/v1/catalog/extensions/drafts: {base:{id,revision}, fields, expectedEditVersion}. Zero creates a private draft; the overlay revision is server-assigned as latest published + 1. The base must be a built-in definition or an already published ENTITY version inside the trusted tenant. Illegal field names/types, duplicate field identities, reserved system names, base field collisions and budget overflow are rejected server-side; a request without fields is rejected. Conflicts return 409.
+- POST /api/v1/catalog/extensions/publish: {base, expectedEditVersion, digest}. Publishes exactly the saved draft as the next immutable extension revision under the same tenant advisory lock; revisions are consecutive and additive with earlier field semantics pinned, so records written against an earlier revision stay readable. A retry with the same pinned draft returns the original publication.
+
+Digest algorithm opsweave-model-extension-v1 hashes the same length-prefixed UTF-8 components over the base reference, overlay revision, profile and extension fields sorted by stable id. Entity instance writes validate attributes against the base body plus the tenant's published overlay for that pinned base version; extension values persist inside the ordinary attributes payload and are read back with their field ids. When no definition is available the presentation keeps raw field ids instead of guessing labels. Rejections distinguish invalid content (400), missing base/draft (404) and edit-version/digest/compatibility conflicts (409).
+
+## Legacy entity model pin backfill
+
+- POST /api/v1/entities/model-pins/backfill: {requestId, entityType, model:{id,revision}, maxUpdates}. An explicit, bounded, authorized maintenance command for legacy rows that predate model pinning. The server resolves the named published model version, derives its entity type and digest, and pins only rows whose stored attributes verifiably conform to exactly that model. Rows that cannot be determined keep no pin and are reported as counts instead of being guessed; source-managed rows (those with source observations) and rows that already carry a pin are never touched. At most maxUpdates (1–500) unpinned non-source rows are scanned per command in deterministic entity-id order; nothing is rewritten implicitly outside the command. requestId is the idempotency key: retries replay the stored receipt and the same requestId with changed content returns 409. The receipt reports counts only (scanned/updated/keptWithoutPin/skippedPinned/skippedSource) and never entity contents. Tenant-wide entity.manage is required; the request never accepts a tenant or actor.
+- GET /api/v1/entities/model-pins/backfill/{requestId}: reads the stored receipt of one command by its own requestId. An unknown requestId returns 404 instead of inventing a result.
+
 ## safe-scalars-v1
 
 Rules are fixed and visible in this release; users can preview them, but cannot supply custom scripts or overwrite a published rule version.
@@ -46,4 +61,4 @@ The distinction matters: [Zabbix 7.2 API changes](https://www.zabbix.com/documen
 
 ## Explicit remaining work
 
-This slice provides model definitions and sample validation. Built-in tenant overlays/baseRef extensions, typed entity instance persistence/detail reads, custom metric authoring, custom transformation rules, source configuration drawers, pipeline v2/canvas and relationship instance/history/topology management are not implemented here. Legacy Host v1 ingestion remains unchanged. AI assistance stays reserved for later, with no new Tool permissions or model calls.
+This slice provides model definitions, sample validation, tenant extension overlays and the explicit legacy model-pin backfill. Custom metric authoring, custom transformation rules, source configuration drawers, pipeline v2/canvas and relationship instance/history/topology management are not implemented here. Legacy Host v1 ingestion remains unchanged and legacy rows keep their state until an explicit backfill command matches them. AI assistance stays reserved for later, with no new Tool permissions or model calls.

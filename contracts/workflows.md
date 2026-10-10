@@ -49,7 +49,9 @@ receipt含id、digest、inputDigest、origin、accepted/rejected/filtered、crea
 
 ## 输出联合与规范化格式1.0
 
-ENTITY保留原target={id,revision,digest}闭集形状及摘要算法；不能添加kind字段。LOG/METRIC使用target={kind:"LOG"|"METRIC",schemaVersion:"1.0"}，不得附带实体id/revision/digest。遥测格式版本进入定义digest。ZABBIX_HOST在定义与历史trace中都只允许ENTITY；MANUAL_SAMPLE支持三种格式。客户端和领域校验还检查历史来源模式、字段和计数一致性。
+ENTITY保留原target={id,revision,digest}闭集形状及摘要算法；不能添加kind字段。LOG/METRIC使用target={kind:"LOG"|"METRIC",schemaVersion:"1.0"}，不得附带实体id/revision/digest。遥测格式版本进入定义digest。
+
+RELATION使用target={kind:"RELATION",schemaVersion:"1.0",relation:{id,revision,digest},fromField,toField}：relation为已发布RELATION模型pin，fromField/toField命名行内**显式来源身份**字段。端点只经已登记外部链接按身份确定性解析（与工作流实体输出同命名空间workflow.<工作流id>），解析不到进入待处理PENDING记录（FROM_UNRESOLVED/TO_UNRESOLVED），不写关系、不丢行；禁止按名字/IP猜测端点。写入遵守关系唯一性、基数与requestId幂等规则（同端点同类型仅一条记录，已终止不复活，重复/复活显式409失败关闭不静默获胜），来源失败不删除既有关系。**服务端执行链已接线**（3b-2）：`/runtime/execute`与批次消费（tick/Host批次）在RELATION目标下经同一写入端写关系实例（sourceRef="workflow:workflow.<工作流id>"，origin按fixture/zabbix-jsonrpc映射dataMode，MANUAL_SAMPLE记unknown，确定性requestId跨执行幂等）；执行回执新增闭集字段relationIds/pending（元素{index,code}），PENDING行计入pending且不计入written/filtered/entityIds，SUCCEEDED时entityIds+relationIds+pending=accepted，写入异常（含关系409）记OUTPUT_UNAVAILABLE停止且保留故障前已写行，不隐藏重试；Host批次回执同样携带relationIds/pending，只有确认批次推进游标。ZABBIX_HOST来源允许RELATION目标（定义与执行链）；MANUAL_SAMPLE支持三种格式。Web配置面与批次启停UI未接线（3b-3），多来源确认合并与关系更正（改端点/类型）未实现。客户端和领域校验还检查历史来源模式、字段和计数一致性。
 
 LOG字段为eventTime、body、可选severityText/serviceName/traceId/spanId；eventTime必须有时区并规范化UTC，body非空白且最多2048字符，其他文本最多128字符，traceId/spanId分别32/16位小写十六进制。正文不隐式trim，默认模板仅SOURCE/MAP/VALIDATE/OUTPUT。
 
@@ -65,9 +67,9 @@ METRIC字段为timestamp/metricKey/value/metricType、可选unit。timestamp带�
 |---|---|---|
 | /runtime | GET，无查询参数 | runtime：本人任务及最近20条执行元数据 |
 | /runtime/executions/{id} | GET，UUID；拒绝查询参数 | 单条本人/租户范围内的已持久执行元数据；读取不重新执行、不重试，隐藏其他主体或租户的记录 |
-| /runtime/execute | POST {id,revision,digest,settings,previewId,samples} 或syncRunId | runtime-execution；只允许已发布ENTITY |
+| /runtime/execute | POST {id,revision,digest,settings,previewId,samples} 或syncRunId | runtime-execution；只允许已发布ENTITY或RELATION目标 |
 | /runtime/start、/runtime/stop | POST {id,revision,digest,settings,expectedGeneration} | runtime-task；CAS，start仅ZABBIX_HOST |
 
-settings闭集为identityField/nameField，不接受来源URL、脚本、权限或Token。previewId必须是同版本同输入的有效RUN回执（非草稿PREVIEW）；它同时是写入幂等键。同键配置/输入改变返回409，原样确认返回已记录的SUCCEEDED或FAILED。来源批次须SUCCEEDED、完整、无截断/缺失且最多5条。全批校验后写入；已确认ID不代表全批原子性，FAILED可能有部分成功，禁止隐式重试。执行回执不含输入、输出正文或异常自由文本。
+settings闭集为identityField/nameField，不接受来源URL、脚本、权限或Token。previewId必须是同版本同输入的有效RUN回执（非草稿PREVIEW）；它同时是写入幂等键。同键配置/输入改变返回409，原样确认返回已记录的SUCCEEDED或FAILED。来源批次须SUCCEEDED、完整、无截断/缺失且最多5条。全批校验后写入；已确认ID不代表全批原子性，FAILED可能有部分成功，禁止隐式重试。执行回执不含输入、输出正文或异常自由文本。ENTITY行写入entityIds；RELATION行写入relationIds或进入pending（{index,code}，code为FROM_UNRESOLVED/TO_UNRESOLVED），两者互斥且都不得与entityIds混用，written=entityIds+relationIds不含pending，SUCCEEDED时written+pending=accepted，失败回执允许少于accepted但不虚报。
 
 任务state为RUNNING/STOPPED/FAILED，generation递增控制，固定版本和设置。cursor/cursorId按完成时间与UUID，处理新完成的已有批次，采集单独启动。失败显式终止，重新启动从当前时刻开始；不重放旧数据、不退役缺失实体。服务重启恢复RUNNING；调度器使用既有可信开发身份，不存储Token。上限：共享并发2、20任务/用户、200执行回执/用户、50待处理批次。迁移V032–V034及权限见ADR-061，日志/指标写入和生产后台委托仍缺。

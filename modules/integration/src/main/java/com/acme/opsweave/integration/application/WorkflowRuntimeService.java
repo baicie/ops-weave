@@ -18,6 +18,10 @@ public final class WorkflowRuntimeService {
     public interface Output {
         void validate(Principal p, WorkflowDefinition d, Settings settings, List<Map<String,Object>> input, WorkflowEvaluation evaluation);
         String write(Principal p, WorkflowDefinition d, Settings settings, UUID execution, Instant observedAt, Map<String,Object> input, Map<String,Object> values, String origin);
+        /** RELATION rows write relation instances through the same bounded output end; unresolved endpoints stay pending. */
+        default WorkflowRelationOutput.Outcome writeRelation(Principal p, WorkflowDefinition d, com.acme.opsweave.catalog.domain.ModelDefinition model, Settings settings, UUID execution, Instant observedAt, Map<String,Object> input, Map<String,Object> values, String origin) {
+            throw new IllegalStateException("RELATION output is not wired");
+        }
     }
     private final WorkflowStore store;
     private final WorkflowService.Models models;
@@ -53,7 +57,7 @@ public final class WorkflowRuntimeService {
     private WorkflowStore.Entry version(WorkflowStore.Session s, String id, int revision, String digest) {
         var e=s.published(id,revision).orElseThrow(()->fail(WorkflowFailure.Code.NOT_FOUND));
         if(!e.digest().equals(digest)) throw fail(WorkflowFailure.Code.CONFLICT);
-        if(!e.definition().target().entity() || e.definition().source().configuration()!=null && (hostRuntime==null||!e.definition().source().kind().equals("ZABBIX_HOST"))) throw fail(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
+        if(!(e.definition().target().entity()||e.definition().target().relationOutput()) || e.definition().source().configuration()!=null && (hostRuntime==null||!e.definition().source().kind().equals("ZABBIX_HOST"))) throw fail(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
         WorkflowOperators.builtIn().require(e.definition(),false);
         return e;
     }
@@ -149,7 +153,14 @@ public final class WorkflowRuntimeService {
             // Reserve a generation for stopping; legacy running tasks at the old ceiling can still stop.
             if(expected>=999_999) throw fail(WorkflowFailure.Code.CAPACITY);
             var e=version(s,id,revision,digest); var model=models.resolve(p,e.definition().target()); e.definition().requireOutput(model);
-            if(!model.fields().stream().anyMatch(f->f.id().equals(settings.nameField())) || !e.definition().source().kind().equals("ZABBIX_HOST")) throw new IllegalArgumentException();
+            if(!e.definition().source().kind().equals("ZABBIX_HOST")) throw new IllegalArgumentException();
+            if(e.definition().target().relationOutput()){
+                // RELATION targets need both endpoint identities pinned to the model's endpoint semantics.
+                var endpoints=model.endpoints();
+                if(endpoints==null||endpoints.from()==null||endpoints.to()==null||endpoints.from().equals(endpoints.to())
+                    ||e.definition().target().fromField()==null||e.definition().target().toField()==null
+                    ||e.definition().target().fromField().equals(e.definition().target().toField())) throw new IllegalArgumentException();
+            } else if(!model.fields().stream().anyMatch(f->f.id().equals(settings.nameField()))) throw new IllegalArgumentException();
             if(new Authorizer().decide(p,ResourceRef.source(p.tenantId(),e.definition().source().instanceId()),Permission.SOURCE_SYNC).denied()) throw fail(WorkflowFailure.Code.FORBIDDEN);
             if(old.isEmpty() && s.tasks(owner).size()>=20) throw fail(WorkflowFailure.Code.CAPACITY);
             boolean replacing=old.isPresent()&&revision!=old.get().revision();
@@ -252,15 +263,20 @@ public final class WorkflowRuntimeService {
         if(evaluation.rejected()>0) throw fail(WorkflowFailure.Code.INVALID_SAMPLE);
         guard.run();
         try { output.validate(p,e.definition(),settings,values,evaluation); } catch(IllegalArgumentException invalid) { throw fail(WorkflowFailure.Code.INVALID_SAMPLE); }
-        var ids=new ArrayList<String>(); String failureCode=null;
+        var ids=new ArrayList<String>(); var relationIds=new ArrayList<String>(); var pending=new ArrayList<WorkflowRuntime.Pending>(); String failureCode=null;
         for(var row:evaluation.rows()) {
             if(!row.status().equals("ACCEPTED")) continue;
             try { guard.run(); } catch(RuntimeException revoked) { failureCode=error(revoked); break; }
-            try { ids.add(output.write(p,e.definition(),settings,key,time,values.get(row.index()),row.steps().getLast().values(),origin)); }
+            try {
+                if(e.definition().target().relationOutput()) {
+                    var outcome=output.writeRelation(p,e.definition(),model,settings,key,time,values.get(row.index()),row.steps().getLast().values(),origin);
+                    if(outcome.relationId()!=null) relationIds.add(outcome.relationId()); else pending.add(new WorkflowRuntime.Pending(row.index(),outcome.pendingCode()));
+                } else ids.add(output.write(p,e.definition(),settings,key,time,values.get(row.index()),row.steps().getLast().values(),origin));
+            }
             catch(RuntimeException unavailable) { failureCode="OUTPUT_UNAVAILABLE"; break; }
         }
         if(failureCode==null) try { guard.run(); } catch(RuntimeException revoked) { failureCode=error(revoked); }
-        var result=new Execution(key,e.definition().id(),e.definition().revision(),e.digest(),settings,origin,batchId,time,failureCode==null?"SUCCEEDED":"FAILED",evaluation.accepted(),evaluation.rejected(),evaluation.filtered(),ids,failureCode,authorizationId);
+        var result=new Execution(key,e.definition().id(),e.definition().revision(),e.digest(),settings,origin,batchId,time,failureCode==null?"SUCCEEDED":"FAILED",evaluation.accepted(),evaluation.rejected(),evaluation.filtered(),ids,failureCode,authorizationId,relationIds,pending);
         s.addExecution(p.subjectId().value(),result); return result;
     }
     private static String error(RuntimeException failure) {

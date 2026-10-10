@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Close entity relation command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "relationId", "reason", "expectedVersion"],
+  "properties": {
+    "requestId": {"type": "string", "format": "uuid"},
+    "relationId": {"type": "string", "format": "uuid"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "validTo": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "expectedVersion": {"type": "integer", "minimum": 1}
+  }
+}

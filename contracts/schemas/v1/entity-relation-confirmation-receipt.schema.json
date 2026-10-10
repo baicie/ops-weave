@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entity relation confirmation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requestId", "replayed", "relationId", "entry"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "requestId": {"type": "string", "format": "uuid"},
+    "replayed": {"type": "boolean"},
+    "relationId": {"type": "string", "format": "uuid"},
+    "entry": {"$ref": "entity-relation-confirmation-entry.schema.json"}
+  }
+}

@@ -1,5 +1,6 @@
 import type { Execution, RuntimeStatus, RuntimeTask } from '../../api/workflow-runtime.ts'
 import type { Entry } from '../../api/workflows.ts'
+import { outputKind } from '../../api/workflow-output.ts'
 import { WorkflowTaskAuthorization, runtimeFailureMessage } from './WorkflowTaskAuthorization.tsx'
 
 type Props = {
@@ -15,16 +16,17 @@ export function WorkflowRuntimePanel(props: Props) {
  const sourceBatch = entry.definition.source.kind === 'ZABBIX_HOST'
  const fixed = Boolean(entry.definition.source.configuration)
  const delegated = status?.mode === 'DELEGATED_ENTITY'
+ const relationOutput = outputKind(entry.definition.target) === 'RELATION'
  const locked = busy || props.pending || props.controlPending || task?.state === 'RUNNING' || fixed && props.canResume
  return <section className="workflow-runtime-panel" aria-label="已发布流程运行">
   <header><h3>运行管理</h3><button disabled={busy} onClick={props.refresh}>刷新状态</button></header>
-  <p>执行会写入工作流的独立来源资产；同一来源标识更新同一实体。</p>
+  <p>{relationOutput ? '执行会写入关系实例；端点只经已登记外部链接按显式身份解析，解析不到进入待处理，不按名字或 IP 猜测。' : '执行会写入工作流的独立来源资产；同一来源标识更新同一实体。'}</p>
   <div className="workflow-runtime-settings">
    <label>来源标识字段<input aria-label="运行来源标识字段" value={props.identity} disabled={locked || fixed} placeholder={sourceBatch ? '如 entity_id' : '如 source_id 或业务 ID'} onChange={event => props.identityChange(event.target.value)} /></label>
    <label>实体名称字段<select aria-label="运行实体名称字段" value={props.name} disabled={locked} onChange={event => props.nameChange(event.target.value)}><option value="">请选择</option>{props.names.map(field => <option key={field.id} value={field.id}>{field.label} · {field.id}</option>)}</select></label>
   </div>
   <div className="workflow-runtime-actions">
-   {!fixed?<button disabled={busy || props.controlPending || !status || !props.identity || !props.name} onClick={props.run}>{props.pending ? '按原标识确认执行' : '执行并写入资产'}</button>:null}
+   {!fixed?<button disabled={busy || props.controlPending || !status || !props.identity || !props.name} onClick={props.run}>{props.pending ? '按原标识确认执行' : relationOutput ? '执行并写入关系' : '执行并写入资产'}</button>:null}
    {sourceBatch ? <>
     <button disabled={busy || props.pending || props.controlPending || !status || !props.identity || !props.name || task?.state === 'RUNNING' || (task?.generation ?? 0) >= 999999 || status.backgroundAvailable === false || !props.canStart} onClick={() => props.control(true)}>{fixed?'启动扫描':'启动持续处理'}</button>
     {fixed&&props.canResume?<button disabled={busy || props.pending || props.controlPending || !status || task?.state==='RUNNING' || (task?.generation??0)>=999999 || status.backgroundAvailable===false} onClick={props.resume}>恢复原扫描</button>:null}
@@ -42,8 +44,10 @@ export function WorkflowRuntimePanel(props: Props) {
   {props.error ? <p role="alert">{props.error}</p> : null}
   {props.notice ? <p role="status">{props.notice}</p> : null}
   <div className="workflow-runtime-receipts">{props.executions.map(execution => <article key={execution.id}>
-   <span>{execution.state === 'SUCCEEDED' ? '执行完成' : '执行失败'} · {execution.origin === 'fixture' ? 'Fixture 合成数据' : execution.origin === 'MANUAL_SAMPLE' ? '手工样本' : 'Zabbix'} · 已确认写入 {execution.entityIds.length} 条</span>
+   <span>{execution.state === 'SUCCEEDED' ? '执行完成' : '执行失败'} · {execution.origin === 'fixture' ? 'Fixture 合成数据' : execution.origin === 'MANUAL_SAMPLE' ? '手工样本' : 'Zabbix'} · 已写资产 {execution.entityIds.length} 条 · 已写关系 {execution.relationIds ? execution.relationIds.length + ' 条' : '—'} · 待处理 {execution.pending ? execution.pending.length + ' 条' : '—'}</span>
    <time>{new Date(execution.createdAt).toLocaleString()}</time>
+   {execution.pending?.map(item => <small key={item.index}>{'待处理记录 ' + (item.index + 1) + ' · ' + (item.code === 'FROM_UNRESOLVED' ? '起点身份未解析 FROM_UNRESOLVED' : '终点身份未解析 TO_UNRESOLVED')}</small>)}
+   {execution.pending?.length ? <small>待处理不是失败也不是过滤：未登记外部链接的端点不写关系、不丢行。</small> : null}
    {execution.error ? <small>{execution.error}；请核对原执行回执及已确认写入。</small> : null}
    <small>执行标识 {execution.id}</small>
   </article>)}</div>

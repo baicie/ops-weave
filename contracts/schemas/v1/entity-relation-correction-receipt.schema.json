@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entity relation correction receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requestId", "replayed", "previousRelationId", "relation"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "requestId": {"type": "string", "format": "uuid"},
+    "replayed": {"type": "boolean"},
+    "previousRelationId": {"type": "string", "format": "uuid"},
+    "relation": {"$ref": "entity-relation.schema.json"}
+  }
+}

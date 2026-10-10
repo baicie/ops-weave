@@ -31,7 +31,7 @@ final class WorkflowTaskVersionService {
                 require(ref,b.workflowId(),b.revision(),b.digest()); return b.state().equals("FAILED") && s.logStreamRejectionKnown(owner,b.id());
             }).orElseThrow();
             case HOST_SCAN -> s.hostBatch(owner, task.pendingBatchId()).map(b -> {
-                require(ref,b.workflowId(),b.revision(),b.digest()); return b.state().equals("FAILED") && b.entityIds().isEmpty();
+                require(ref,b.workflowId(),b.revision(),b.digest()); return b.state().equals("FAILED") && b.entityIds().isEmpty() && b.relationIds().isEmpty();
             }).orElseThrow();
         };
     }
@@ -51,7 +51,7 @@ final class WorkflowTaskVersionService {
         boolean failed=switch(a.kind()){
             case METRIC_STREAM -> s.metricStreamBatch(owner,t.pendingBatchId()).map(b->{require(a.reference(),b.workflowId(),b.revision(),b.digest());return b.state().equals("FAILED");}).orElseThrow();
             case LOG_STREAM -> s.logStreamBatch(owner,t.pendingBatchId()).map(b->{require(a.reference(),b.workflowId(),b.revision(),b.digest());return b.state().equals("FAILED");}).orElseThrow();
-            case HOST_SCAN -> s.hostBatch(owner,t.pendingBatchId()).map(b->{require(a.reference(),b.workflowId(),b.revision(),b.digest());return b.state().equals("FAILED")&&b.entityIds().isEmpty();}).orElseThrow();
+            case HOST_SCAN -> s.hostBatch(owner,t.pendingBatchId()).map(b->{require(a.reference(),b.workflowId(),b.revision(),b.digest());return b.state().equals("FAILED")&&b.entityIds().isEmpty()&&b.relationIds().isEmpty();}).orElseThrow();
         };
         if(!failed)throw new IllegalStateException("Invalid archived batch parent");
     }

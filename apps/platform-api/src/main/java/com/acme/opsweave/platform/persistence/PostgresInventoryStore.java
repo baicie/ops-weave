@@ -110,6 +110,34 @@ final class PostgresInventoryStore implements InventoryQuery, InventoryWritePort
         }
     }
 
+    /** Deterministic registered-link lookup for relation endpoint resolution; never name or address matching. */
+    @Override
+    public Optional<ExternalLink> linkOf(com.acme.opsweave.inventory.domain.ExternalObjectKey key) {
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                SELECT entity_id
+                  FROM inventory.entity_external_link
+                 WHERE tenant_id = ? AND source_instance_id = ? AND external_type = ? AND external_id = ? AND generation = ?
+                """)) {
+            statement.setString(1, key.tenantId().value());
+            statement.setString(2, key.sourceInstanceId());
+            statement.setString(3, key.externalType());
+            statement.setString(4, key.externalId());
+            statement.setString(5, key.generation());
+            statement.setQueryTimeout(5);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) {
+                    return Optional.empty();
+                }
+                var entityId = new EntityId(rows.getObject(1, java.util.UUID.class));
+                if (rows.next()) throw new IllegalStateException("External link reassignment requires resolution");
+                return Optional.of(new ExternalLink(entityId, key));
+            }
+        } catch (SQLException failed) {
+            throw new IllegalStateException("External link lookup failed");
+        }
+    }
+
     @Override
     public List<EntityView> list(TenantId tenantId) {
         try (var connection = dataSource.getConnection();

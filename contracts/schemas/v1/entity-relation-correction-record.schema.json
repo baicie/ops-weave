@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entity relation correction record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "tenantId", "requestId", "previousRelationId", "relationId", "reason", "expectedVersion", "correctedAt"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "requestId": {"type": "string", "format": "uuid"},
+    "previousRelationId": {"type": "string", "format": "uuid"},
+    "relationId": {"type": "string", "format": "uuid"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "expectedVersion": {"type": "integer", "minimum": 1},
+    "correctedAt": {"type": "string", "format": "date-time"}
+  }
+}

@@ -27,6 +27,8 @@ public final class InventoryWiring implements AutoCloseable {
     private final com.acme.opsweave.integration.api.WorkflowStore memoryWorkflows = new com.acme.opsweave.integration.infrastructure.InMemoryWorkflowStore();
     public com.acme.opsweave.integration.api.WorkflowStore workflows() { return ownedDataSource == null ? memoryWorkflows : new PostgresWorkflowStore(ownedDataSource); }
     private final com.acme.opsweave.catalog.api.ModelCatalogStore memoryCatalog = new com.acme.opsweave.catalog.infrastructure.InMemoryModelCatalogStore();
+    private final com.acme.opsweave.catalog.api.ModelExtensionStore memoryExtensions = new com.acme.opsweave.catalog.infrastructure.InMemoryModelExtensionStore();
+    private com.acme.opsweave.inventory.api.EntityModelPinBackfillStore entityModelPinBackfills;
     private HikariDataSource ownedDataSource;
     private com.acme.opsweave.inventory.api.SourceSnapshotStore sourceSnapshotsWired;
     private com.acme.opsweave.inventory.api.SourceReviewStore sourceReviewsWired;
@@ -35,6 +37,7 @@ public final class InventoryWiring implements AutoCloseable {
     private final InventoryWritePort writer;
     private final com.acme.opsweave.inventory.api.EntityInstanceStore entityInstances;
     private final com.acme.opsweave.inventory.api.RelationStore relations;
+    private com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore externalLinkRegistrations;
     private final IngestZabbixHostsUseCase.RawRecordCollector rawRecords;
     private final SyncRunStore syncRuns;
     private final MetricDefinitionStore metrics;
@@ -116,9 +119,12 @@ public final class InventoryWiring implements AutoCloseable {
                 properties.rejectedWriteRetention(null));
             var sourceReviews = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.reviews(
                 inventory, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
-            return new InventoryWiring(inventory, inventory, inventory, new com.acme.opsweave.inventory.infrastructure.InMemoryRelationStore(), raw,
+            var wiring = new InventoryWiring(inventory, inventory, inventory, new com.acme.opsweave.inventory.infrastructure.InMemoryRelationStore(), raw,
                 new InMemorySyncRunStore(properties.scanRunRetention(null, null)), metrics, new InMemorySourceItemWrites(inventory, metrics), new InMemorySourceConnectionCheckStore(), rejected, cmdbImportSource, null, null, sourceReviews, "memory", raw, new InMemoryPipelineVersionStore(), new InMemoryPipelineReplayStore(), new InMemoryPipelineDraftStore(), incidents, tools,
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
+            wiring.externalLinkRegistrations = new com.acme.opsweave.inventory.infrastructure.InMemoryExternalLinkRegistrationStore(inventory);
+            wiring.entityModelPinBackfills = new com.acme.opsweave.inventory.infrastructure.InMemoryEntityModelPinBackfillStore(inventory);
+            return wiring;
         }
         if (!"postgres".equalsIgnoreCase(store)) {
             throw new IllegalStateException("Unknown inventory store");
@@ -194,6 +200,11 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V060__entity_model_pin.sql", "V060__entity_model_pin");
         new SchemaMigrator(dataSource).apply("db/migration/V061__registered_item_sync_scope.sql", "V061__registered_item_sync_scope");
         new SchemaMigrator(dataSource).apply("db/migration/V062__registered_scan_lease_scope.sql", "V062__registered_scan_lease_scope");
+        new SchemaMigrator(dataSource).apply("db/migration/V063__entity_relation_close.sql", "V063__entity_relation_close");
+        new SchemaMigrator(dataSource).apply("db/migration/V064__workflow_relation_output_receipts.sql", "V064__workflow_relation_output_receipts");
+        new SchemaMigrator(dataSource).apply("db/migration/V065__external_link_registration.sql", "V065__external_link_registration");
+        new SchemaMigrator(dataSource).apply("db/migration/V066__entity_relation_correction_confirmation.sql", "V066__entity_relation_correction_confirmation");
+        new SchemaMigrator(dataSource).apply("db/migration/V067__model_extension_and_pin_backfill.sql", "V067__model_extension_and_pin_backfill");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
@@ -204,7 +215,7 @@ public final class InventoryWiring implements AutoCloseable {
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
             rawSnapshots, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
         var wiring = new InventoryWiring(postgres, postgres, new PostgresEntityInstanceStore(dataSource), new PostgresRelationStore(dataSource), sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
-        wiring.ownedDataSource = dataSource; return wiring;
+        wiring.ownedDataSource = dataSource; wiring.externalLinkRegistrations = new PostgresExternalLinkRegistrations(dataSource); wiring.entityModelPinBackfills = new PostgresEntityModelPinBackfillStore(dataSource); return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
 
@@ -222,6 +233,7 @@ public final class InventoryWiring implements AutoCloseable {
     }
     public com.acme.opsweave.inventory.api.EntityInstanceStore entityInstances() { return entityInstances; }
     public com.acme.opsweave.inventory.api.RelationStore relations() { return relations; }
+    public com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore externalLinkRegistrations() { return externalLinkRegistrations; }
     public com.acme.opsweave.inventory.api.ObservationReader observations() { return (com.acme.opsweave.inventory.api.ObservationReader) writer; }
 
     public IngestZabbixHostsUseCase.RawRecordCollector rawRecords() {
@@ -306,5 +318,10 @@ public final class InventoryWiring implements AutoCloseable {
         return new PostgresAiRetentionStore(ownedDataSource,java.time.Clock.systemUTC());
     }
     public com.acme.opsweave.catalog.api.ModelCatalogStore modelCatalog() { return ownedDataSource == null ? memoryCatalog : new PostgresModelCatalogStore(ownedDataSource); }
+    public com.acme.opsweave.catalog.api.ModelExtensionStore modelExtensions() { return ownedDataSource == null ? memoryExtensions : new PostgresModelExtensionStore(ownedDataSource); }
+    public com.acme.opsweave.inventory.api.EntityModelPinBackfillStore entityModelPinBackfills() {
+        if (entityModelPinBackfills == null) throw new IllegalStateException("Model pin backfill requires a wired inventory store");
+        return entityModelPinBackfills;
+    }
     public void close() { if (ownedDataSource != null) ownedDataSource.close(); }
 }

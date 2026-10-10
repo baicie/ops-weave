@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { usePlatformSession } from '../../state/platform-session.ts'
 import { useInitialPageRead } from '../../state/initial-page-read.ts'
 import { readCatalog, saveModel, publishModel, previewModel, type CatalogPage, type ModelDefinition, type ModelEntry, type ModelField, type FieldType, type ModelPreview, type CatalogMetric, readModelVersion } from '../../api/model-catalog.ts'
+import { ModelExtensionSection } from './ModelExtensionSection.tsx'
 
 type Mode = 'ENTITY' | 'RELATION' | 'METRIC'
 const typeLabels: Record<FieldType, string> = { TEXT: '文本', INTEGER: '整数', DECIMAL: '小数', BOOLEAN: '布尔', ENUM: '枚举', DATETIME: '时间' }
@@ -108,6 +109,7 @@ export function ModelCatalogPage(props: { mode: Mode }) {
       </fieldset>
       {editing?.kind === 'ENTITY' ? <section className="model-sample"><h4>清洗预览 <span className="model-pill">safe-scalars-v1</span></h4><p className="model-muted">输入一条手工 JSON 样本，仅在内存中清洗，不写入资产。</p><label>预览样本<Textarea aria-label="预览样本" rows={5} maxLength={16000} spellCheck={false} value={sample} disabled={busy} onInput={e => { setSample((e.target as HTMLTextAreaElement).value); setPreview(null) }} /></label><Button variant="outline" disabled={disabled} onClick={inspectSample}>预览清洗结果</Button>{preview ? <div className="model-preview" data-model-preview><strong>{preview.valid ? '样本通过校验' : '样本存在问题，不能作为有效输出'}</strong><pre>{JSON.stringify(preview.values, null, 2)}</pre><ul>{preview.issues.map((issue, i) => <li key={i}>{issue.field + '：' + (issueLabels[issue.code] ?? issue.code)}</li>)}</ul>{preview.changes.map((changeItem, i) => <p key={i}>{changeItem.field + ' · ' + ruleLabels[changeItem.rule]}</p>)}<p className="model-muted">缺失字段未补值；失败字段未进入有效值集合，原始样本仍保留在上方。</p></div> : null}</section> : null}
       {editorOpen&&readonly&&editing?<ModelReferenceSection key={editing.id+'@'+editing.revision} reference={{id:editing.id,revision:editing.revision}} digest={saved?.digest}/>:null}
+      {editorOpen&&readonly&&editing?.kind==='ENTITY'?<ModelExtensionSection key={'ext-'+editing.id+'@'+editing.revision} base={{id:editing.id,revision:editing.revision}} budget={32-(editing.fields.length??0)} disabled={disabled||busy}/>:null}
       {editorOpen&&!readonly&&!dirty&&saved?.state==='DRAFT'?<ModelPublishReviewSection key={saved.digest+':'+saved.editVersion} entry={saved} checked={setReview}/>:null}
       {saved ? <p className="model-digest">{'版本指纹 ' + saved.digest}</p> : null}<p role="alert">{error}</p><p role="status">{notice}</p>
       </div><footer className="model-drawer-footer">{readonly ? <><Button variant="outline" disabled={disabled} onClick={() => copy(false)}>复制为自定义类型</Button>{saved?.state === 'PUBLISHED' ? <Button variant="default" disabled={disabled || (editing?.revision ?? 1) >= 10000} onClick={() => copy(true)}>创建下一版本</Button> : null}</> : null}{!readonly ? <><Button variant="outline" disabled={disabled || !dirty} onClick={save}>保存私有草稿</Button><Button variant="default" disabled={disabled || dirty || saved?.state !== 'DRAFT'||!review?.compatible} onClick={publish}>发布模型版本</Button></> : null}</footer>

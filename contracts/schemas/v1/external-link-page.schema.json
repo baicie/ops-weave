@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "External link page",
+  "description": "Bounded authorized page of registered external links, ordered by the registration request id. Tenant and object scope come from the trusted principal; the page is live and bounded and never resolves names or addresses.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "storage", "tenantId", "items", "nextCursor"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "storage": {"type": "string", "minLength": 1, "maxLength": 32},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "items": {"type": "array", "maxItems": 50, "items": {"$ref": "external-link-entry.schema.json"}},
+    "nextCursor": {"anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}]}
+  }
+}

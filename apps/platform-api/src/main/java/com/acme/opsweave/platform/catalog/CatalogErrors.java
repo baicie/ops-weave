@@ -5,7 +5,7 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes = {ModelCatalogController.class,ModelImpactController.class})
+@RestControllerAdvice(assignableTypes = {ModelCatalogController.class,ModelImpactController.class,ModelExtensionController.class})
 public class CatalogErrors {
     @ExceptionHandler(CatalogFailure.class)
     public ResponseEntity<?> failure(CatalogFailure failure) {

@@ -18,12 +18,16 @@ public record WorkflowDefinition(String id, int revision, String name, Source so
         public Source(String kind,String instanceId){this(kind,instanceId,null);}
         public Source { if (!Set.of("MANUAL_SAMPLE", "ZABBIX_HOST", "ZABBIX_METRIC", "ZABBIX_LOG").contains(kind) || instanceId == null || !instanceId.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}") || kind.equals("MANUAL_SAMPLE") && (!instanceId.equals("manual")||configuration!=null) || (kind.equals("ZABBIX_METRIC") ? configuration==null||metric==null : metric!=null) || (kind.equals("ZABBIX_LOG") ? configuration==null||log==null : log!=null)) invalid(); }
     }
-    public record Target(String id, int revision, String digest, String kind, com.acme.opsweave.telemetry.domain.MetricMappingPin mappingPin,String metricKey) {
-        public Target(String id,int revision,String digest){this(id,revision,digest,"ENTITY",null,null);}
-        public Target(String id,int revision,String digest,String kind){this(id,revision,digest,kind,null,null);}
-        public Target { if("ENTITY".equals(kind)){new ModelDefinition.Ref(id, revision);checkDigest(digest);if(mappingPin!=null||metricKey!=null)invalid();}else if(!Set.of("LOG","METRIC").contains(kind)||id!=null||digest!=null||revision!=1||mappingPin!=null&&!kind.equals("METRIC")||mappingPin==null&&metricKey!=null||mappingPin!=null&&(metricKey==null||!metricKey.matches("[A-Za-z][A-Za-z0-9_.:/-]{0,127}")))invalid(); }
+    public record Target(String id, int revision, String digest, String kind, com.acme.opsweave.telemetry.domain.MetricMappingPin mappingPin,String metricKey,String fromField,String toField) {
+        public Target(String id,int revision,String digest){this(id,revision,digest,"ENTITY",null,null,null,null);}
+        public Target(String id,int revision,String digest,String kind){this(id,revision,digest,kind,null,null,null,null);}
+        public Target(String id,int revision,String digest,String kind,com.acme.opsweave.telemetry.domain.MetricMappingPin mappingPin,String metricKey){this(id,revision,digest,kind,mappingPin,metricKey,null,null);}
+        public Target { if("ENTITY".equals(kind)){new ModelDefinition.Ref(id, revision);checkDigest(digest);if(mappingPin!=null||metricKey!=null||fromField!=null||toField!=null)invalid();}else if("RELATION".equals(kind)){new ModelDefinition.Ref(id, revision);checkDigest(digest);if(mappingPin!=null||metricKey!=null)invalid();relationField(fromField);relationField(toField);if(fromField.equals(toField))invalid();}else if(!Set.of("LOG","METRIC").contains(kind)||id!=null||digest!=null||revision!=1||fromField!=null||toField!=null||mappingPin!=null&&!kind.equals("METRIC")||mappingPin==null&&metricKey!=null||mappingPin!=null&&(metricKey==null||!metricKey.matches("[A-Za-z][A-Za-z0-9_.:/-]{0,127}")))invalid(); }
         public boolean entity(){return kind.equals("ENTITY");}
+        public boolean relationOutput(){return kind.equals("RELATION");}
         public ModelDefinition.Ref ref() { if(!entity())invalid();return new ModelDefinition.Ref(id, revision); }
+        public ModelDefinition.Ref relation() { if(!relationOutput())invalid();return new ModelDefinition.Ref(id, revision); }
+        private static void relationField(String value) { if(value==null||!value.matches("[a-z][a-z0-9_]{0,63}"))invalid(); }
     }
     public record Edge(String from, String to) { public Edge { nodeId(from); nodeId(to); } }
     public record Node(String id, Type type, String version, Map<String, String> config, String operatorDigest) {
@@ -50,21 +54,26 @@ public record WorkflowDefinition(String id, int revision, String name, Source so
         }
         if(source.kind.equals("ZABBIX_METRIC")&&target.mappingPin==null)invalid();
         if(source.kind.equals("ZABBIX_LOG")&&!target.kind.equals("LOG"))invalid();
-        if(!target.entity()){if(source.kind.equals("ZABBIX_HOST"))invalid();requireFields(nodes,TelemetryOutput.fields(target));}
+        if(target.relationOutput()){requireFields(nodes,List.of(target.fromField(),target.toField()));}
+        else if(!target.entity()){if(source.kind.equals("ZABBIX_HOST"))invalid();requireFields(nodes,TelemetryOutput.fields(target));}
     }
     public void requireModel(ModelDefinition model) {
         if (!target.entity() || model==null || model.kind() != ModelDefinition.Kind.ENTITY || !model.ref().equals(target.ref()) || !model.digest().equals(target.digest)) throw new WorkflowFailure(WorkflowFailure.Code.MODEL_CHANGED);
         var fields = model.fields().stream().map(ModelDefinition.Field::id).collect(java.util.stream.Collectors.toSet());
         requireFields(nodes,fields);
     }
-    public void requireOutput(ModelDefinition model){if(target.entity())requireModel(model);else requireFields(nodes,TelemetryOutput.fields(target));}
-    private static void requireFields(List<Node> nodes,Set<String> fields){if(!fields.containsAll(nodes.get(1).config.values()))invalid();for(Node n:nodes)if(n.config.containsKey("field")&&!fields.contains(n.config.get("field")))invalid();}
+    private void requireRelation(ModelDefinition model) {
+        if (model==null || model.kind() != ModelDefinition.Kind.RELATION || !model.ref().equals(target.relation()) || !model.digest().equals(target.digest)) throw new WorkflowFailure(WorkflowFailure.Code.MODEL_CHANGED);
+        requireFields(nodes,List.of(target.fromField(),target.toField()));
+    }
+    public void requireOutput(ModelDefinition model){if(target.entity())requireModel(model);else if(target.relationOutput())requireRelation(model);else requireFields(nodes,TelemetryOutput.fields(target));}
+    private static void requireFields(List<Node> nodes,Collection<String> fields){if(!fields.containsAll(nodes.get(1).config.values()))invalid();for(Node n:nodes)if(n.config.containsKey("field")&&!fields.contains(n.config.get("field")))invalid();}
     public String digest() {
         var parts = new ArrayList<String>(List.of("opsweave-transform-v2",id,Integer.toString(revision),name,source.kind,source.instanceId));
         if(source.configuration!=null)parts.addAll(List.of("fixed-source-configuration-v2",source.configuration.sourceId.toString(),Integer.toString(source.configuration.revision),source.configuration.digest));
         if(source.metric!=null)parts.addAll(List.of("fixed-metric-source-v1",source.metric.inspectionId().toString(),source.metric.itemId(),source.metric.hostId(),source.metric.sourceKey(),source.metric.sourceUnit(),source.metric.sourceValueType(),source.metric.digest()));
         if(source.log!=null)parts.addAll(List.of("fixed-log-source-v1",source.log.inspectionId().toString(),source.log.itemId(),source.log.hostId(),source.log.sourceKey(),source.log.sourceUnit(),source.log.sourceValueType(),source.log.digest()));
-        if(target.entity())parts.addAll(List.of(target.id,Integer.toString(target.revision),target.digest));else parts.addAll(List.of("telemetry-output",target.kind,target.mappingPin==null?"1.0":"1.1"));
+        if(target.entity())parts.addAll(List.of(target.id,Integer.toString(target.revision),target.digest));else if(target.relationOutput())parts.addAll(List.of(target.id,Integer.toString(target.revision),target.digest,"relation-output",target.fromField(),target.toField()));else parts.addAll(List.of("telemetry-output",target.kind,target.mappingPin==null?"1.0":"1.1"));
         if(target.mappingPin!=null)parts.addAll(List.of("standard-metric-output-v2",target.metricKey,target.mappingPin.id(),Integer.toString(target.mappingPin.revision()),target.mappingPin.digest()));
         for (Node n : nodes) { parts.addAll(List.of(n.id,n.type.name(),n.version,Integer.toString(n.config.size()))); if(n.operatorDigest!=null)parts.addAll(List.of("operator-pin-v2",n.operatorDigest)); n.config.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> parts.addAll(List.of(e.getKey(),e.getValue()))); }
         for (Edge e : edges) parts.addAll(List.of(e.from,e.to));

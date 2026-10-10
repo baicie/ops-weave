@@ -1,6 +1,6 @@
 import { ArrowDown, ChevronRight, Database, GitCompareArrows, ShieldCheck, SlidersHorizontal, ArrowDownToLine, Check, AlertCircle } from 'lucide-react'
 import type { Definition, Step, Model } from '../../api/workflows.ts'
-import { outputKind, outputNodeNames } from '../../api/workflow-output.ts'
+import { outputKind, outputNodeNames, validateNodeName } from '../../api/workflow-output.ts'
 import { useRef } from 'react'
 import { WorkflowNodeMenu, type WorkflowNodeMenuHandle } from './WorkflowNodeMenu.tsx'
 
@@ -13,12 +13,12 @@ export function WorkflowSequence(props: { definition: Definition; selected: stri
     {props.definition.nodes.map((node, index) => {
       const phase = node.type === 'SOURCE' ? '来源' : node.type === 'OUTPUT' ? '输出' : node.type === 'VALIDATE' ? '校验' : '处理'
       const Icon = node.type === 'SOURCE' ? Database : node.type === 'MAP' ? GitCompareArrows : node.type === 'VALIDATE' ? ShieldCheck : node.type === 'OUTPUT' ? ArrowDownToLine : SlidersHorizontal
-      const title = node.type === 'OUTPUT' ? outputNodeNames[output] : node.type === 'VALIDATE' && output !== 'ENTITY' ? '格式校验' : titles[node.type]
+      const title = node.type === 'OUTPUT' ? outputNodeNames[output] : node.type === 'VALIDATE' ? validateNodeName(props.definition.target) : titles[node.type]
       const field = props.fields.find(f => f.id === node.config.field)?.label ?? node.config.field
       const summary = node.type === 'SOURCE' ? props.definition.source.kind === 'MANUAL_SAMPLE' ? '使用你提供的 JSON 样本' : '读取已采集的 Zabbix 主机记录'
         : node.type === 'MAP' ? '将 ' + Object.keys(node.config).length + ' 个来源字段对应到输出字段'
-        : node.type === 'VALIDATE' ? output === 'ENTITY' ? '检查模型必填字段与字段类型' : output === 'LOG' ? '检查日志时间、正文与上下文' : '检查采样时间、数值、类型与单位'
-        : node.type === 'OUTPUT' ? '生成' + (output === 'ENTITY' ? '实体' : output === 'LOG' ? '日志' : '指标') + '预览结果'
+        : node.type === 'VALIDATE' ? output === 'ENTITY' ? '检查模型必填字段与字段类型' : output === 'RELATION' ? '检查起点/终点的显式身份字段' : output === 'LOG' ? '检查日志时间、正文与上下文' : '检查采样时间、数值、类型与单位'
+        : node.type === 'OUTPUT' ? '生成' + (output === 'ENTITY' ? '实体' : output === 'RELATION' ? '关系' : output === 'LOG' ? '日志' : '指标') + '预览结果'
         : descriptions[node.type] + (field ? ' · ' + field : '')
       const status = props.steps?.find(s => s.nodeId === node.id)?.status
       return <li key={node.id}>

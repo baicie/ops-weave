@@ -1,6 +1,6 @@
 import {WorkflowHistorySection} from './WorkflowHistorySection.tsx'
 import {historyEligible} from '../../api/workflow-history.ts'
-import { outputKind, outputLabel } from '../../api/workflow-output.ts'
+import { outputLabel, validateNodeName } from '../../api/workflow-output.ts'
 import { usePageActive, usePageCloseGuard } from '../../state/page-workspace.ts'
 import { PageHeader, QueryToolbar, SummaryGrid, SummaryCard } from '../../components/PageLayout.tsx'
 import { Button } from '@/components/ui/button'
@@ -132,10 +132,10 @@ export function WorkflowRunsPage() {
         {detail.trace.source.metric?<dl className="run-meta"><div><dt>完整来源键</dt><dd><code>{detail.trace.source.metric.sourceKey}</code></dd></div><div><dt>来源主机 / 指标项</dt><dd>{detail.trace.source.metric.hostId+' / '+detail.trace.source.metric.itemId}</dd></div><div><dt>接入配置版本</dt><dd>{'v'+detail.trace.source.configuration!.revision}</dd></div><div><dt>指标元数据摘要</dt><dd><code>{detail.trace.source.metric.digest}</code></dd></div></dl>:null}
         <p>{'来源状态 ' + detail.trace.sourceStatus + (detail.trace.source.metric?' · 来源读入 '+detail.trace.retainedCount+(detail.trace.truncated?'（含截断检测点）':'')+' · 转换 '+detail.trace.rows.length:' · 保留 '+detail.trace.retainedCount) + ' · 缺失 Raw ' + detail.trace.missingRaw}</p>
         {detail.trace.truncated || detail.trace.missingRaw || detail.trace.sourceStatus === 'FAILED' ? <p className="source-access-hint">本次输入存在截断、缺失或上游失败。以下结果仅覆盖实际参与转换的记录，不代表整个来源批次成功。</p> : null}
-        <h4>节点统计</h4><div className="run-node-stats">{(detail.trace.rows[0]?.steps ?? []).map(step => <NodeStat key={step.nodeId} step={step} rows={detail.trace!.rows} telemetry={outputKind(detail.trace!.target) !== 'ENTITY'} />)}</div>
+        <h4>节点统计</h4><div className="run-node-stats">{(detail.trace.rows[0]?.steps ?? []).map(step => <NodeStat key={step.nodeId} step={step} rows={detail.trace!.rows} validateLabel={validateNodeName(detail.trace!.target)} />)}</div>
         <div className="run-record-heading"><h4>逐条处理记录</h4><label>记录结果<select aria-label="筛选记录结果" value={rowFilter} onChange={e => setRowFilter((e.target as HTMLSelectElement).value)}><option value="ALL">全部记录</option><option value="ACCEPTED">仅成功</option><option value="REJECTED">仅失败</option><option value="FILTERED">仅过滤</option></select></label></div>
         <p className="model-muted">编号对应当次输入顺序。仅保留节点状态、字段与错误码，未保存输入和输出正文。</p>
-        {rows.map(row => <RecordRow key={row.index} row={row} telemetry={outputKind(detail.trace!.target) !== 'ENTITY'} />)}{!rows.length ? <p>没有符合条件的处理记录。</p> : null}
+        {rows.map(row => <RecordRow key={row.index} row={row} validateLabel={validateNodeName(detail.trace!.target)} />)}{!rows.length ? <p>没有符合条件的处理记录。</p> : null}
       </> : null}
     </section> : null}
     </div>
@@ -144,13 +144,13 @@ export function WorkflowRunsPage() {
 function HistoryRow(p: { run: Run; busy: boolean; open: (id: string) => void }) {
   return <tr><td><strong>{p.run.workflowId + ' · v' + p.run.revision}</strong><small>{p.run.receipt.id}</small></td><td><span>{new Date(p.run.receipt.createdAt).toLocaleString()}</span><small>{(p.run.mode === 'PREVIEW' ? '草稿预览' : '版本测试') + ' · ' + p.run.receipt.origin}</small></td><td><RunStatusBadge status={runOutcome(p.run)} label={outcomeLabels[runOutcome(p.run)]} /></td><td>{p.run.receipt.accepted + ' / ' + p.run.receipt.rejected + ' / ' + p.run.receipt.filtered}</td><td><button type="button" disabled={p.busy} onClick={() => p.open(p.run.receipt.id)}>查看明细</button></td></tr>
 }
-function RecordRow(p: { row: TraceRow; telemetry: boolean }) {
+function RecordRow(p: { row: TraceRow; validateLabel: string }) {
   const terminal = p.row.steps.find(s => s.status === 'ERROR' || s.status === 'FILTERED')
-  return <details className="run-record" open={p.row.status === 'REJECTED'}><summary><strong>{'记录 ' + (p.row.index + 1)}</strong><RunStatusBadge status={p.row.status} label={rowLabels[p.row.status]} /><span>{terminal ? (terminal.type === 'VALIDATE' && p.telemetry ? '格式校验' : nodeLabels[terminal.type]) + ' · ' + terminal.nodeId : '所有节点通过'}</span></summary><ol>{p.row.steps.map(step => <StepRow key={step.nodeId} step={step} telemetry={p.telemetry} />)}</ol></details>
+  return <details className="run-record" open={p.row.status === 'REJECTED'}><summary><strong>{'记录 ' + (p.row.index + 1)}</strong><RunStatusBadge status={p.row.status} label={rowLabels[p.row.status]} /><span>{terminal ? (terminal.type === 'VALIDATE' ? p.validateLabel : nodeLabels[terminal.type]) + ' · ' + terminal.nodeId : '所有节点通过'}</span></summary><ol>{p.row.steps.map(step => <StepRow key={step.nodeId} step={step} validateLabel={p.validateLabel} />)}</ol></details>
 }
-function NodeStat(p: { step: TraceStep; rows: TraceRow[]; telemetry: boolean }) {
-  return <div><strong>{p.step.type === 'VALIDATE' && p.telemetry ? '格式校验' : nodeLabels[p.step.type]}</strong><small>{p.step.nodeId}</small><span>{(['OK', 'ERROR', 'FILTERED', 'SKIPPED'] as const).map(status => stepLabels[status] + ' ' + p.rows.filter(r => r.steps.find(s => s.nodeId === p.step.nodeId)?.status === status).length).join(' · ')}</span></div>
+function NodeStat(p: { step: TraceStep; rows: TraceRow[]; validateLabel: string }) {
+  return <div><strong>{p.step.type === 'VALIDATE' ? p.validateLabel : nodeLabels[p.step.type]}</strong><small>{p.step.nodeId}</small><span>{(['OK', 'ERROR', 'FILTERED', 'SKIPPED'] as const).map(status => stepLabels[status] + ' ' + p.rows.filter(r => r.steps.find(s => s.nodeId === p.step.nodeId)?.status === status).length).join(' · ')}</span></div>
 }
-function StepRow(p: { step: TraceStep; telemetry: boolean }) {
-  return <li data-step-status={p.step.status}><div><strong>{(p.step.type === 'VALIDATE' && p.telemetry ? '格式校验' : nodeLabels[p.step.type]) + ' · ' + p.step.nodeId}</strong><span>{stepLabels[p.step.status]}</span></div>{p.step.status === 'SKIPPED' ? <p>此前记录已失败或被过滤，此节点未执行。</p> : null}{p.step.status === 'FILTERED' ? <p>不满足配置的保留条件，后续节点不再处理。</p> : null}{p.step.issues.map((issue, i) => <p key={i} className="run-issue">{issue.field + '：' + issueLabels[issue.code] + '（' + issue.code + '）'}</p>)}</li>
+function StepRow(p: { step: TraceStep; validateLabel: string }) {
+  return <li data-step-status={p.step.status}><div><strong>{(p.step.type === 'VALIDATE' ? p.validateLabel : nodeLabels[p.step.type]) + ' · ' + p.step.nodeId}</strong><span>{stepLabels[p.step.status]}</span></div>{p.step.status === 'SKIPPED' ? <p>此前记录已失败或被过滤，此节点未执行。</p> : null}{p.step.status === 'FILTERED' ? <p>不满足配置的保留条件，后续节点不再处理。</p> : null}{p.step.issues.map((issue, i) => <p key={i} className="run-issue">{issue.field + '：' + issueLabels[issue.code] + '（' + issue.code + '）'}</p>)}</li>
 }

@@ -1,4 +1,4 @@
-import { outputKind, outputNodeNames } from '../../api/workflow-output.ts'
+import { outputKind, outputNodeNames, validateNodeName } from '../../api/workflow-output.ts'
 import { useEffect, useRef, useState } from 'react'
 import type { Graph, Node } from '@antv/x6'
 import { OPERATORS, type Definition, type Layout, type NodeType, type Step, type Operator } from '../../api/workflows.ts'
@@ -145,7 +145,7 @@ export function WorkflowCanvas(props: {
       if (data.selected !== (n.id === selected) || data.subtitle !== subtitle || data.type !== n.type || data.status !== status) {
         cell.setData({
           type: n.type,
-          label: n.type === 'OUTPUT' ? outputNodeNames[outputKind(d.target)] : n.type === 'VALIDATE' && outputKind(d.target) !== 'ENTITY' ? 'mappingPin' in d.target && d.target.mappingPin ? '标准指标校验' : '格式校验' : labels[n.type],
+          label: n.type === 'OUTPUT' ? outputNodeNames[outputKind(d.target)] : n.type === 'VALIDATE' ? validateNodeName(d.target) : labels[n.type],
           subtitle,
           number: String(d.nodes.indexOf(n) + 1).padStart(2, '0'),
           phase: n.type === 'SOURCE' ? '数据来源' : n.type === 'OUTPUT' ? '输出' : n.type === 'VALIDATE' ? '校验' : '处理',

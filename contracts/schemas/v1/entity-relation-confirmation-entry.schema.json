@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entity relation confirmation entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceKind", "sourceKey", "batchRef", "dataMode", "state", "confirmedAt", "withdrawnAt", "withdrawReason"],
+  "properties": {
+    "sourceKind": {"enum": ["manual", "source"]},
+    "sourceKey": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "batchRef": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "dataMode": {"enum": ["fixture", "zabbix-jsonrpc", "import", "unknown"]},
+    "state": {"enum": ["CONFIRMED", "WITHDRAWN"]},
+    "confirmedAt": {"type": "string", "format": "date-time"},
+    "withdrawnAt": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "withdrawReason": {"anyOf": [{"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\u0000-\u001f\u007f]+$"}, {"type": "null"}]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "WITHDRAWN"}}},
+      "then": {"properties": {"withdrawnAt": {"type": "string", "format": "date-time"}, "withdrawReason": {"type": "string"}}}
+    },
+    {
+      "if": {"properties": {"state": {"const": "CONFIRMED"}}},
+      "then": {"properties": {"withdrawnAt": {"type": "null"}, "withdrawReason": {"type": "null"}}}
+    }
+  ]
+}

@@ -48,7 +48,7 @@ for (const mode of [undefined,'rotated'] as const) test('explicit fixed configur
 })
 for (const mode of ['missing','archived','forbidden','unavailable','existing'] as const) test('configuration bootstrap retains ' + mode + ' without fallback or writes', async ({ page }) => {
   const calls = await fixture(page,mode)
-  await expect(page.locator('.workflow-page > [role=alert]')).not.toBeEmpty(); await expect(page.getByRole('textbox',{name:'工作流名称',exact:true})).toHaveCount(0)
+  await expect(page.locator('.workflow-page [role=alert]:not([hidden])')).not.toBeEmpty(); await expect(page.getByRole('textbox',{name:'工作流名称',exact:true})).toHaveCount(0)
   expect(calls.every(c=>c.method==='GET')).toBe(true)
   expect(calls.some(c=>c.path.endsWith('/sources')||c.path.includes('/zabbix/'))).toBe(false)
   await page.getByRole('button',{name:'切换到深色模式'}).click(); expect(calls.filter(c=>c.path.endsWith('/workflows'))).toHaveLength(1)

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Withdraw entity relation source confirmation command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "sourceKind", "sourceKey", "batchRef", "reason"],
+  "properties": {
+    "requestId": {"type": "string", "format": "uuid"},
+    "sourceKind": {"enum": ["manual", "source"]},
+    "sourceKey": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "batchRef": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\u0000-\u001f\u007f]+$"}
+  }
+}

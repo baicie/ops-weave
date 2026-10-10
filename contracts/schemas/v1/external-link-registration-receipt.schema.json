@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "External link registration receipt",
+  "description": "Durable registration receipt. requestId is the idempotency key: the same requestId with identical content replays the original receipt, while the same requestId with changed content conflicts. The reason is retained server-side and is not echoed here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requestId", "replayed", "link"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "requestId": {"type": "string", "format": "uuid"},
+    "replayed": {"type": "boolean"},
+    "link": {"$ref": "external-link.schema.json"}
+  }
+}

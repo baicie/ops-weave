@@ -183,7 +183,7 @@ test('incompatible review exposes full field name and blocks publication',async(
 })
 
 for(const width of [1440,390])test('exact definition field link and references stay bounded at '+width,async({page})=>{
- await page.setViewportSize({width,height:1000});const calls=await setup(page,'entities?definition=builtin.host&revision=1&field=hostname');const d=page.getByRole('dialog',{name:'模型定义'});await expect(d).toBeVisible();await expect(d.locator('[data-model-field=hostname]')).toHaveAttribute('data-selected','true');await expect(d.locator('[data-model-field=hostname] code')).toHaveText('builtin.host.hostname');expect(calls).toHaveLength(1)
+ await page.setViewportSize({width,height:1000});const calls=await setup(page,'entities?definition=builtin.host&revision=1&field=hostname');const d=page.getByRole('dialog',{name:'模型定义'});await expect(d).toBeVisible();await expect(d.locator('[data-model-field=hostname]')).toHaveAttribute('data-selected','true');await expect(d.locator('[data-model-field=hostname] code')).toHaveText('builtin.host.hostname');expect(calls.filter(c=>c.path==='/api/v1/catalog')).toHaveLength(1);expect(calls.filter(c=>c.path==='/api/v1/catalog/extensions')).toHaveLength(1)
  await d.getByText('固定版本引用',{exact:true}).click();await expect(d.getByRole('table',{name:'模型引用列表'})).toBeVisible();expect(calls.filter(c=>c.path.endsWith('/references'))).toHaveLength(1)
  await d.getByText('固定版本引用',{exact:true}).click();await d.getByText('固定版本引用',{exact:true}).click();expect(calls.filter(c=>c.path.endsWith('/references'))).toHaveLength(1);expect(calls.some(c=>c.body!==null)).toBe(false);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
 })

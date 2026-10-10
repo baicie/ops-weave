@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entity relation multi-source confirmation view",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "storage", "tenantId", "relationId", "relationState", "entries"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "storage": {"type": "string", "enum": ["memory", "postgres"]},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "relationId": {"type": "string", "format": "uuid"},
+    "relationState": {"enum": ["ACTIVE", "TERMINATED"]},
+    "entries": {"type": "array", "maxItems": 50, "items": {"$ref": "entity-relation-confirmation-entry.schema.json"}}
+  }
+}

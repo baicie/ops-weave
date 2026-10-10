@@ -5,14 +5,24 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-@RestControllerAdvice(assignableTypes = {EntityController.class, EntityInstanceController.class, EntityTopologyController.class, RelationController.class, ObservationController.class, SourceReviewController.class, AssetIdentityController.class, SourceSnapshotController.class, RejectedWriteAuditController.class, SourceReceiptCapacityController.class})
+@RestControllerAdvice(assignableTypes = {EntityController.class, EntityInstanceController.class, EntityTopologyController.class, RelationController.class, ObservationController.class, SourceReviewController.class, AssetIdentityController.class, SourceSnapshotController.class, RejectedWriteAuditController.class, SourceReceiptCapacityController.class, ExternalLinkController.class, EntityModelPinBackfillController.class})
 public class InventoryErrors {
+    @ExceptionHandler(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Conflict.class)
+    public ResponseEntity<?> externalLinkConflict(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error", "EXTERNAL_LINK_CONFLICT")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Access.class)
+    public ResponseEntity<?> externalLinkAccess(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Access failed) { return ResponseEntity.status(403).body(Map.of("error", "FORBIDDEN")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.NotFound.class)
+    public ResponseEntity<?> externalLinkNotFound(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.NotFound failed) { return ResponseEntity.status(404).body(Map.of("error", "NOT_FOUND")); }
     @ExceptionHandler(com.acme.opsweave.inventory.domain.SourceBindingCorrection.Conflict.class)
     public ResponseEntity<?> correctionConflict(com.acme.opsweave.inventory.domain.SourceBindingCorrection.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error",failed.code().name())); }
     @ExceptionHandler(com.acme.opsweave.inventory.domain.SourceSnapshot.Conflict.class)
     public ResponseEntity<?> snapshotConflict(com.acme.opsweave.inventory.domain.SourceSnapshot.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error",failed.code().name())); }
     @ExceptionHandler(com.acme.opsweave.inventory.api.RelationStore.Conflict.class)
     public ResponseEntity<?> relationConflict(com.acme.opsweave.inventory.api.RelationStore.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error", "RELATION_CONFLICT")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.RelationStore.CorrectionConflict.class)
+    public ResponseEntity<?> relationCorrectionConflict(com.acme.opsweave.inventory.api.RelationStore.CorrectionConflict failed) { return ResponseEntity.status(409).body(Map.of("error", "RELATION_CORRECTION_CONFLICT")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.RelationStore.ConfirmationConflict.class)
+    public ResponseEntity<?> relationConfirmationConflict(com.acme.opsweave.inventory.api.RelationStore.ConfirmationConflict failed) { return ResponseEntity.status(409).body(Map.of("error", "RELATION_CONFIRMATION_CONFLICT")); }
     @ExceptionHandler(com.acme.opsweave.inventory.api.RelationStore.Access.class)
     public ResponseEntity<?> relationAccess(com.acme.opsweave.inventory.api.RelationStore.Access failed) { return ResponseEntity.status(403).body(Map.of("error", "FORBIDDEN")); }
     @ExceptionHandler(com.acme.opsweave.inventory.api.RelationStore.NotFound.class)
@@ -23,6 +33,10 @@ public class InventoryErrors {
     public ResponseEntity<?> entityAccess(com.acme.opsweave.inventory.api.EntityInstanceStore.Access failed) { return ResponseEntity.status(403).body(Map.of("error", "FORBIDDEN")); }
     @ExceptionHandler(com.acme.opsweave.inventory.api.EntityInstanceStore.Conflict.class)
     public ResponseEntity<?> entityConflict(com.acme.opsweave.inventory.api.EntityInstanceStore.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error", "ENTITY_CONFLICT")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.EntityModelPinBackfillStore.Conflict.class)
+    public ResponseEntity<?> backfillConflict(com.acme.opsweave.inventory.api.EntityModelPinBackfillStore.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error", "ENTITY_MODEL_PIN_BACKFILL_CONFLICT")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.EntityModelPinBackfillStore.NotFound.class)
+    public ResponseEntity<?> backfillNotFound(com.acme.opsweave.inventory.api.EntityModelPinBackfillStore.NotFound failed) { return ResponseEntity.status(404).body(Map.of("error", "NOT_FOUND")); }
     @ExceptionHandler(com.acme.opsweave.inventory.domain.SourceScan.Failure.class)
     public ResponseEntity<?> snapshotLease(com.acme.opsweave.inventory.domain.SourceScan.Failure failed) { return ResponseEntity.status(503).body(Map.of("error","SOURCE_SCAN_"+failed.code().name())); }
     @ExceptionHandler(com.acme.opsweave.inventory.domain.SourceReview.Conflict.class)

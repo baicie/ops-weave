@@ -31,13 +31,22 @@ public final class WorkflowHostScan {
     public record Batch(UUID id, UUID scanId, String workflowId, int revision, String digest,
                         WorkflowRuntime.Settings settings, int sequence, String beforeCursor, String nextCursor,
                         boolean complete, Instant observedAt, List<Map<String,Object>> records,
-                        String state, List<String> entityIds, String error, Instant updatedAt) {
+                        String state, List<String> entityIds, String error, Instant updatedAt,
+                        List<String> relationIds, List<WorkflowRuntime.Pending> pending) {
+        public Batch(UUID id, UUID scanId, String workflowId, int revision, String digest,
+                     WorkflowRuntime.Settings settings, int sequence, String beforeCursor, String nextCursor,
+                     boolean complete, Instant observedAt, List<Map<String,Object>> records,
+                     String state, List<String> entityIds, String error, Instant updatedAt) {
+            this(id,scanId,workflowId,revision,digest,settings,sequence,beforeCursor,nextCursor,complete,observedAt,records,state,entityIds,error,updatedAt,List.of(),List.of());
+        }
         public Batch {
             Objects.requireNonNull(id); Objects.requireNonNull(scanId); WorkflowDefinition.ref(workflowId,revision); WorkflowDefinition.checkDigest(digest);
             Objects.requireNonNull(settings); Objects.requireNonNull(observedAt); Objects.requireNonNull(updatedAt); records=WorkflowHostScan.records(records); entityIds=List.copyOf(entityIds);
+            relationIds=List.copyOf(relationIds); pending=List.copyOf(pending);
             cursor(beforeCursor); cursor(nextCursor);
             if(sequence<1 || sequence>200 || complete!=(nextCursor==null) || !complete&&Objects.equals(beforeCursor,nextCursor) || records.isEmpty()&&!complete
                 || !Set.of("READY","IN_FLIGHT","UNKNOWN","FAILED","CONFIRMED").contains(state) || entityIds.size()>records.size()
+                || relationIds.size()+pending.size()>records.size()
                 || Set.of("READY","IN_FLIGHT","CONFIRMED").contains(state)!=(error==null) || updatedAt.isBefore(observedAt))throw new IllegalArgumentException();
             if(beforeCursor!=null){
                 var before=beforeCursor.split("\\|");int remaining=Integer.parseInt(before[2])-Integer.parseInt(before[3]);
@@ -47,13 +56,18 @@ public final class WorkflowHostScan {
             if(!complete&&records.size()!=5)throw new IllegalArgumentException();
             if(new HashSet<>(entityIds).size()!=entityIds.size())throw new IllegalArgumentException();
             for(var idValue:entityIds)UUID.fromString(idValue);
+            if(new HashSet<>(relationIds).size()!=relationIds.size())throw new IllegalArgumentException();
+            for(var relation:relationIds)UUID.fromString(relation);
+            if(!entityIds.isEmpty()&&(!relationIds.isEmpty()||!pending.isEmpty()))throw new IllegalArgumentException();
+            var rows=new HashSet<Integer>();for(var item:pending)if(item==null||!rows.add(item.index()))throw new IllegalArgumentException();
             if(error!=null&&!Set.of("OUTPUT_UNAVAILABLE","INVALID_SAMPLE","SOURCE_UNAVAILABLE","FORBIDDEN","MODEL_CHANGED","OPERATOR_CHANGED","AUTHORIZATION_EXPIRED","AUTHORIZATION_REVOKED","EXECUTION_LIMIT","BACKLOG_LIMIT","RUNTIME_UNAVAILABLE").contains(error))throw new IllegalArgumentException();
         }
-        public Batch state(String next,List<String> ids,String code,Instant time) {var b=new Batch(id,scanId,workflowId,revision,digest,settings,sequence,beforeCursor,nextCursor,complete,observedAt,records,next,ids,code,time);requireSuccessor(b);return b;}
+        public Batch state(String next,List<String> ids,String code,Instant time) {return state(next,ids,relationIds,pending,code,time);}
+        public Batch state(String next,List<String> ids,List<String> relations,List<WorkflowRuntime.Pending> rows,String code,Instant time) {var b=new Batch(id,scanId,workflowId,revision,digest,settings,sequence,beforeCursor,nextCursor,complete,observedAt,records,next,ids,code,time,relations,rows);requireSuccessor(b);return b;}
         public void requireSuccessor(Batch b) {
             if(!id.equals(b.id)||!scanId.equals(b.scanId)||!workflowId.equals(b.workflowId)||revision!=b.revision||!digest.equals(b.digest)||!settings.equals(b.settings)
                 ||sequence!=b.sequence||!Objects.equals(beforeCursor,b.beforeCursor)||!Objects.equals(nextCursor,b.nextCursor)||complete!=b.complete||!observedAt.equals(b.observedAt)
-                ||!records.equals(b.records)||b.updatedAt.isBefore(updatedAt)||!b.entityIds.containsAll(entityIds))throw new IllegalArgumentException();
+                ||!records.equals(b.records)||b.updatedAt.isBefore(updatedAt)||!b.entityIds.containsAll(entityIds)||!b.relationIds.containsAll(relationIds))throw new IllegalArgumentException();
             boolean allowed=switch(state){case "READY" -> b.state.equals("IN_FLIGHT"); case "IN_FLIGHT" -> Set.of("CONFIRMED","FAILED","UNKNOWN").contains(b.state); case "FAILED","UNKNOWN" -> b.state.equals("READY");default -> false;};
             if(!allowed)throw new IllegalArgumentException();
         }

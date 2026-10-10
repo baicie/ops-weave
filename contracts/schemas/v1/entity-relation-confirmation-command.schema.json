@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Confirm entity relation source command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "sourceKind", "sourceKey", "batchRef", "dataMode"],
+  "properties": {
+    "requestId": {"type": "string", "format": "uuid"},
+    "sourceKind": {"enum": ["manual", "source"]},
+    "sourceKey": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "batchRef": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "dataMode": {"enum": ["fixture", "zabbix-jsonrpc", "import", "unknown"]}
+  }
+}

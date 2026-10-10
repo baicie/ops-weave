@@ -4,6 +4,7 @@ import com.acme.opsweave.inventory.api.InventoryQuery;
 import com.acme.opsweave.inventory.api.InventoryWritePort;
 import com.acme.opsweave.inventory.api.EntityInstanceStore;
 import com.acme.opsweave.inventory.domain.Entity;
+import com.acme.opsweave.inventory.domain.EntityModelPin;
 import com.acme.opsweave.inventory.domain.ExternalLink;
 import com.acme.opsweave.inventory.domain.ExternalObjectKey;
 import com.acme.opsweave.inventory.domain.Lifecycle;
@@ -100,6 +101,23 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
     }
     private record InstanceRequest(Entity entity, Long expectedVersion) {}
     private final Map<String, InstanceRequest> instanceRequests = new HashMap<>();
+
+    /** Deterministic candidate order for explicit model-pin backfill commands. */
+    synchronized List<Entity> backfillRows(TenantId tenant, String entityType) {
+        return entities.values().stream().filter(entity -> entity.tenantId().equals(tenant) && entity.entityType().equals(entityType))
+            .sorted(java.util.Comparator.comparing(entity -> entity.id().value().toString())).toList();
+    }
+
+    /** Source scans are the only observation writers; their rows keep no model pin. */
+    synchronized boolean sourceManaged(TenantId tenant, EntityId id) {
+        String prefix = tenant.value() + '\0';
+        return observations.entrySet().stream().anyMatch(row -> row.getKey().startsWith(prefix) && row.getValue().entityId().equals(id));
+    }
+
+    synchronized void assignModelPin(TenantId tenant, EntityId id, EntityModelPin pin) {
+        entities.computeIfPresent(new StoreKey(tenant, id), (key, entity) -> entity.withModelPin(pin));
+    }
+
     /** lastSeen is server-assigned and is excluded from the idempotency key. */
     private static boolean sameCommand(InstanceRequest prior, Entity b, Long expectedVersion) {
         Entity a = prior.entity();
@@ -211,6 +229,15 @@ public final class InMemoryInventoryStore implements InventoryQuery, InventoryWr
 
     public Optional<ExternalLink> linkOf(ExternalObjectKey key) {
         return Optional.ofNullable(links.get(key));
+    }
+
+    /** Explicit registration binds a key to one entity; an already-bound key is never silently rebound. */
+    public synchronized void registerLink(ExternalLink link) {
+        var existing = links.get(link.key());
+        if (existing != null && !existing.entityId().equals(link.entityId())) {
+            throw new IllegalStateException("External link reassignment requires resolution");
+        }
+        links.put(link.key(), link);
     }
 
     public Optional<Observation> observation(TenantId tenant, String id) {

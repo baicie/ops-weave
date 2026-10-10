@@ -40,11 +40,12 @@ test('refresh restores applied asset filters and selected detail while requiring
 test('back and forward restore same-page filters once and discard old results without fetching', async ({ page }) => {
   const calls = await fixture(page)
   await page.goto('/#/inventory'); await tokenBox(page).fill(TOKEN_OK)
+  await expect(page.getByRole('table')).toBeVisible()
   for (const value of ['first', 'second']) {
     await page.getByRole('textbox', { name: '名称或 IP' }).fill(value); await page.getByRole('button', { name: '刷新列表', exact: true }).click(); await expect(page.getByRole('table')).toBeVisible()
   }
   await page.goBack(); await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('first'); await expect(page.getByRole('table')).toHaveCount(0)
-  expect(calls).toHaveLength(2); await page.goForward(); await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('second'); expect(calls).toHaveLength(2)
+  expect(calls).toHaveLength(3); await page.goForward(); await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('second'); expect(calls).toHaveLength(3)
   await page.getByRole('link', { name: '指标', exact: true }).click(); await page.goBack()
   await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('second'); await expect(page.getByRole('table')).toHaveCount(0)
 })
@@ -107,7 +108,7 @@ test('changed URL selection rejects a late response and logout removes current s
     arrived(); await pending; const q = new URL(route.request().url()).searchParams
     return route.fulfill({ json: { storage: 'postgres', query: { q: q.get('q'), type: 'host', lifecycle: '', after: null, limit: 25 }, items: [asset], nextCursor: null } }).catch(() => {})
   })
-  await page.goto('/#/inventory?q=first'); await tokenBox(page).fill(TOKEN_OK); await page.getByRole('button', { name: '刷新列表', exact: true }).click(); await started
+  await page.goto('/#/inventory?q=first'); await tokenBox(page).fill(TOKEN_OK); await started
   await page.evaluate(() => { window.location.hash = '/inventory?q=second' }); release()
   await expect(page.getByRole('textbox', { name: '名称或 IP' })).toHaveValue('second'); await expect(page.getByRole('table')).toHaveCount(0)
   await page.getByRole('button', { name: '清除开发会话' }).click(); expect(hash(page)).toBe('#/inventory'); await expect(tokenBox(page)).toHaveValue('')

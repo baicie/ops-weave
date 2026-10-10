@@ -57,7 +57,7 @@ public final class WorkflowQuality {
         return window(b.id(),b.createdAt(),b.updatedAt(),b.from(),b.till(),Unit.LOG_RECORD,uncertain?"UNKNOWN":b.state(),b.inputCount(),b.filtered(),b.deduplicated(),n,0,b.reconcilesBatchId()==null?0:n,uncertain?"OUTPUT_UNCONFIRMED":b.error(),b.reconcilesBatchId());
     }
     public static Batch metric(WorkflowMetricStream.Batch b){int n=b.timestamps().size();return window(b.id(),b.createdAt(),b.updatedAt(),b.from(),b.till(),Unit.POINT,b.state(),b.inputCount(),b.filtered(),b.collapsed(),n,b.reconcilesBatchId()==null?0:n-b.latePoints(),b.latePoints(),b.error(),b.reconcilesBatchId());}
-    public static Batch host(WorkflowHostScan.Batch b){return new Batch(b.id(),b.observedAt(),b.updatedAt(),null,null,Unit.ENTITY,b.state(),"PAGE",null,new Counts(b.records().size(),null,null,null,null,null,b.entityIds().size(),null,null,null,null,null),b.error(),null);}
+    public static Batch host(WorkflowHostScan.Batch b){return new Batch(b.id(),b.observedAt(),b.updatedAt(),null,null,Unit.ENTITY,b.state(),"PAGE",null,new Counts(b.records().size(),null,null,null,null,null,b.entityIds().size()+b.relationIds().size(),null,null,null,null,null),b.error(),null);}
     private static Batch window(UUID id,Instant created,Instant updated,Instant from,Instant till,Unit unit,String state,int input,int filtered,int dedup,int expected,int repeated,int late,String error,UUID original){
         return new Batch(id,created,updated,from,till,unit,state,"WINDOW",null,new Counts(input,expected,0,filtered,dedup,expected,state.equals("CONFIRMED")?expected:0,state.equals("FAILED")?expected:0,state.equals("UNKNOWN")?expected:0,state.equals("IN_FLIGHT")?expected:0,repeated,late),error,original);
     }

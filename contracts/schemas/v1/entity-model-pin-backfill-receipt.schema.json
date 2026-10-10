@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/entity-model-pin-backfill-receipt.schema.json",
+  "title": "Legacy entity model pin backfill receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "replayed",
+    "tenantId",
+    "requestId",
+    "request",
+    "counts",
+    "completedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "replayed": {
+      "type": "boolean"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entityType",
+        "model"
+      ],
+      "properties": {
+        "entityType": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "revision",
+            "digest"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scanned",
+        "updated",
+        "keptWithoutPin",
+        "skippedPinned",
+        "skippedSource"
+      ],
+      "properties": {
+        "scanned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "updated": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "keptWithoutPin": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "skippedPinned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skippedSource": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

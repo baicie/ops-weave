@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/model-extension-page.schema.json",
+  "title": "Tenant model extension page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "storage",
+    "published",
+    "drafts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "storage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "published": {
+      "$ref": "#/$defs/page"
+    },
+    "drafts": {
+      "$ref": "#/$defs/page"
+    }
+  },
+  "$defs": {
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "model-extension-entry.schema.json"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

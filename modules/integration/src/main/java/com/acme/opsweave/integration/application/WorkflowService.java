@@ -34,7 +34,7 @@ public final class WorkflowService {
  public WorkflowExecutionPlan executionPlan(Principal p,Session session,Entry entry){authorize(p);sources.require(p,entry.definition().source(),session,true);sources.requireTarget(p,entry.definition().source(),entry.definition().target(),session,true);return compile(p,entry.definition());}
  private Instant now(){return clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
  private <T>T transaction(Principal p,Work<T> work){authorize(p);return store.transaction(p.tenantId(),work);}
- private ModelDefinition outputModel(Principal p,WorkflowDefinition d){var model=d.target().entity()?models.resolve(p,d.target()):null;d.requireOutput(model);return model;}
+ private ModelDefinition outputModel(Principal p,WorkflowDefinition d){var model=d.target().entity()||d.target().relationOutput()?models.resolve(p,d.target()):null;d.requireOutput(model);return model;}
  private void outputScope(Principal p,WorkflowDefinition.Target t){if(t.mappingPin()!=null&&new Authorizer().decide(p,ResourceRef.metric(p.tenantId(),t.metricKey()),Permission.METRIC_READ).denied())throw error(WorkflowFailure.Code.FORBIDDEN);}
  private WorkflowExecutionPlan compile(Principal p,WorkflowDefinition d){outputScope(p,d.target());return WorkflowOperators.builtIn().compile(d,outputModel(p,d),d.target().mappingPin()==null?null:mappings.resolve(p,d.target().mappingPin()));}
  public Entry save(Principal p,WorkflowDefinition d,Map<String,Position> layout,int expected) {

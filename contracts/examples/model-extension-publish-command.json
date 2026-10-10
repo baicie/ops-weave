@@ -1,0 +1,8 @@
+{
+  "base": {
+    "id": "builtin.host",
+    "revision": 1
+  },
+  "expectedEditVersion": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

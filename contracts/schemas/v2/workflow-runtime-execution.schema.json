@@ -150,6 +150,41 @@
       "maxItems": 5,
       "uniqueItems": true
     },
+    "relationIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "maxItems": 5,
+      "uniqueItems": true
+    },
+    "pending": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "code"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "code": {
+            "enum": [
+              "FROM_UNRESOLVED",
+              "TO_UNRESOLVED"
+            ]
+          }
+        }
+      }
+    },
     "authorizationId": {
       "anyOf": [
         {
@@ -176,7 +211,9 @@
     "accepted",
     "rejected",
     "filtered",
-    "entityIds"
+    "entityIds",
+    "relationIds",
+    "pending"
   ],
   "allOf": [
     {

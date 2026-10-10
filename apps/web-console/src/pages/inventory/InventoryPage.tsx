@@ -15,7 +15,9 @@ import { inventoryDefault, inventoryHash, inventorySelection, type InventorySele
 import { ObservationHistory } from './ObservationHistory.tsx'
 import { pageEntities, getEntity, EntityRequestError, syncZabbixHosts, type EntityItem, type EntityModelPin, type HostSyncResult } from '../../api/entities.ts'
 import { readCatalog, readModelVersion, type ModelDefinition } from '../../api/model-catalog.ts'
+import { readModelExtensions, type ModelExtension } from '../../api/model-extensions.ts'
 import { EntityInstanceDrawer } from './EntityInstanceDrawer.tsx'
+import { EntityModelPinBackfillDrawer } from './EntityModelPinBackfillDrawer.tsx'
 
 export function InventoryPage() {
   const resetOnSession = useSelectionSessionReset()
@@ -40,6 +42,9 @@ export function InventoryPage() {
   const [resolvedPin, setResolvedPin] = useState<IdentityPin | undefined>(undefined)
   const [createOpen, setCreateOpen] = useState(false)
   const [createModels, setCreateModels] = useState<ModelDefinition[] | null>(null)
+  const [createExtensions, setCreateExtensions] = useState<ModelExtension[]>([])
+  const [detailExtensions, setDetailExtensions] = useState<ModelExtension[]>([])
+  const [backfillOpen, setBackfillOpen] = useState(false)
   const [createCatalogTruncated, setCreateCatalogTruncated] = useState(false)
   const [createCatalogBusy, setCreateCatalogBusy] = useState(false)
   const [createCatalogError, setCreateCatalogError] = useState('')
@@ -70,7 +75,8 @@ export function InventoryPage() {
     const reset = resetOnSession.changed(change), selection = reset ? inventoryDefault() : selected()
     catalogRequestRef.current++
     catalogAbortRef.current?.abort(); catalogAbortRef.current = undefined
-    setCreateOpen(false); setCreateModels(null); setCreateCatalogTruncated(false); setCreateCatalogBusy(false); setCreateCatalogError('')
+    setCreateOpen(false); setCreateModels(null); setCreateExtensions([]); setBackfillOpen(false)
+    setCreateCatalogTruncated(false); setCreateCatalogBusy(false); setCreateCatalogError('')
     applySelection(selection); setSync(null)
     if (reset) { setRouteError(''); location.write(selection, true) }
     if (change.error) setError(change.error.message)
@@ -81,7 +87,7 @@ export function InventoryPage() {
     pending: busy,
     blocked: routeError !== '',
     rereadOnCredentials: false,
-    read: () => { void run('list') },
+    read: () => { void run('list', undefined, undefined, false, true) },
   })
   function resetFilters() { applySelection(inventoryDefault()); setRouteError(''); location.write(inventoryDefault()) }
   function changeAssetUuid(value: string) { abortRef.current?.abort(); requestIdRef.current++; setBusy(false); setError(''); setDetail(null); setDetailModel(null); setDetailModelError(''); setResolvedPin(undefined); setAssetUuid(value) }
@@ -94,10 +100,13 @@ export function InventoryPage() {
     setCreateCatalogBusy(true); setCreateCatalogError('')
     try {
       const catalog = await readCatalog(controller.signal)
+      // Extension overlays are display metadata: a failed read keeps raw field IDs instead of blocking creation.
+      const extensions = await readModelExtensions(controller.signal).catch(() => null)
       if (disposedRef.current || current !== catalogRequestRef.current) return
       const builtins = catalog.package.definitions.filter(model => model.kind === 'ENTITY')
       const published = catalog.published.items.filter(entry => entry.definition.kind === 'ENTITY').map(entry => entry.definition)
       setCreateModels([...builtins, ...published])
+      setCreateExtensions((extensions?.published.items ?? []).map(entry => entry.extension))
       setCreateCatalogTruncated(catalog.published.truncated)
       setCreateOpen(true)
     } catch (cause) {
@@ -107,7 +116,30 @@ export function InventoryPage() {
       if (!disposedRef.current && current === catalogRequestRef.current) setCreateCatalogBusy(false)
     }
   }
+  async function openBackfill() {
+    if (createModels) { setBackfillOpen(true); return }
+    resetOnSession.beginRead()
+    catalogAbortRef.current?.abort()
+    const controller = new AbortController(), current = ++catalogRequestRef.current
+    catalogAbortRef.current = controller
+    setCreateCatalogBusy(true); setCreateCatalogError('')
+    try {
+      const catalog = await readCatalog(controller.signal)
+      if (disposedRef.current || current !== catalogRequestRef.current) return
+      const builtins = catalog.package.definitions.filter(model => model.kind === 'ENTITY')
+      const published = catalog.published.items.filter(entry => entry.definition.kind === 'ENTITY').map(entry => entry.definition)
+      setCreateModels([...builtins, ...published])
+      setCreateCatalogTruncated(catalog.published.truncated)
+      setBackfillOpen(true)
+    } catch (cause) {
+      if (disposedRef.current || current !== catalogRequestRef.current || cause instanceof DOMException && cause.name === 'AbortError') return
+      setCreateCatalogError(cause instanceof Error ? cause.message : '已发布模型读取失败')
+    } finally {
+      if (!disposedRef.current && current === catalogRequestRef.current) setCreateCatalogBusy(false)
+    }
+  }
   async function resolveDetailModel(item: EntityItem, signal: AbortSignal, request: number) {
+    setDetailExtensions([])
     if (!item.model) return
     try {
       const model = await readPinnedModel(item.model, signal)
@@ -116,9 +148,18 @@ export function InventoryPage() {
       if (cause instanceof DOMException && cause.name === 'AbortError') return
       if (!disposedRef.current && request === requestIdRef.current) setDetailModelError('固定模型版本暂不可用；当前保留字段 ID。')
     }
+    try {
+      const extensions = await readModelExtensions(signal)
+      if (!disposedRef.current && request === requestIdRef.current) setDetailExtensions(extensions.published.items.map(entry => entry.extension))
+    } catch (cause) {
+      // Extension definitions are display metadata only: on failure the detail keeps raw field IDs.
+      if (cause instanceof DOMException && cause.name === 'AbortError') return
+    }
   }
-  async function run(mode: 'list' | 'sync' | 'next' | 'previous' | 'detail' | 'resolve', id?: string, preserveDetail?: EntityItem, resetPage = false) {
-    resetOnSession.beginRead()
+  async function run(mode: 'list' | 'sync' | 'next' | 'previous' | 'detail' | 'resolve', id?: string, preserveDetail?: EntityItem, resetPage = false, initial = false) {
+    // The automatic initial read keeps a restored link selection and does not
+    // mark the session user-established (ADR-029 §5 keeps typing/links intact).
+    if (!initial) resetOnSession.beginRead()
     abortRef.current?.abort()
     const controller = new AbortController(); abortRef.current = controller
     const currentRequest = ++requestIdRef.current
@@ -148,7 +189,8 @@ export function InventoryPage() {
         }
         return
       }
-      location.write({ ...(resetPage ? filters : selected()), after, entityId: preserveDetail?.id ?? null }); setLinkedEntity(preserveDetail?.id ?? null)
+      const keepLink = initial ? linkedEntity : preserveDetail?.id ?? null
+      location.write({ ...(resetPage ? filters : selected()), after, entityId: keepLink }); setLinkedEntity(keepLink)
       if (mode === 'sync') {
         const result = await syncZabbixHosts(controller.signal)
         if (disposedRef.current || currentRequest !== requestIdRef.current) return
@@ -208,6 +250,9 @@ export function InventoryPage() {
         <Button variant="outline" disabled={busy || createCatalogBusy || !authenticated || routeError !== ''} onClick={() => { void openEntityCreate() }}>
           <Plus size={15} />{createCatalogBusy ? '读取实体模型…' : '新建实体实例'}
         </Button>
+        <Button variant="outline" disabled={busy || createCatalogBusy || !authenticated || routeError !== ''} onClick={() => { void openBackfill() }}>
+          回填模型版本
+        </Button>
         <Button
           variant="outline"
           disabled={busy || !authenticated || routeError !== ''}
@@ -255,14 +300,15 @@ export function InventoryPage() {
         <label>查找资产 UUID<Input value={assetUuid} onChange={event => changeAssetUuid(event.currentTarget.value)} /></label>
         <Button variant="outline" disabled={busy || !authenticated || !assetUuid.trim() || !!routeError} onClick={() => { void run('resolve') }}>按强标识定位</Button></details>
       <details className="query-notes"><summary>查询范围与会话说明</summary><p>按服务端授权范围筛选和分页，每页最多 25 条。同步来源失败时保留当前表格；切换身份或失去权限会清空旧数据。</p><p>地址保留已应用的筛选、游标与选中资产；刷新或返回后请重新读取，以核对当前权限。</p></details>
-      {detail ? <EntityDetails item={detail} model={detailModel} modelError={detailModelError} identity={resolvedPin} close={() => { setDetail(null); setDetailModel(null); setDetailModelError(''); setResolvedPin(undefined); setLinkedEntity(null); location.write({ ...selected(), entityId: null }) }} /> : null}
-      {createOpen && createModels ? <EntityInstanceDrawer models={createModels} publishedTruncated={createCatalogTruncated} disabled={busy || !authenticated} onClose={() => setCreateOpen(false)} onCreated={(entity, model) => {
-        setCreateOpen(false); setError(''); setResolvedPin(undefined); setDetail(entity); setDetailModel(model); setDetailModelError(''); setLinkedEntity(entity.id)
+      {detail ? <EntityDetails item={detail} model={detailModel} modelError={detailModelError} extensions={detailExtensions} identity={resolvedPin} close={() => { setDetail(null); setDetailModel(null); setDetailModelError(''); setDetailExtensions([]); setResolvedPin(undefined); setLinkedEntity(null); location.write({ ...selected(), entityId: null }) }} /> : null}
+      {createOpen && createModels ? <EntityInstanceDrawer models={createModels} extensions={createExtensions} publishedTruncated={createCatalogTruncated} disabled={busy || !authenticated} onClose={() => setCreateOpen(false)} onCreated={(entity, model) => {
+        setCreateOpen(false); setError(''); setResolvedPin(undefined); setDetail(entity); setDetailModel(model); setDetailModelError(''); setDetailExtensions(createExtensions); setLinkedEntity(entity.id)
         setSearch(''); setEntityType(''); setLifecycle('')
         setCursor(null); setPrevious([]); setNext(null); setItems([]); setLoaded(false)
         location.write({ q: '', type: '', lifecycle: '', after: null, entityId: entity.id })
         void run('list', undefined, entity, true)
       }} /> : null}
+      {backfillOpen && createModels ? <EntityModelPinBackfillDrawer models={createModels} disabled={busy || !authenticated} onClose={() => setBackfillOpen(false)} /> : null}
     </section>
   )
 }
@@ -303,10 +349,14 @@ async function readPinnedModel(pin: EntityModelPin, signal: AbortSignal): Promis
   return entry.definition
 }
 
-function EntityDetails(props: { item: EntityItem; model: ModelDefinition | null; modelError: string; close: () => void; identity?: IdentityPin }) {
+function EntityDetails(props: { item: EntityItem; model: ModelDefinition | null; modelError: string; extensions: ModelExtension[]; close: () => void; identity?: IdentityPin }) {
   const [item, setItem] = useState(props.item)
   const pinnedModel = props.model && item.model?.id === props.model.id && item.model.revision === props.model.revision ? props.model : null
-  const modelFields = pinnedModel ? new Map(pinnedModel.fields.map(field => [field.id, field.label])) : new Map<string, string>()
+  // Extension labels are display metadata over the immutable base body; missing definitions keep raw field IDs.
+  const overlay = item.model ? props.extensions.find(extension => extension.base.id === item.model!.id && extension.base.revision === item.model!.revision) : undefined
+  const modelFields = new Map<string, string>()
+  for (const field of pinnedModel?.fields ?? []) modelFields.set(field.id, field.label)
+  for (const field of overlay?.fields ?? []) modelFields.set(field.id, field.label)
   return <section data-entity-detail aria-label="资产详情">
     <h3>{`资产详情：${item.name}`}</h3>
     <p>{`ID ${item.id} · ${item.entityType} · ${item.lifecycle} · 版本 ${item.version}`}</p>

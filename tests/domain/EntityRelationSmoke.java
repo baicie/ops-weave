@@ -3,6 +3,7 @@ import com.acme.opsweave.identity.domain.*;
 import com.acme.opsweave.inventory.api.*;
 import com.acme.opsweave.inventory.application.EntityRelationService;
 import com.acme.opsweave.inventory.domain.EntityRelation;
+import com.acme.opsweave.inventory.domain.RelationCardinality;
 import com.acme.opsweave.inventory.infrastructure.InMemoryRelationStore;
 import com.acme.opsweave.sharedkernel.EntityId;
 import com.acme.opsweave.sharedkernel.TenantId;
@@ -45,7 +46,28 @@ public final class EntityRelationSmoke {
         private final List<EntityRelation> rows;
         int pages;
         RelationRows(List<EntityRelation> rows) { this.rows = List.copyOf(rows); }
-        @Override public WriteResult write(TenantId tenant, UUID requestId, EntityRelation relation, long expectedFromVersion, long expectedToVersion) {
+        @Override public WriteResult write(TenantId tenant, UUID requestId, EntityRelation relation, long expectedFromVersion, long expectedToVersion, RelationCardinality cardinality) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public WriteResult close(TenantId tenant, UUID requestId, UUID relationId, Instant validTo, String reason, long expectedVersion) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public WriteResult correct(TenantId tenant, UUID requestId, UUID previousRelationId, String reason, long expectedVersion, EntityRelation replacement, RelationCardinality cardinality) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public ConfirmationResult confirm(TenantId tenant, UUID requestId, UUID relationId, com.acme.opsweave.inventory.domain.RelationConfirmation entry) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public ConfirmationResult withdraw(TenantId tenant, UUID requestId, UUID relationId, com.acme.opsweave.inventory.domain.RelationConfirmation.Key key, Instant at, String reason) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public java.util.List<com.acme.opsweave.inventory.domain.RelationConfirmation> confirmations(TenantId tenant, UUID relationId) {
+            return java.util.List.of();
+        }
+        @Override public java.util.List<com.acme.opsweave.inventory.domain.RelationCorrection> corrections(TenantId tenant, EntityId endpoint, UUID after, int limit) {
+            return java.util.List.of();
+        }
+        @Override public Optional<EntityRelation> find(TenantId tenant, UUID relationId) {
             throw new UnsupportedOperationException();
         }
         @Override public List<EntityRelation> page(TenantId tenant, EntityId endpoint, UUID after, Instant asOf, int limit) {
@@ -55,10 +77,21 @@ public final class EntityRelationSmoke {
                 .filter(r -> after == null || r.id().toString().compareTo(after.toString()) > 0)
                 .sorted(Comparator.comparing(r -> r.id().toString())).limit(limit + 1L).toList();
         }
+        @Override public List<EntityRelation> history(TenantId tenant, EntityId endpoint, UUID after, int limit) {
+            pages++;
+            return rows.stream().filter(r -> r.tenantId().equals(tenant) && (r.fromEntityId().equals(endpoint) || r.toEntityId().equals(endpoint)))
+                .filter(r -> after == null || r.id().toString().compareTo(after.toString()) > 0)
+                .sorted(Comparator.comparing(r -> r.id().toString())).limit(limit + 1L).toList();
+        }
     }
     static EntityRelationService readService(EntityId endpoint, RelationRows store) {
         return new EntityRelationService(authorization(), query(Map.of(endpoint, "Host")), store,
             (tenant, id, revision) -> Optional.empty(), java.time.Clock.fixed(AT, ZoneOffset.UTC));
+    }
+    static EntityRelationService writeService(Map<EntityId, String> types, RelationStore store, RelationModelReader.Definition model) {
+        return new EntityRelationService(authorization(), query(types), store,
+            (tenant, id, revision) -> model.id().equals(id) && model.revision() == revision ? Optional.of(model) : Optional.empty(),
+            java.time.Clock.fixed(AT, ZoneOffset.UTC));
     }
     static ResourceScope visibleScope(EntityId endpoint, List<EntityRelation> rows, Set<UUID> visibleRelations) {
         var refs = new HashSet<ResourceRef>(); refs.add(ResourceRef.entity(TENANT, endpoint));
@@ -73,20 +106,26 @@ public final class EntityRelationSmoke {
         var request = uuid(1);
         var relation = new EntityRelation(request, tenant, from, "builtin.depends_on", 1, to, AT, null, "operator", "unknown", 1);
         var store = new InMemoryRelationStore();
-        var first = store.write(tenant, request, relation, 1, 1);
+        var first = store.write(tenant, request, relation, 1, 1, RelationCardinality.MANY_TO_MANY);
         check(!first.replayed() && first.relation().id().equals(request));
-        var replay = store.write(tenant, request, relation, 1, 1);
+        var replay = store.write(tenant, request, relation, 1, 1, RelationCardinality.MANY_TO_MANY);
         check(replay.replayed() && replay.relation().equals(relation));
         var changed = new EntityRelation(request, tenant, to, "builtin.depends_on", 1, from, AT, null, "operator", "unknown", 1);
-        fails(RelationStore.Conflict.class, () -> store.write(tenant, request, changed, 1, 1));
+        fails(RelationStore.Conflict.class, () -> store.write(tenant, request, changed, 1, 1, RelationCardinality.MANY_TO_MANY));
         check(store.page(tenant, from, null, AT, 25).size() == 1);
         fails(IllegalArgumentException.class, () -> new EntityRelation(UUID.randomUUID(), tenant, from, "builtin.depends_on", 1, from, AT, null, "operator", "unknown", 1));
         fails(IllegalArgumentException.class, () -> new EntityRelation(UUID.randomUUID(), tenant, from, "builtin.depends_on", 1, to, AT, AT, "operator", "unknown", 1));
+        check(new EntityRelation(UUID.randomUUID(), tenant, from, "builtin.depends_on", 1, to, AT, AT.plusSeconds(60), "operator", "unknown", 1, "理由").closeReason().equals("理由"));
+        fails(IllegalArgumentException.class, () -> new EntityRelation(UUID.randomUUID(), tenant, from, "builtin.depends_on", 1, to, AT, AT.plusSeconds(60), "operator", "unknown", 1, "bad\nreason"));
+        fails(IllegalArgumentException.class, () -> new EntityRelation(UUID.randomUUID(), tenant, from, "builtin.depends_on", 1, to, AT, null, "operator", "unknown", 1, "理由"));
 
         verifyBuiltinEndpointType("NetworkInterface");
         verifyBuiltinEndpointType("network_interface");
         verifyVisiblePagination();
         verifyScanBudgetFailure();
+        verifyCloseLifecycle();
+        verifyHistoryLifecycle();
+        verifyCardinality();
         System.out.println("EntityRelationSmoke: " + checks + " checks passed");
     }
 
@@ -132,5 +171,74 @@ public final class EntityRelationSmoke {
         var store = new RelationRows(rows); var service = readService(endpoint, store);
         fails(RelationStore.ScanBudgetExceeded.class, () -> service.page(reader, endpoint, null, AT, 25));
         check(store.pages == 20);
+        var historyStore = new RelationRows(rows);
+        fails(RelationStore.ScanBudgetExceeded.class, () -> readService(endpoint, historyStore).history(reader, endpoint, null, 25));
+        check(historyStore.pages == 20);
+    }
+
+    static void verifyCloseLifecycle() {
+        var from = entityId(9401); var to = entityId(9402); var other = entityId(9403);
+        var model = new RelationModelReader.Definition("builtin.has_interface", 1, "builtin.host", 1, "builtin.network_interface", 1, "MANY_TO_MANY");
+        var store = new InMemoryRelationStore();
+        var service = writeService(Map.of(from, "Host", to, "NetworkInterface", other, "NetworkInterface"), store, model);
+        var operator = principal(Set.of(Permission.ENTITY_MANAGE), ResourceScope.tenantWide());
+        var reader = principal(Set.of(Permission.ENTITY_READ), ResourceScope.tenantWide());
+        var created = service.write(operator, uuid(41), model.id(), model.revision(), from, to, AT, null, "operator", "unknown", 1, 1);
+        check(!created.replayed() && created.relation().validTo() == null && created.relation().closeReason() == null);
+        fails(RelationStore.Conflict.class, () -> service.write(operator, uuid(40), model.id(), model.revision(), from, to, AT, null, "second-source", "unknown", 1, 1));
+        var closeRequest = uuid(42);
+        var closed = service.close(operator, closeRequest, created.relation().id(), AT.plusSeconds(60), "接口下线确认", 1);
+        check(!closed.replayed() && closed.relation().validTo() != null && closed.relation().validTo().equals(AT.plusSeconds(60)));
+        check(closed.relation().version() == 2 && "接口下线确认".equals(closed.relation().closeReason()));
+        var replay = service.close(operator, closeRequest, created.relation().id(), AT.plusSeconds(60), "接口下线确认", 1);
+        check(replay.replayed() && replay.relation().equals(closed.relation()));
+        fails(RelationStore.Conflict.class, () -> service.close(operator, closeRequest, created.relation().id(), AT.plusSeconds(30), "改动后的理由", 1));
+        fails(RelationStore.Conflict.class, () -> service.close(operator, uuid(43), created.relation().id(), AT.plusSeconds(60), "重复终止", 2));
+        fails(RelationStore.Conflict.class, () -> service.write(operator, uuid(50), model.id(), model.revision(), from, to, AT, null, "resurrect", "unknown", 1, 1));
+        var second = service.write(operator, uuid(44), model.id(), model.revision(), from, other, AT, null, "operator", "unknown", 1, 1);
+        fails(RelationStore.Conflict.class, () -> service.close(operator, uuid(45), second.relation().id(), AT.plusSeconds(60), "过期版本", 7));
+        fails(IllegalArgumentException.class, () -> service.close(operator, uuid(46), second.relation().id(), AT.minusSeconds(1), "早于生效", 1));
+        fails(IllegalArgumentException.class, () -> service.close(operator, uuid(47), second.relation().id(), null, "   ", 1));
+        fails(RelationStore.NotFound.class, () -> service.close(operator, uuid(48), uuid(9999), AT.plusSeconds(60), "不存在的关系", 1));
+        fails(RelationStore.Access.class, () -> service.close(reader, uuid(49), second.relation().id(), AT.plusSeconds(60), "缺少管理授权", 1));
+    }
+
+    static void verifyHistoryLifecycle() {
+        var endpoint = entityId(9600); var rows = new ArrayList<EntityRelation>();
+        for (int i = 1; i <= 5; i++) rows.add(relation(i, endpoint, entityId(21000 + i)));
+        var visibleIds = Set.of(uuid(1), uuid(3), uuid(5));
+        var reader = principal(Set.of(Permission.ENTITY_READ), visibleScope(endpoint, rows, visibleIds));
+        var history = readService(endpoint, new RelationRows(rows)).history(reader, endpoint, null, 2);
+        check(history.size() == 3);
+        check(history.get(0).id().equals(uuid(1)) && history.get(1).id().equals(uuid(3)) && history.get(2).id().equals(uuid(5)));
+        var secondPage = readService(endpoint, new RelationRows(rows)).history(reader, endpoint, uuid(3), 2);
+        check(secondPage.size() == 1 && secondPage.get(0).id().equals(uuid(5)));
+        var noRead = principal(Set.of(), ResourceScope.tenantWide());
+        fails(RelationStore.Access.class, () -> readService(endpoint, new RelationRows(rows)).history(noRead, endpoint, null, 25));
+    }
+
+    static void verifyCardinality() {
+        var hub = entityId(9701); var a = entityId(9702); var b = entityId(9703);
+        var oneToMany = new RelationModelReader.Definition("builtin.has_interface", 1, "builtin.host", 1, "builtin.network_interface", 1, "ONE_TO_MANY");
+        var store = new InMemoryRelationStore();
+        var service = writeService(Map.of(hub, "Host", a, "NetworkInterface", b, "NetworkInterface"), store, oneToMany);
+        var operator = principal(Set.of(Permission.ENTITY_MANAGE), ResourceScope.tenantWide());
+        service.write(operator, uuid(51), oneToMany.id(), oneToMany.revision(), hub, a, AT, null, "operator", "unknown", 1, 1);
+        fails(RelationStore.Conflict.class, () -> service.write(operator, uuid(52), oneToMany.id(), oneToMany.revision(), hub, b, AT, null, "operator", "unknown", 1, 1));
+        check(store.history(TENANT, hub, null, 50).size() == 1);
+
+        var oneToOne = new RelationModelReader.Definition("builtin.deployed_on", 1, "builtin.service", 1, "builtin.host", 1, "ONE_TO_ONE");
+        var paired = new InMemoryRelationStore();
+        var pairService = writeService(Map.of(a, "Service", b, "Service", hub, "Host"), paired, oneToOne);
+        pairService.write(operator, uuid(53), oneToOne.id(), oneToOne.revision(), a, hub, AT, null, "operator", "unknown", 1, 1);
+        fails(RelationStore.Conflict.class, () -> pairService.write(operator, uuid(54), oneToOne.id(), oneToOne.revision(), b, hub, AT, null, "operator", "unknown", 1, 1));
+        fails(RelationStore.Conflict.class, () -> pairService.write(operator, uuid(55), oneToOne.id(), oneToOne.revision(), a, b, AT, null, "operator", "unknown", 1, 1));
+        pairService.close(operator, uuid(56), uuid(53), AT.plusSeconds(30), "下线", 1);
+        pairService.write(operator, uuid(57), oneToOne.id(), oneToOne.revision(), b, hub, AT, null, "operator", "unknown", 1, 1);
+        check(paired.history(TENANT, hub, null, 50).size() == 2);
+
+        var broken = new RelationModelReader.Definition("custom.unsupported", 1, "builtin.host", 1, "builtin.network_interface", 1, "SOME_TO_MANY");
+        var brokenService = writeService(Map.of(hub, "Host", b, "NetworkInterface"), new InMemoryRelationStore(), broken);
+        fails(RelationStore.Conflict.class, () -> brokenService.write(operator, uuid(58), broken.id(), broken.revision(), hub, b, AT, null, "operator", "unknown", 1, 1));
     }
 }

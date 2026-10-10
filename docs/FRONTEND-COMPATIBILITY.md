@@ -1,5 +1,7 @@
 # 前端兼容性基线
 
+2026-10-10 第175节：会话语义与链接选择语义同步（接口/契约未改，服务端不变）。① pagehide 无条件清除凭据与已展示结果（含 `persisted` 的浏览器历史缓存过渡），恢复 ADR-025/ADR-029「pagehide 只保留 URL 读取选择，凭据和结果仍清除」；OIDC/local-preview 模式的 persisted pageshow 仍经 `readBrowserSession`/`readLocalPreviewSession` 从服务端重建会话，不做标签页内存跨缓存延续。② 资产页自动初始读取（会话就绪读一次）保留恢复的深链选择（筛选/游标/选中资产），且不把会话标记为「已建立」——「已建立」只由显式读取或进入页面时已有凭据构成；逐字输入开发 Token 到首次显式读取前保留链接选择（ADR-029 §5），更换凭据仍清除当前选择。`useSelectionSessionReset` 注释同步该语义。导航/finder 计数随「关系实例」目的地加入已同步（链接 16、模型中心 4）。见[验证报告](VALIDATION-REPORT.md)第175节。
+
 2026-10-06 第137节：日志重放增加独立command/execute/plan/receipt/page/execution/data闭合Schema，API/Web与V057同步部署；数据页沿用既有日志窗口协议。WorkflowLogReplaySection独立持有固定版本、原UUID、取消、私有正文/游标和待确认门禁；WorkflowReplayPanel共用于指标/日志且只展示。首次展开仅元数据，正文每页50条由明确操作读取，身份/父范围变化清除；当前完整性不修改原回执。完整来源键、128字符tenant及规范UTC纳秒位置校验保持；动作自然宽度/窄屏换行，不改公共Shell。见[契约](../contracts/workflow-log-replay.md)。
 
 2026-10-06 第136节：历史指标重放增加独立command/execute/plan/receipt/page/execution Schema，API/Web与V056同步部署。浏览器可信会话识别显式workflow.replay权限，默认权限不扩大。WorkflowMetricReplaySection持有请求、原UUID、取消和关闭/版本门禁，Panel纯展示；展开仅元数据一次读取，检查范围不输出。原UUID回查、404原样重发和UNKNOWN原输出核验分开；空批次摘要也校验。局部明暗/三宽度样式，原历史及持续任务协议保持。见[契约](../contracts/workflow-metric-replay.md)。

@@ -592,7 +592,14 @@
       "then": {
         "properties": {
           "target": {
-            "$ref": "workflow-output.schema.json#/oneOf/0"
+            "oneOf": [
+              {
+                "$ref": "workflow-output.schema.json#/oneOf/0"
+              },
+              {
+                "$ref": "workflow-output.schema.json#/oneOf/3"
+              }
+            ]
           }
         }
       }

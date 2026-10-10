@@ -71,6 +71,37 @@
           "$ref": "metric-mapping-pin.schema.json"
         }
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schemaVersion",
+        "relation",
+        "fromField",
+        "toField"
+      ],
+      "properties": {
+        "kind": {
+          "const": "RELATION"
+        },
+        "schemaVersion": {
+          "const": "1.0"
+        },
+        "relation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "revision", "digest"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"},
+            "revision": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+          }
+        },
+        "fromField": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "toField": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+      }
     }
   ]
 }

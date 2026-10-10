@@ -18,11 +18,15 @@ public final class WorkflowHostScanJson {
     }
     public static WorkflowHostScan.Batch batch(String body) {
         var n=CatalogJson.JSON.readTree(body);
-        fields(n,Set.of("id","scanId","workflowId","revision","digest","settings","sequence","beforeCursor","nextCursor","complete","observedAt","records","state","entityIds","error","updatedAt"));
-        if(n.size()!=16||!n.get("complete").isBoolean()||!n.get("entityIds").isArray()||n.get("entityIds").size()>5)throw new IllegalArgumentException();
+        fields(n,Set.of("id","scanId","workflowId","revision","digest","settings","sequence","beforeCursor","nextCursor","complete","observedAt","records","state","entityIds","error","updatedAt","relationIds","pending"));
+        if(n.size()!=18||!n.get("complete").isBoolean()||!n.get("entityIds").isArray()||n.get("entityIds").size()>5)throw new IllegalArgumentException();
         for(var key:List.of("revision","sequence"))integer(n,key,null);
         for(var key:List.of("beforeCursor","nextCursor","error"))if(!n.get(key).isNull())text(n,key);
         for(var id:n.get("entityIds"))if(!id.isString())throw new IllegalArgumentException();
+        if(!n.get("relationIds").isArray()||n.get("relationIds").size()>5)throw new IllegalArgumentException();
+        for(var id:n.get("relationIds"))if(!id.isString())throw new IllegalArgumentException();
+        if(!n.get("pending").isArray()||n.get("pending").size()>5)throw new IllegalArgumentException();
+        for(var item:n.get("pending")){if(item==null||!item.isObject())throw new IllegalArgumentException();fields(item,Set.of("index","code"));if(item.size()!=2)throw new IllegalArgumentException();new com.acme.opsweave.integration.domain.WorkflowRuntime.Pending(integer(item,"index",null),text(item,"code"));}
         WorkflowRuntimeJson.settings(n.get("settings"));
         if(!n.get("records").isArray()||n.get("records").size()>5)throw new IllegalArgumentException();
         for(var row:n.get("records")){fields(row,Set.of("name","ip","lifecycle","entity_id"));if(row.size()!=4)throw new IllegalArgumentException();for(var key:List.of("name","ip","lifecycle","entity_id"))if(!row.get(key).isString())throw new IllegalArgumentException();}

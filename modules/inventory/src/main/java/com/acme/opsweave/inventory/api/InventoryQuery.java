@@ -13,6 +13,11 @@ import java.util.Optional;
 public interface InventoryQuery {
     Optional<EntityView> find(TenantId tenantId, EntityId entityId);
 
+    /** Deterministic registered external link lookup; stores without the port fail closed instead of guessing. */
+    default Optional<com.acme.opsweave.inventory.domain.ExternalLink> linkOf(com.acme.opsweave.inventory.domain.ExternalObjectKey key) {
+        throw new IllegalStateException("External link lookup unavailable");
+    }
+
     List<EntityView> list(TenantId tenantId);
 
     /** Apply trusted object visibility and filters before pagination; return at most limit+1. */

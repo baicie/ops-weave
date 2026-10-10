@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Registered external link identity",
+  "description": "A registered external object key bound to one entity. The key is (namespace, objectType, externalKey, generation) and resolves only through this explicit binding; nothing is inferred from names or addresses.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["namespace", "objectType", "externalKey", "generation", "targetId"],
+  "properties": {
+    "namespace": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,95}$"},
+    "objectType": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+    "externalKey": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "\\S"},
+    "generation": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S"},
+    "targetId": {"type": "string", "format": "uuid"}
+  }
+}

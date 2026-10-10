@@ -49,6 +49,17 @@ function page(v: unknown): CatalogPage {
   return v as CatalogPage
 }
 export class CatalogError extends Error { constructor(readonly status: number, code: string) { super(({ CONFLICT: '草稿或发布版本已变化，请重新读取后再编辑', INCOMPATIBLE_REVISION: '该修改不兼容旧版本；当前只允许追加可选字段及修改说明', UNKNOWN_ENTITY_TYPE: '关系端点必须引用本租户已发布的实体类型', FORBIDDEN: '当前身份没有模型目录权限', INVALID_REQUEST: '模型字段或样本不符合契约，请核对后重试' } as Record<string, string>)[code] ?? '模型目录请求失败（HTTP ' + status + '）') } }
+/** Mirrors the contract digest scheme opsweave-model-v1 for RELATION definitions (their field set is closed empty). */
+export async function relationModelDigest(definition: ModelDefinition): Promise<string> {
+  if (definition.kind !== 'RELATION' || definition.fields.length || !definition.endpoints) invalid()
+  const parts = ['opsweave-model-v1', definition.id, String(definition.revision), 'RELATION', definition.label, definition.description, 'safe-scalars-v1',
+    definition.endpoints.from.id, String(definition.endpoints.from.revision), definition.endpoints.to.id, String(definition.endpoints.to.revision), definition.endpoints.cardinality]
+  const encoder = new TextEncoder(), chunks: Uint8Array[] = []
+  for (const part of parts) { const bytes = encoder.encode(part); chunks.push(encoder.encode(bytes.length + ':'), bytes) }
+  const input = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.length, 0)); let offset = 0
+  for (const chunk of chunks) { input.set(chunk, offset); offset += chunk.length }
+  return 'sha256:' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', input)), byte => byte.toString(16).padStart(2, '0')).join('')
+}
 const options = (signal: AbortSignal) => ({ signal, error: (s: number, c: string) => new CatalogError(s, c) })
 export async function readCatalog(signal: AbortSignal): Promise<CatalogPage> { return page(await platformClient.request('/api/v1/catalog', options(signal))) }
 export async function readModelVersion(reference: ModelRef, signal: AbortSignal): Promise<ModelEntry> {

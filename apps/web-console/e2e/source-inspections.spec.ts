@@ -84,7 +84,7 @@ test('failed metadata read does not repeat when switching inspector tabs', async
   const f = await setup(page, 'read-failed'); await expect(f.drawer.getByRole('alert')).toContainText('请先核对连接配置'); await f.drawer.getByRole('tab', { name: '实例配置', exact: true }).click(); await f.drawer.getByRole('tab', { name: '连接与字段', exact: true }).click(); expect(f.reads()).toBe(1); await f.drawer.getByRole('button', { name: '刷新测试与发现记录', exact: true }).click(); await expect(f.drawer.getByText('暂无测试或发现记录。', { exact: true })).toBeVisible(); expect(f.reads()).toBe(2)
 })
 test('forbidden inspection clears cached source data and closes the drawer without rereading', async ({ page }) => {
-  const f = await setup(page, 'forbidden'); await expect(f.drawer).not.toBeVisible(); await expect(page.locator('.source-center > [role=alert]')).toContainText('来源权限'); await page.getByRole('tab', { name: /已配置接入/ }).click(); await expect(page.locator('.source-instance-panel > [role=alert]')).toContainText('来源权限'); expect(f.reads()).toBe(1); expect(f.calls.filter(c => c.path === '/api/v2/data-sources' && c.method === 'GET')).toHaveLength(1); await expect(page.getByRole('button', { name: '维护实例：Fixture Zabbix onboarding', exact: true })).not.toBeVisible(); expect(f.calls.filter(c => c.method === 'POST')).toHaveLength(0)
+  const f = await setup(page, 'forbidden'); await expect(f.drawer).not.toBeVisible(); await expect(page.locator('.source-center .integration-page-body > [role=alert]')).toContainText('来源权限'); await page.getByRole('tab', { name: /已配置接入/ }).click(); await expect(page.locator('.source-instance-panel > [role=alert]')).toContainText('来源权限'); expect(f.reads()).toBe(1); expect(f.calls.filter(c => c.path === '/api/v2/data-sources' && c.method === 'GET')).toHaveLength(1); await expect(page.getByRole('button', { name: '维护实例：Fixture Zabbix onboarding', exact: true })).not.toBeVisible(); expect(f.calls.filter(c => c.method === 'POST')).toHaveLength(0)
 })
 test('inspection expiry updates the visible badge without an API request', async ({ page }) => {
   await page.clock.install(); const f = await setup(page); await f.drawer.getByRole('button', { name: '测试保存的连接', exact: true }).click(); await expect(f.drawer.getByText('当前配置', { exact: true })).toBeVisible(); const requests = f.calls.length; await page.clock.fastForward(901000); await expect(f.drawer.getByText('已过期', { exact: true })).toBeVisible(); expect(f.calls).toHaveLength(requests)
@@ -146,6 +146,7 @@ for (const mode of ['metric-changed', 'metric-capacity']) test(mode + ' cannot i
 })
 test('inventory root expiry is not renewed by a later page', async ({ page }) => {
   await page.clock.install(); const f = await setup(page, 'metric-many'); await f.drawer.getByRole('button', { name: '发现来源指标', exact: true }).click(); const section = f.drawer.getByRole('region', { name: '来源指标分页发现' })
+  await expect(section).toContainText('1–20 / 45 项')
   await page.clock.fastForward(60000); await section.getByRole('button', { name: '下一页指标' }).click(); await expect(section).toContainText('21–40 / 45 项'); const requests = f.calls.length
   await page.clock.fastForward(841000); await expect(f.drawer.getByText('已过期', { exact: true })).toBeVisible(); await expect(section.getByRole('button', { name: '下一页指标' })).toBeDisabled(); expect(f.calls).toHaveLength(requests)
 })

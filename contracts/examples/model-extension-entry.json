@@ -1,0 +1,23 @@
+{
+  "extension": {
+    "schemaVersion": "1.0",
+    "base": {
+      "id": "builtin.host",
+      "revision": 1
+    },
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fields": [
+      {
+        "id": "business_code",
+        "label": "业务编码",
+        "type": "TEXT",
+        "required": false,
+        "maxLength": 64
+      }
+    ]
+  },
+  "state": "PUBLISHED",
+  "editVersion": 0,
+  "updatedAt": "2026-10-10T00:00:00Z"
+}

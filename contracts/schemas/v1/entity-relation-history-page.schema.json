@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Authorized entity relation history page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "storage", "tenantId", "entityId", "items", "nextCursor"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "storage": {"type": "string", "enum": ["memory", "postgres"]},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "entityId": {"type": "string", "format": "uuid"},
+    "items": {"type": "array", "maxItems": 50, "items": {"$ref": "entity-relation-history-entry.schema.json"}},
+    "nextCursor": {"anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}]}
+  }
+}

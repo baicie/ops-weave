@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Correct entity relation command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "relationId", "reason", "expectedVersion", "fromEntityId", "toEntityId", "relationType", "relationRevision"],
+  "properties": {
+    "requestId": {"type": "string", "format": "uuid"},
+    "relationId": {"type": "string", "format": "uuid"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\u0000-\u001f\u007f]+$"},
+    "expectedVersion": {"type": "integer", "minimum": 1},
+    "fromEntityId": {"type": "string", "format": "uuid"},
+    "toEntityId": {"type": "string", "format": "uuid"},
+    "relationType": {"type": "string", "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"},
+    "relationRevision": {"type": "integer", "minimum": 1, "maximum": 10000}
+  }
+}

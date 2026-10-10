@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/entity-model-pin-backfill-command.schema.json",
+  "title": "Legacy entity model pin backfill command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "entityType",
+    "model",
+    "maxUpdates"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "entityType": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(builtin|custom)\\.[a-z][a-z0-9_]{0,47}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        }
+      }
+    },
+    "maxUpdates": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    }
+  }
+}

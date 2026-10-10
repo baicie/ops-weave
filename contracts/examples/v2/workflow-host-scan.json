@@ -31,6 +31,8 @@
       "entityIds": [
         "10000000-0000-4000-8000-000000000118"
       ],
+      "relationIds": [],
+      "pending": [],
       "error": null,
       "recordCount": 1
     }

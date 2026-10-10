@@ -88,3 +88,30 @@ def test_telemetry_mapping_cannot_target_entity_or_other_output_fields(kind,fiel
 def test_normalized_telemetry_record_boundaries(kind,patch):
     r=json.loads((ROOT/f'contracts/examples/v2/workflow-{kind}-record.json').read_text(encoding='utf-8'));r.update(patch)
     with pytest.raises(ValidationError):validate(f'workflow-{kind}-record',r)
+
+def relation_output():
+    return {'kind':'RELATION','schemaVersion':'1.0','relation':{'id':'builtin.contains','revision':1,'digest':'sha256:'+'a'*64},'fromField':'host_identity','toField':'interface_identity'}
+
+def test_relation_output_is_closed_and_requires_explicit_identity_fields():
+    validate('workflow-output',relation_output())
+    validate('workflow-output',{'id':'builtin.host','revision':1,'digest':'sha256:'+'b'*64})
+
+@pytest.mark.parametrize('patch',[{'relation':{'id':'builtin.contains','revision':1}},{'fromField':'HostIdentity'},{'toField':'x'*65},{'kind':'ENTITY'},{'schemaVersion':'1.1'},{'guessByName':True}])
+def test_relation_output_rejects_guessed_or_open_shapes(patch):
+    value=relation_output();value.update(patch)
+    with pytest.raises(ValidationError):validate('workflow-output',value)
+
+def test_relation_target_definition_accepts_relation_and_zabbix_host_source():
+    d=example();d['target']=relation_output();validate('workflow-definition',d)
+    d['source']={'kind':'ZABBIX_HOST','instanceId':'fixture-host'}
+    validate('workflow-definition',d)
+
+@pytest.mark.parametrize('patch',[{'fromField':None},{'toField':None},{'fromField':'HostIdentity'},{'fromField':'9field'},{'fromField':''},{'fromField':'x'*65},{'toField':'host-1'},{'relation':{'id':'builtin.contains','revision':1}},{'relation':{'id':'builtin.contains','revision':1,'digest':'sha256:'+'a'*64,'byName':True}},{'relation':{'id':'builtin.contains','revision':1,'digest':'sha256:short'}},{'mappingPin':{'id':'fixture-mapping','revision':1,'digest':'sha256:'+'a'*64}},{'metricKey':'host.cpu'},{'guessByName':True},{'kind':'METRIC'},{'schemaVersion':'1.1'}])
+def test_relation_target_definition_rejects_open_or_incomplete_shapes(patch):
+    d=example();d['target']=relation_output();d['target'].update(patch)
+    with pytest.raises(ValidationError):validate('workflow-definition',d)
+
+@pytest.mark.parametrize('patch',[{'kind':'LOG','schemaVersion':'1.0'},{'kind':'METRIC','schemaVersion':'1.0'},{'kind':'METRIC','schemaVersion':'1.1','metricKey':'host.cpu','mappingPin':{'id':'fixture-mapping','revision':1,'digest':'sha256:'+'a'*64}}])
+def test_relation_source_matrix_stays_closed(patch):
+    d=example();d['source']={'kind':'ZABBIX_HOST','instanceId':'fixture-host'};d['target']=patch
+    with pytest.raises(ValidationError):validate('workflow-definition',d)

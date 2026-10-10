@@ -36,7 +36,7 @@ async function fixture(page:Page,mode='empty',gate?:Promise<void>){
   if(path.includes('/versions/'))return route.fulfill({json:entry})
   return route.fulfill({status:404,json:{error:'NOT_FOUND'}})
  })
- await page.goto('/#/integrations/workflows');await page.getByRole('textbox',{name:'平台开发 Token（仅保存在当前标签页内存）'}).fill(TOKEN_OK);await page.getByRole('button',{name:'查看',exact:true}).click();await closeWorkflowInspector(page);await page.getByText('运行质量与异常',{exact:true}).click();expect(reads).toBe(0);await page.locator('details > summary').filter({hasText:/^质量阈值$/}).click();await expect(region(page)).toBeVisible()
+ await page.goto('/#/integrations/workflows');await page.getByRole('textbox',{name:'平台开发 Token（仅保存在当前标签页内存）'}).fill(TOKEN_OK);await page.getByRole('button',{name:'查看',exact:true}).click();await closeWorkflowInspector(page);await page.getByText('运行质量与异常',{exact:true}).click();expect(reads).toBe(0);await page.locator('details > summary').filter({hasText:/^质量阈值$/}).click();if(mode!=='forbidden')await expect(region(page)).toBeVisible()
  return {reads:()=>reads,posts,queries}
 }
 for(const width of [1440,1024,390])for(const theme of ['light','dark'])test(`quality alert configuration ${width} ${theme}`,async({page})=>{

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "storage": "postgres",
+  "replayed": false,
+  "tenantId": "tenant-a",
+  "requestId": "33333333-3333-4333-8333-333333333333",
+  "request": {
+    "entityType": "Host",
+    "model": {
+      "id": "builtin.host",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "counts": {
+    "scanned": 3,
+    "updated": 2,
+    "keptWithoutPin": 1,
+    "skippedPinned": 4,
+    "skippedSource": 1
+  },
+  "completedAt": "2026-10-10T00:00:00Z"
+}

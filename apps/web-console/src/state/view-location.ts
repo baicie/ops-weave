@@ -42,7 +42,8 @@ export function useViewLocation<T>(path: string, decode: (hash: string) => T, en
   }
 }
 
-/** Typing the initial credential preserves a link until its first read. Established sessions clear selections. */
+/** Typing the initial credential preserves a link until its first explicit read; the automatic
+ * initial page read keeps the link as part of the same initial entry. Established sessions clear selections. */
 export function useSelectionSessionReset() {
   const established = useRef(platformCredentials.ready())
   const api = useRef({

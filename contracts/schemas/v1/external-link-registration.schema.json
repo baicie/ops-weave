@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "External link registration command",
+  "description": "Deterministically register one external object key onto an existing authorized entity. The tenant and actor always come from the trusted principal and are never accepted from the request. Registration does not resolve names or addresses and never rewrites existing entity ownership.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "namespace", "objectType", "externalKey", "targetId"],
+  "properties": {
+    "requestId": {"type": "string", "format": "uuid"},
+    "namespace": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,95}$"},
+    "objectType": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+    "externalKey": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "\\S"},
+    "targetId": {"type": "string", "format": "uuid"},
+    "generation": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S"}
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v1/model-extension-entry.schema.json",
+  "title": "Tenant model extension entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "extension",
+    "state",
+    "editVersion",
+    "updatedAt"
+  ],
+  "properties": {
+    "extension": {
+      "$ref": "model-extension.schema.json"
+    },
+    "state": {
+      "enum": [
+        "DRAFT",
+        "PUBLISHED"
+      ]
+    },
+    "editVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "DRAFT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "editVersion": {
+            "minimum": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "editVersion": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

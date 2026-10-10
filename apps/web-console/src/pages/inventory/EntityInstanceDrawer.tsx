@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createEntityInstance, type EntityItem } from '../../api/entities.ts'
 import type { ModelDefinition, ModelField } from '../../api/model-catalog.ts'
+import type { ModelExtension } from '../../api/model-extensions.ts'
 
 type EntityLifecycle = 'DISCOVERED' | 'ACTIVE' | 'INACTIVE' | 'DELETED' | 'ARCHIVED'
 type EntityInstanceCommand = {
@@ -18,6 +19,7 @@ type EntityInstanceCommand = {
 
 type Props = {
   models: ModelDefinition[]
+  extensions: ModelExtension[]
   publishedTruncated: boolean
   disabled: boolean
   onClose: () => void
@@ -39,9 +41,9 @@ function hasDefiniteHttpStatus(cause: unknown): boolean {
   return typeof status === 'number' && Number.isInteger(status) && status >= 400 && status < 500 && status !== 408
 }
 
-function attributesFor(model: ModelDefinition, values: Record<string, string>): Record<string, string | number | boolean> {
+function attributesFor(fields: ModelField[], values: Record<string, string>): Record<string, string | number | boolean> {
   const attributes: Record<string, string | number | boolean> = {}
-  for (const field of model.fields) {
+  for (const field of fields) {
     const raw = values[field.id] ?? ''
     if (!raw.trim()) {
       if (field.required) throw new Error(`请填写必填字段：${field.label}`)
@@ -122,6 +124,9 @@ export function EntityInstanceDrawer(props: Props) {
   const [error, setError] = useState('')
   const models = useMemo(() => props.models.filter(model => model.kind === 'ENTITY'), [props.models])
   const selectedModel = models.find(model => modelKey(model) === modelId)
+  // Tenant extension fields attach to the fixed base version; the base body itself is never edited.
+  const overlay = selectedModel ? props.extensions.find(extension => extension.base.id === selectedModel.id && extension.base.revision === selectedModel.revision) : undefined
+  const formFields: ModelField[] = [...(selectedModel?.fields ?? []), ...(overlay?.fields ?? [])]
   const locked = busy || pendingCommand !== null
   const lockedRef = useRef(locked)
   lockedRef.current = locked
@@ -220,7 +225,7 @@ export function EntityInstanceDrawer(props: Props) {
     const cleanName = name.trim()
     if (!cleanName || cleanName.length > 255) { setError('请输入不超过 255 个字符的名称。'); return }
     let attributes: Record<string, string | number | boolean>
-    try { attributes = attributesFor(selectedModel, values) }
+    try { attributes = attributesFor(formFields, values) }
     catch (cause) { setError(errorMessage(cause)); return }
     const command: EntityInstanceCommand = {
       requestId: crypto.randomUUID(),
@@ -252,8 +257,8 @@ export function EntityInstanceDrawer(props: Props) {
         <label htmlFor={id + '-name'}>名称
           <Input id={id + '-name'} maxLength={255} required value={name} onChange={event => setName(event.target.value)} />
         </label>
-        {selectedModel?.fields.map(field => <label key={field.id} htmlFor={id + '-' + field.id}>
-          <span>{field.label}{field.required ? ' · 必填' : ''}<small className="model-muted">{field.id}</small></span>
+        {formFields.map(field => <label key={field.id} htmlFor={id + '-' + field.id}>
+          <span>{field.label}{field.required ? ' · 必填' : overlay?.fields.some(extensionField => extensionField.id === field.id) ? ' · 租户扩展' : ''}<small className="model-muted">{field.id}</small></span>
           {fieldControl(field, id + '-' + field.id, values[field.id] ?? '', props.disabled || locked, value => {
             setValues(current => ({ ...current, [field.id]: value })); setError('')
           })}

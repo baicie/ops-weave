@@ -9,7 +9,7 @@ import java.util.UUID;
 /** One tenant-scoped relation instance. The relation model revision is immutable. */
 public record EntityRelation(UUID id, TenantId tenantId, EntityId fromEntityId, String relationType,
         int relationRevision, EntityId toEntityId, Instant validFrom, Instant validTo,
-        String sourceRef, String dataMode, long version) {
+        String sourceRef, String dataMode, long version, String closeReason) {
     public EntityRelation {
         Objects.requireNonNull(id); Objects.requireNonNull(tenantId); Objects.requireNonNull(fromEntityId);
         Objects.requireNonNull(toEntityId); Objects.requireNonNull(validFrom); Objects.requireNonNull(sourceRef);
@@ -21,5 +21,15 @@ public record EntityRelation(UUID id, TenantId tenantId, EntityId fromEntityId, 
         if (sourceRef.isBlank() || sourceRef.length() > 128 || sourceRef.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException("Invalid relation source");
         if (!java.util.Set.of("fixture", "zabbix-jsonrpc", "import", "unknown").contains(dataMode)) throw new IllegalArgumentException("Invalid relation data mode");
         if (version < 1) throw new IllegalArgumentException("Invalid relation version");
+        if (closeReason != null) {
+            if (validTo == null) throw new IllegalArgumentException("Relation close reason requires an end time");
+            if (closeReason.isBlank() || closeReason.length() > 256 || closeReason.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException("Invalid relation close reason");
+        }
+    }
+
+    public EntityRelation(UUID id, TenantId tenantId, EntityId fromEntityId, String relationType,
+            int relationRevision, EntityId toEntityId, Instant validFrom, Instant validTo,
+            String sourceRef, String dataMode, long version) {
+        this(id, tenantId, fromEntityId, relationType, relationRevision, toEntityId, validFrom, validTo, sourceRef, dataMode, version, null);
     }
 }

@@ -93,19 +93,30 @@ public final class WorkflowHostRuntimeService {
             store.transaction(tenant,s->{
                 var current=context(s,tenant,owner,listed,resolver);if(current==null)return null;
                 var b=s.hostBatch(owner,admitted.get()).orElseThrow();require(current,b);if(!b.state().equals("IN_FLIGHT"))return null;
-                var ids=new ArrayList<>(b.entityIds());boolean attempted=!ids.isEmpty();String error=null;
+                var ids=new ArrayList<>(b.entityIds());var relationIds=new ArrayList<>(b.relationIds());var pending=new ArrayList<WorkflowRuntime.Pending>();
+                boolean attempted=!ids.isEmpty()||!relationIds.isEmpty();String error=null;
                 try {
                     var evaluation=evaluate(current,b);
-                    if(evaluation!=null)for(var row:evaluation.rows()){
-                        if(!row.status().equals("ACCEPTED"))continue;
-                        var fresh=context(s,tenant,owner,listed,resolver);if(fresh==null)throw fail(WorkflowFailure.Code.CONFLICT);
-                        attempted=true;
-                        var id=output.write(fresh.principal(),fresh.entry().definition(),b.settings(),b.id(),b.observedAt(),b.records().get(row.index()),row.steps().getLast().values(),"zabbix-jsonrpc");
-                        if(!ids.contains(id))ids.add(id);
+                    if(evaluation!=null){
+                        var relation=current.entry().definition().target().relationOutput();
+                        var model=relation?models.resolve(current.principal(),current.entry().definition().target()):null;
+                        for(var row:evaluation.rows()){
+                            if(!row.status().equals("ACCEPTED"))continue;
+                            var fresh=context(s,tenant,owner,listed,resolver);if(fresh==null)throw fail(WorkflowFailure.Code.CONFLICT);
+                            attempted=true;
+                            if(relation){
+                                var outcome=output.writeRelation(fresh.principal(),fresh.entry().definition(),model,b.settings(),b.id(),b.observedAt(),b.records().get(row.index()),row.steps().getLast().values(),"zabbix-jsonrpc");
+                                if(outcome.relationId()!=null){if(!relationIds.contains(outcome.relationId()))relationIds.add(outcome.relationId());}
+                                else pending.add(new WorkflowRuntime.Pending(row.index(),outcome.pendingCode()));
+                            }else{
+                                var id=output.write(fresh.principal(),fresh.entry().definition(),b.settings(),b.id(),b.observedAt(),b.records().get(row.index()),row.steps().getLast().values(),"zabbix-jsonrpc");
+                                if(!ids.contains(id))ids.add(id);
+                            }
+                        }
                     }
                     if(context(s,tenant,owner,listed,resolver)==null)throw fail(WorkflowFailure.Code.CONFLICT);
                 }catch(RuntimeException failure){error=error(failure);}
-                var result=b.state(error==null?"CONFIRMED":attempted?"UNKNOWN":"FAILED",ids,error,now());s.finishHostBatch(owner,result);
+                var result=b.state(error==null?"CONFIRMED":attempted?"UNKNOWN":"FAILED",ids,relationIds,pending,error,now());s.finishHostBatch(owner,result);
                 if(error==null||attempted)s.hostSchedule(owner,listed.workflowId()).filter(v->v.state().equals("RUNNING")&&v.taskGeneration()==listed.generation()&&Objects.equals(v.activeScanId(),b.scanId())).ifPresent(v->s.saveHostSchedule(owner,v.consume(now())));
                 if(error==null){
                     var advanced=current.checkpoint().confirm(result,now());s.saveHostCheckpoint(owner,advanced);
@@ -153,7 +164,7 @@ public final class WorkflowHostRuntimeService {
     }
     private static WorkflowStore.Entry entry(WorkflowStore.Session s,Task t){
         var e=s.published(t.workflowId(),t.revision()).orElseThrow(()->fail(WorkflowFailure.Code.NOT_FOUND));
-        if(!e.digest().equals(t.digest())||!e.definition().target().entity()||!e.definition().source().kind().equals("ZABBIX_HOST")||e.definition().source().configuration()==null)throw fail(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
+        if(!e.digest().equals(t.digest())||!(e.definition().target().entity()||e.definition().target().relationOutput())||!e.definition().source().kind().equals("ZABBIX_HOST")||e.definition().source().configuration()==null)throw fail(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
         WorkflowOperators.builtIn().require(e.definition(),false);return e;
     }
     private static void authorize(Principal p,String id){var a=new Authorizer();if(a.decide(p,new ResourceRef(p.tenantId(),"workflow",id),Permission.SOURCE_SYNC).denied()||a.decide(p,new ResourceRef(p.tenantId(),"catalog","*"),Permission.ENTITY_READ).denied()||!p.has(Permission.ENTITY_MANAGE))throw fail(WorkflowFailure.Code.FORBIDDEN);}

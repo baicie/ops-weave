@@ -9,6 +9,7 @@ import java.util.*;
 public record ModelDefinition(String id, int revision, Kind kind, String label, String description,
                               List<Field> fields, Endpoints endpoints) {
     public static final String PROFILE = "safe-scalars-v1";
+    public static final int MAX_FIELDS_LIMIT = 32;
     public enum Kind { ENTITY, RELATION }
     public enum Type { TEXT, INTEGER, DECIMAL, BOOLEAN, ENUM, DATETIME }
     public enum Cardinality { ONE_TO_ONE, ONE_TO_MANY, MANY_TO_MANY }
@@ -42,7 +43,7 @@ public record ModelDefinition(String id, int revision, Kind kind, String label, 
         Objects.requireNonNull(kind); text(label, 80);
         if (description == null || description.length() > 1000) invalid();
         fields = List.copyOf(fields);
-        if (fields.size() > 32 || fields.stream().map(Field::id).distinct().count() != fields.size()) invalid();
+        if (fields.size() > MAX_FIELDS_LIMIT || fields.stream().map(Field::id).distinct().count() != fields.size()) invalid();
         if (kind == Kind.ENTITY && endpoints != null || kind == Kind.RELATION && (endpoints == null || !fields.isEmpty())) invalid();
     }
     public Ref ref() { return new Ref(id, revision); }
