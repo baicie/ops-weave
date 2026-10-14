@@ -15,6 +15,7 @@ import { InventoryPage } from '../pages/inventory/InventoryPage.tsx'
 import { MetricsPage } from '../pages/metrics/MetricsPage.tsx'
 import { PipelinesPage } from '../pages/pipelines/PipelinesPage.tsx'
 import { RetentionPage } from '../pages/retention/RetentionPage.tsx'
+import { AiRunsPage } from '../pages/agent/AiRunsPage.tsx'
 import { SourceSnapshotsPage } from '../pages/inventory/SourceSnapshotsPage.tsx'
 import { SourceBindingCorrectionsPage } from '../pages/inventory/SourceBindingCorrectionsPage.tsx'
 import { SourceScanRunsPage } from '../pages/integrations/SourceScanRunsPage.tsx'
@@ -26,7 +27,7 @@ const pages: Record<RouteName, ComponentType> = {
   start: StartPage, topology: TopologyPage, reorganize: ReorganizationPage,
   'model-entities': EntityModels, 'model-metrics': MetricDefinitionsPage, 'model-relations': RelationModels,
   'model-relation-instances': RelationInstancesPage,
-  retention: RetentionPage, 'source-snapshots': SourceSnapshotsPage, 'source-corrections': SourceBindingCorrectionsPage,
+  retention: RetentionPage, 'ai-runs': AiRunsPage, 'source-snapshots': SourceSnapshotsPage, 'source-corrections': SourceBindingCorrectionsPage,
   'source-scan-runs': SourceScanRunsPage, 'current-diagnose': CurrentDiagnosisPage,
   incidents: IncidentsPage, inventory: InventoryPage, metrics: MetricsPage, pipelines: PipelinesPage,
   'source-center': SourceCenterPage, 'workflow-runs': WorkflowRunsPage, workflows: WorkflowPage, diagnose: DiagnosePage,

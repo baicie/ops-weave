@@ -52,6 +52,23 @@ public final class WorkflowService {
  public Entry version(Principal p,String id,int rev){WorkflowDefinition.ref(id,rev);return transaction(p,s->accessible(p,s,s.published(id,rev).orElseThrow(()->error(WorkflowFailure.Code.NOT_FOUND))));}
  public Page<Entry> drafts(Principal p){return transaction(p,s->{var rows=s.drafts(p.subjectId().value());rows.forEach(e->accessible(p,s,e));return page(rows);});}
  public Page<Entry> versions(Principal p){return transaction(p,s->{var rows=s.published();rows.forEach(e->accessible(p,s,e));return page(rows);});}
+ /** Bounded cursor page over drafts plus readable published versions in one deterministic order. */
+ public WorkflowPages.CursorPage<Entry> entries(Principal p,String state,String workflowId,String after,Integer limit){
+  if(state!=null&&!state.equals("DRAFT")&&!state.equals("PUBLISHED"))throw new IllegalArgumentException();
+  if(workflowId!=null)WorkflowDefinition.ref(workflowId,1);
+  String cursor=after==null?null:WorkflowPages.entryCursor(after);int size=WorkflowPages.limit(limit);
+  return transaction(p,s->{var rows=new ArrayList<Entry>();if(!"PUBLISHED".equals(state))rows.addAll(s.drafts(p.subjectId().value()));if(!"DRAFT".equals(state))rows.addAll(s.published());
+   rows.forEach(e->accessible(p,s,e));if(workflowId!=null)rows.removeIf(e->!e.definition().id().equals(workflowId));
+   rows.sort(Comparator.comparing(Entry::updatedAt,Comparator.reverseOrder()).thenComparing(e->e.definition().id()).thenComparing(e->e.definition().revision()));
+   return WorkflowPages.page(rows,size,e->WorkflowPages.entryCursor(e.definition().id(),e.definition().revision()),cursor);});
+ }
+ /** Bounded cursor page over the owner's recorded preview and version-test runs. */
+ public WorkflowPages.CursorPage<Run> runs(Principal p,String after,Integer limit){
+  String cursor=after==null?null:WorkflowPages.runCursor(after);int size=WorkflowPages.limit(limit);
+  return transaction(p,s->{var rows=new ArrayList<Run>(s.runs(p.subjectId().value()));rows.forEach(r->accessibleRun(p,s,r));
+   rows.sort(Comparator.comparing((Run r)->r.receipt().createdAt()).thenComparing(r->r.receipt().id().toString()).reversed());
+   return WorkflowPages.page(rows,size,r->WorkflowPages.runCursor(r.receipt().id()),cursor);});
+ }
  private Run accessibleRun(Principal p,Session s,Run r){if(r.trace()!=null){sources.require(p,r.trace().source(),s,false);sources.requireTarget(p,r.trace().source(),r.trace().target(),s,false);outputScope(p,r.trace().target());}return r;}
  public Run run(Principal p,UUID id){Objects.requireNonNull(id);return transaction(p,s->accessibleRun(p,s,s.run(p.subjectId().value(),id).orElseThrow(()->error(WorkflowFailure.Code.NOT_FOUND))));}
  public Page<Run> runs(Principal p){return transaction(p,s->{var rows=s.runs(p.subjectId().value());rows.forEach(r->accessibleRun(p,s,r));return page(rows);});}

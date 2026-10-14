@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-reconciliation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adoptedPriorResult",
+    "rerun",
+    "priorModelCalls",
+    "uncertainPriorFees",
+    "duplicateFeeRisk"
+  ],
+  "properties": {
+    "adoptedPriorResult": {
+      "type": "boolean"
+    },
+    "rerun": {
+      "type": "boolean"
+    },
+    "priorModelCalls": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "uncertainPriorFees": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "duplicateFeeRisk": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "adoptedPriorResult": {
+            "const": true
+          }
+        },
+        "required": [
+          "adoptedPriorResult"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rerun": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "rerun": {
+            "const": true
+          }
+        },
+        "required": [
+          "rerun"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "const": 0
+          },
+          "uncertainPriorFees": {
+            "const": 0
+          },
+          "duplicateFeeRisk": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "duplicateFeeRisk": {
+            "const": true
+          }
+        },
+        "required": [
+          "duplicateFeeRisk"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 1
+          },
+          "rerun": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "minimum": 1
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 2
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 3
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 4
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 4
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 5
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 5
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 6
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 6
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 7
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 7
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "uncertainPriorFees": {
+            "const": 8
+          }
+        },
+        "required": [
+          "uncertainPriorFees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "priorModelCalls": {
+            "minimum": 8
+          }
+        }
+      }
+    }
+  ]
+}

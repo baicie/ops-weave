@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/receipt-retention-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "scopeKey",
+    "kept",
+    "keptProtected",
+    "maxPerScope",
+    "maxPerTenant",
+    "status",
+    "summary"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "onboarding",
+        "source-command",
+        "external-link"
+      ]
+    },
+    "scopeKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:@-]{1,128}$"
+    },
+    "kept": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5000
+    },
+    "keptProtected": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5000
+    },
+    "maxPerScope": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "maxPerTenant": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5000
+    },
+    "status": {
+      "enum": [
+        "OK",
+        "NEAR_LIMIT",
+        "AT_LIMIT"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kept": {
+            "minimum": 1000
+          }
+        },
+        "required": [
+          "kept"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "AT_LIMIT"
+          }
+        }
+      }
+    }
+  ]
+}

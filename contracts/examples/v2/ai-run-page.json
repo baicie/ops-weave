@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.0",
+  "items": [
+    {
+      "schemaVersion": "2.0",
+      "runId": "10000000-0000-4000-8000-000000000083",
+      "requestId": "10000000-0000-4000-8000-000000000081",
+      "commandDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "PENDING",
+      "statusVersion": 0,
+      "incidentId": "10000000-0000-4000-8000-000000000082",
+      "question": "Which change explains the latency spike in this window?",
+      "timeRange": {
+        "from": "2026-10-13T01:00:00Z",
+        "to": "2026-10-13T01:30:00Z"
+      },
+      "knowledgeMode": "current",
+      "skill": {
+        "id": "incident.diagnose",
+        "version": "2.0.0",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "attempt": 0,
+      "createdAt": "2026-10-13T01:00:01Z",
+      "updatedAt": "2026-10-13T01:00:01Z"
+    }
+  ],
+  "nextCursor": null,
+  "hasMore": false
+}

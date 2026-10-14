@@ -167,6 +167,15 @@ class PostgresOwSt06AcceptanceIT {
         return body;
     }
 
+    /** Publishing never binds collection: the explicit enable command is a separate, reasoned step. */
+    void enableCollectionBinding(WorkflowDefinition d) throws Exception {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("requestId", UUID.randomUUID().toString()); body.put("id", d.id()); body.put("revision", 1);
+        body.put("digest", d.digest()); body.put("sourceInstanceId", d.source().instanceId());
+        body.put("operation", "ENABLE"); body.put("reason", "Acceptance explicitly binds collection");
+        ok("/api/v1/integrations/workflows/collection-bindings/enable", json(body));
+    }
+
     JsonNode execute(WorkflowDefinition d, Map<String, Object> settings, List<Map<String, Object>> samples, UUID syncRunId) throws Exception {
         return ok("/api/v1/integrations/workflows/runtime/execute", json(executeBody(d, settings, samples, syncRunId)));
     }
@@ -195,6 +204,7 @@ class PostgresOwSt06AcceptanceIT {
         assertEquals(IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED, sync.kind());
         var d = builtinGraph();
         publishWorkflow(d, null, sync.syncRunId());
+        enableCollectionBinding(d);
         var body = executeBody(d, Map.of("identityField", "entity_id", "nameField", "hostname"), null, sync.syncRunId());
         var first = ok("/api/v1/integrations/workflows/runtime/execute", json(body));
         assertEquals("SUCCEEDED", first.get("state").asString(), first.toString());

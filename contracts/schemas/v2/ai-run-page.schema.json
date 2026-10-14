@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "items",
+    "nextCursor",
+    "hasMore"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "ai-run.schema.json"
+      }
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "maxLength": 36,
+          "pattern": "^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+        }
+      ]
+    },
+    "hasMore": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "hasMore": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nextCursor": {
+            "type": "string"
+          },
+          "items": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "hasMore": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nextCursor": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

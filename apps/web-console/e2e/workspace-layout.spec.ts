@@ -293,7 +293,7 @@ for (const width of [1440, 1024, 390]) test('all tabbed product pages and themes
       expect(await breadcrumb.locator('ol').evaluate(element => element.getBoundingClientRect().left)).toBeCloseTo(panel!.x, 0)
     }
   }
-  await expect(tabs(page).getByRole('tab')).toHaveCount(16)
+  await expect(tabs(page).getByRole('tab')).toHaveCount(ROUTES.filter(route => route.navigation !== false).length)
   expect(errors).toEqual([])
   expect(calls).toEqual([])
 })

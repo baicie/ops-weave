@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "10000000-0000-4000-8000-000000000085",
+  "runId": "10000000-0000-4000-8000-000000000083",
+  "requestedAt": "2026-10-13T01:00:03Z",
+  "attempt": 2,
+  "status": "SUCCEEDED",
+  "reconciliation": {
+    "adoptedPriorResult": false,
+    "rerun": true,
+    "priorModelCalls": 0,
+    "uncertainPriorFees": 0,
+    "duplicateFeeRisk": false
+  }
+}

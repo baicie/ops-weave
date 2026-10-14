@@ -1,0 +1,11 @@
+{
+  "runId": "10000000-0000-4000-8000-000000000083",
+  "seq": 7,
+  "type": "FINISHED",
+  "occurredAt": "2026-10-13T01:00:07Z",
+  "payloadVersion": 1,
+  "payload": {
+    "status": "CANCELLED",
+    "reason": "CANCELLED_BY_REQUEST"
+  }
+}

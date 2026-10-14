@@ -114,6 +114,7 @@ class WorkflowBackgroundHttpIT {
         success("/drafts",Map.of("definition",WorkflowJson.wire(d),"layout",layout,"expectedEditVersion",0));
         var receipt=success("/preview",Map.of("id",d.id(),"revision",1,"digest",d.digest(),"editVersion",1,"dryRun",true,"syncRunId",batch));
         success("/publish",Map.of("id",d.id(),"revision",1,"digest",d.digest(),"editVersion",1,"previewId",receipt.get("receipt").get("id").asString()));
+        success("/collection-bindings/enable",Map.of("requestId",UUID.randomUUID(),"id",d.id(),"revision",1,"digest",d.digest(),"sourceInstanceId",d.source().instanceId(),"operation","ENABLE","reason","Fixture explicitly binds collection"));
     }
     UUID batch(){var result=hosts.execute(principal(),SOURCE);assertEquals(IngestZabbixHostsUseCase.SyncOutcome.Kind.COMPLETED,result.kind());return result.syncRunId();}
     WorkflowRuntime.Task stored(String id){return wiring.workflows().transaction(new TenantId(TENANT),s->s.task(OWNER,id).orElseThrow());}

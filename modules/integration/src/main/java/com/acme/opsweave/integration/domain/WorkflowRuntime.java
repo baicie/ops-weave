@@ -24,5 +24,5 @@ public final class WorkflowRuntime {
   /** Written outcomes only. Pending rows stay visible and are never counted as written. */
   public int written(){return entityIds.size()+relationIds.size();}
  }
- private static void checkError(String error){if(error!=null&&!Set.of("INVALID_SAMPLE","SOURCE_UNAVAILABLE","FORBIDDEN","MODEL_CHANGED","OPERATOR_CHANGED","OUTPUT_UNAVAILABLE","BACKLOG_LIMIT","RUNTIME_UNAVAILABLE","AUTHORIZATION_EXPIRED","AUTHORIZATION_REVOKED","EXECUTION_LIMIT").contains(error))throw new IllegalArgumentException();}
+ private static void checkError(String error){if(error!=null&&!Set.of("INVALID_SAMPLE","SOURCE_UNAVAILABLE","FORBIDDEN","MODEL_CHANGED","OPERATOR_CHANGED","OUTPUT_UNAVAILABLE","BACKLOG_LIMIT","RUNTIME_UNAVAILABLE","AUTHORIZATION_EXPIRED","AUTHORIZATION_REVOKED","EXECUTION_LIMIT","COLLECTION_BINDING_REQUIRED").contains(error))throw new IllegalArgumentException();}
 }

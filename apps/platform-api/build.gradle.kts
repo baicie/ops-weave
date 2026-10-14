@@ -55,6 +55,10 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("db/migrations/platform/V065__external_link_registration.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V066__entity_relation_correction_confirmation.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V067__model_extension_and_pin_backfill.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V068__collection_binding_and_retention.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V069__ai_run_registry.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V070__ai_run_execution.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V071__ai_run_events.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V039__source_metric_metadata_budget.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V032__workflow_runtime.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V033__workflow_graph_trace_budget.sql")) { into("db/migration") }

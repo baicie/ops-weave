@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "requestId",
+    "commandDigest",
+    "status",
+    "statusVersion",
+    "incidentId",
+    "question",
+    "timeRange",
+    "knowledgeMode",
+    "skill",
+    "attempt",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "WAITING_TOOL",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "statusVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "question": {
+      "type": "string",
+      "pattern": "\\S",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "timeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "to": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "knowledgeMode": {
+      "const": "current"
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "const": "incident.diagnose"
+        },
+        "version": {
+          "const": "2.0.0"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "cancelRequestedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "enum": [
+        "RUNTIME_UNAVAILABLE",
+        "DEADLINE",
+        "BUDGET_EXHAUSTED",
+        "AUTHORIZATION_REVOKED",
+        "RESULT_LOST",
+        "EXECUTION_FAILED",
+        "CANCELLED_BY_REQUEST"
+      ]
+    },
+    "disclosure": {
+      "$ref": "ai-run-reconciliation.schema.json"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "FAILED",
+              "CANCELLED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "reason"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "WAITING_TOOL",
+              "SUCCEEDED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "reason"
+          ]
+        }
+      }
+    }
+  ]
+}

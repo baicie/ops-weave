@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-retry-command.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}

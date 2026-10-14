@@ -5,8 +5,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-@RestControllerAdvice(assignableTypes = {EntityController.class, EntityInstanceController.class, EntityTopologyController.class, RelationController.class, ObservationController.class, SourceReviewController.class, AssetIdentityController.class, SourceSnapshotController.class, RejectedWriteAuditController.class, SourceReceiptCapacityController.class, ExternalLinkController.class, EntityModelPinBackfillController.class})
+@RestControllerAdvice(assignableTypes = {EntityController.class, EntityInstanceController.class, EntityDeletionController.class, EntityTopologyController.class, RelationController.class, ObservationController.class, SourceReviewController.class, AssetIdentityController.class, SourceSnapshotController.class, RejectedWriteAuditController.class, SourceReceiptCapacityController.class, ExternalLinkController.class, EntityModelPinBackfillController.class})
 public class InventoryErrors {
+    @ExceptionHandler(com.acme.opsweave.inventory.domain.EntityDeletion.Conflict.class)
+    public ResponseEntity<?> entityDeletionConflict(com.acme.opsweave.inventory.domain.EntityDeletion.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error", failed.code())); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.EntityDeletionStore.NotFound.class)
+    public ResponseEntity<?> entityDeletionNotFound(com.acme.opsweave.inventory.api.EntityDeletionStore.NotFound failed) { return ResponseEntity.status(404).body(Map.of("error", "NOT_FOUND")); }
+    @ExceptionHandler(com.acme.opsweave.inventory.api.EntityDeletionStore.Access.class)
+    public ResponseEntity<?> entityDeletionAccess(com.acme.opsweave.inventory.api.EntityDeletionStore.Access failed) { return ResponseEntity.status(403).body(Map.of("error", "FORBIDDEN")); }
     @ExceptionHandler(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Conflict.class)
     public ResponseEntity<?> externalLinkConflict(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Conflict failed) { return ResponseEntity.status(409).body(Map.of("error", "EXTERNAL_LINK_CONFLICT")); }
     @ExceptionHandler(com.acme.opsweave.inventory.api.ExternalLinkRegistrationStore.Access.class)

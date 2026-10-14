@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/entity-deletion-receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "commandDigest",
+    "createdAt",
+    "entityId",
+    "outcome",
+    "summary",
+    "auditCount",
+    "keptProtected",
+    "keptUnfinished",
+    "reason"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "outcome": {
+      "enum": [
+        "SOFT_DELETED",
+        "PROTECTED"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "auditCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "keptProtected": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5000
+    },
+    "keptUnfinished": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5000
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "PROTECTED"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "auditCount": {
+            "const": 1
+          }
+        }
+      }
+    }
+  ]
+}

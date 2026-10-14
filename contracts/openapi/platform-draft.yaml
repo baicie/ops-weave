@@ -11,6 +11,447 @@ info:
     All API responses use Cache-Control no-store and an X-OpsWeave-Request-Id UUID.
     The optional client request ID is correlation metadata only, not identity or idempotency.
 paths:
+  /api/v1/ai/runs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      summary: Submit one diagnosis run idempotently; submitting itself executes nothing
+      operationId: submitAiRun
+      description: >
+        Durable run registry (ADR-104). The closed command names the incident, question, time window,
+        knowledge mode and pinned Skill; identity comes only from the trusted principal. The request id
+        is the idempotency key: a replay answers with the same run and its immutable parts unchanged,
+        the same request id with different content is 409 AI_RUN_REQUEST_REUSED. Submitting creates a
+        PENDING run and the submit request itself performs zero model and zero tool calls; the
+        executor then claims the registered run (PENDING -> RUNNING, lease and fencing) and drives it
+        through the run state machine.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/ai-run-command.schema.json'
+      responses:
+        '200':
+          description: The durable run record
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Incident not found or not visible}
+        '409': {description: Reused request id with different content}
+        '503': {description: Store unavailable}
+    get:
+      summary: Read the caller's own runs, newest first; reading never executes anything
+      operationId: listAiRuns
+      description: >
+        Bounded cursor page over one retained ordering (createdAt DESC, runId DESC). The cursor is the
+        run id of the last returned item and continuation is strictly after it, so later submissions
+        never leak into following pages. An unknown or no longer visible cursor is 404, never a guessed
+        position. Metadata only: no evidence and no result body.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {in: query, name: after, required: false, schema: {type: string, pattern: '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'}}
+      responses:
+        '200':
+          description: Bounded run page
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-page.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Cursor not visible to this caller}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Read one run with fresh authority; reading never executes anything
+      operationId: readAiRun
+      description: >
+        Re-checks the caller's current incident and object authority before answering. A run that is
+        no longer readable returns 404. Reading never advances state, never calls a model and never
+        triggers a retry.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: The durable run record
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}/cancel:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    post:
+      summary: Request cooperative cancellation idempotently; the request never occupies the state machine
+      operationId: cancelAiRun
+      description: >
+        The cancellation request is recorded beside the run state (cancelRequestedAt) and the executor
+        lands CANCELLED at its next safe point; a run that completes first still ends SUCCEEDED. Only
+        this explicit command cancels — leaving a page is not a cancellation. The request id is the
+        idempotency key: a replay answers with the original receipt unchanged, the same request id
+        with different content is 409 AI_RUN_REQUEST_REUSED, and cancelling a run that has already
+        ended is idempotent (recorded=false) and changes nothing.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/ai-run-cancel-command.schema.json'
+      responses:
+        '200':
+          description: The idempotent cancellation receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-cancel-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '409': {description: Reused request id with different content}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}/retries:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    post:
+      summary: Recover an unfinished run as a new attempt on the same run id, with explicit disclosure
+      operationId: retryAiRun
+      description: >
+        Recovery is a new attempt on the same run — never a second run. The caller's authority over
+        the incident is re-checked first (withdrawn identity, permission or object scope is rejected).
+        The unknown completion state of earlier attempts is reconciled against the model fee receipts
+        and the saved AIInsight before anything is claimed: a saved complete result is claimed instead
+        of re-running, a spent fee without a result is disclosed explicitly (retained, never refunded;
+        continuing later may be charged again) and only a clean run re-executes with fresh evidence
+        checks. Exactly-once across an external model provider is never claimed. Terminal runs are
+        final (409 AI_RUN_STATE_CONFLICT), as is a run whose live lease is owned by another worker.
+        The request id is the idempotency key and a replay answers with the original receipt.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/ai-run-retry-command.schema.json'
+      responses:
+        '200':
+          description: The idempotent recovery receipt with the duplicate-fee disclosure
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-retry-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '409': {description: Reused request id or a state that cannot be recovered}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}/events:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Read the ordered run event log behind a cursor; reading records executes nothing
+      operationId: listAiRunEvents
+      description: >
+        Events are records, not commands (ADR-104 §2.5): one row is one fact that already happened
+        (submission, claim, applied state move, recorded cancellation request, explicit
+        reconciliation disclosure, terminal landing) with a per-run monotonic sequence number, the
+        occurrence time, a payload version and a closed payload that carries no hidden reasoning, no
+        credential and no raw log or evidence body. Reading is a pure projection over persisted
+        records: it never executes a tool, never calls a model, never advances state and never sends
+        a notification, so a replay or a repeated read of the same cursor answers with the same
+        records and zero side effects. The cursor is the last seen sequence number; an empty tail
+        page is a complete result. A cursor below the retained window has expired: the answer is the
+        retained window plus gap=true and the current run snapshot, never a fake continuous history.
+        Authorization is the run read boundary and is re-checked per page.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: afterSeq, required: false, schema: {type: string, pattern: '^(0|[1-9][0-9]{0,17})$'}, description: 'Last seen seq; 0 or omitted reads from the start of the retained window'}
+        - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Bounded event page with the explicit gap flag and current snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-event-page.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}/events/stream:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Push persisted run events over SSE; the same cursor protocol, never a command channel
+      operationId: streamAiRunEvents
+      description: >
+        The push channel of the same cursor protocol. Each SSE frame carries one readback page
+        (id = the seq of its last record, data = one ai-run-event-page); an idle stream keeps only
+        keepalive comments and a terminal run with no new records closes the stream. A reconnecting
+        client resumes from its last sequence number through the afterSeq query parameter or the
+        standard Last-Event-ID header (both present must agree), and replaying or reconnecting is
+        side-effect free. Clients without event streaming fall back to polling the cursor readback;
+        the channel is bounded per connection (time, bytes, frames, one frame in flight) and a slow
+        client is disconnected to resume from its own cursor instead of being buffered without limit.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: afterSeq, required: false, schema: {type: string, pattern: '^(0|[1-9][0-9]{0,17})$'}, description: 'Resume position of this connection'}
+        - {in: header, name: Last-Event-ID, required: false, schema: {type: string, pattern: '^(0|[1-9][0-9]{0,17})$'}, description: 'Standard SSE resume position; must agree with afterSeq when both are present'}
+      responses:
+        '200':
+          description: SSE stream of ai-run-event-page frames (text/event-stream)
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '503': {description: Store unavailable or the stream budget is exhausted}
+  /api/v1/integrations/workflows/collection-bindings:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      summary: Read the explicit collection bindings of the caller; reading never enables anything
+      operationId: listWorkflowCollectionBindings
+      responses:
+        '200':
+          description: Collection binding state
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/workflow-collection-binding-page.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+  /api/v1/integrations/workflows/collection-bindings/enable:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      summary: Bind one published workflow version to one source instance for controlled collection
+      operationId: enableWorkflowCollectionBinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/workflow-collection-binding-command.schema.json'
+      responses:
+        '200':
+          description: Immutable collection binding receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/workflow-collection-binding-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Published version not found}
+        '409': {description: Reused request id with different content}
+        '503': {description: Store unavailable}
+  /api/v1/integrations/workflows/collection-bindings/disable:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      summary: Unbind one published workflow version and stop its collection consumption immediately
+      operationId: disableWorkflowCollectionBinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/workflow-collection-binding-command.schema.json'
+      responses:
+        '200':
+          description: Immutable collection binding receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/workflow-collection-binding-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Published version not found}
+        '409': {description: Reused request id with different content}
+        '503': {description: Store unavailable}
+  /api/v1/integrations/workflows/collection-bindings/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      summary: Read one recorded collection binding receipt by its request id
+      operationId: getWorkflowCollectionBindingCommand
+      responses:
+        '200':
+          description: Immutable collection binding receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/workflow-collection-binding-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Unknown request id}
+  /api/v1/integrations/receipts/retention:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      summary: Read the receipt retention budget of every visible scope; reading never cleans
+      operationId: getReceiptRetentionBudgets
+      responses:
+        '200':
+          description: Receipt retention budgets
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/receipt-retention-budget.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '503': {description: Store unavailable}
+  /api/v1/integrations/receipts/retention/preview:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      summary: Read-only preview of the receipts an explicit cleanup would remove
+      operationId: previewReceiptRetentionCleanup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/receipt-retention-preview-command.schema.json'
+      responses:
+        '200':
+          description: Cleanup preview; nothing is removed by this call
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/receipt-retention-preview.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '503': {description: Store unavailable}
+  /api/v1/integrations/receipts/retention/confirm:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      summary: Confirm one receipt cleanup preview; idempotent, reasoned and never scheduled
+      operationId: confirmReceiptRetentionCleanup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/receipt-retention-confirm-command.schema.json'
+      responses:
+        '200':
+          description: Immutable cleanup receipt with retained counts
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/receipt-retention-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '409': {description: Stale preview or reused request id with different content}
+        '503': {description: Store unavailable}
+  /api/v1/integrations/receipts/retention/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      summary: Read one recorded receipt cleanup receipt by its request id
+      operationId: getReceiptRetentionCommand
+      responses:
+        '200':
+          description: Immutable cleanup receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/receipt-retention-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Unknown request id}
+  /api/v1/entities/{entityId}/deletions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - name: entityId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    post:
+      summary: Operational soft delete of one clearable entity; reasoned, idempotent and never a cascade
+      operationId: deleteEntity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/entity-deletion-command.schema.json'
+      responses:
+        '200':
+          description: Immutable deletion receipt with retained counts
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/entity-deletion-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Entity not found}
+        '409': {description: Protected target, already deleted or reused request id}
+        '503': {description: Store unavailable}
+  /api/v1/entities/deletions/commands/{requestId}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      summary: Read one recorded entity deletion receipt by its request id
+      operationId: getEntityDeletionCommand
+      responses:
+        '200':
+          description: Immutable deletion receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/entity-deletion-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Unknown request id}
   /api/v2/data-sources/{sourceId}/connection/{revision}/problems:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}
@@ -2020,6 +2461,54 @@ paths:
             application/json:
               schema: {$ref: '../schemas/v2/workflow-page.schema.json'}
         default: {description: 401 unauthenticated; 403 denied; 503 unavailable}
+  /api/v1/integrations/workflows/entries:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageWorkflowEntries
+      description: >
+        Bounded authorized read-only cursor page of saved workflow entries (owner drafts plus
+        tenant-readable published versions), ordered by update time then workflow id and revision.
+        state and workflowId are optional closed filters; after continues strictly after the named
+        entry of the same ordering and 404s when that entry is no longer available. The server
+        derives tenant and identity; the request never sets a tenant or owner and never touches a
+        source. The page always discloses hasMore with a matching nextCursor; the bounded retained
+        set is fully reachable page by page.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: state, in: query, schema: {type: string, enum: [DRAFT, PUBLISHED]}}
+        - {name: workflowId, in: query, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}$'}}
+        - {name: after, in: query, schema: {type: string, pattern: '^[a-z][a-z0-9_-]{0,47}:(?:[1-9][0-9]{0,3}|10000)$'}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Workflow entry cursor page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-entry-page.schema.json'}
+        default: {description: 400 invalid query; 401 unauthenticated; 403 denied; 404 unknown cursor entry; 503 unavailable}
+  /api/v1/integrations/workflows/runs:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    get:
+      operationId: pageWorkflowRuns
+      description: >
+        Bounded authorized read-only cursor page of the owner's recorded preview and version-test
+        runs, ordered by creation time then run id. after continues strictly after the named run
+        receipt and 404s when that receipt is not available to this identity. Summaries only:
+        sample values and raw payloads are never persisted or returned. The page always discloses
+        hasMore with a matching nextCursor; the bounded retained set is fully reachable page by page.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {name: after, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Workflow run summary cursor page
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/workflow-run-page.schema.json'}
+        default: {description: 400 invalid query; 401 unauthenticated; 403 denied; 404 unknown cursor run; 503 unavailable}
   /api/v1/integrations/workflows/runs/{id}:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}

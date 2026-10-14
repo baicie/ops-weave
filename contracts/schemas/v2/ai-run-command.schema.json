@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-command.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "incidentId",
+    "question",
+    "timeRange",
+    "knowledgeMode",
+    "skill"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "incidentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "question": {
+      "type": "string",
+      "pattern": "\\S",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "timeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "to": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "knowledgeMode": {
+      "const": "current"
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "const": "incident.diagnose"
+        },
+        "version": {
+          "const": "2.0.0"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

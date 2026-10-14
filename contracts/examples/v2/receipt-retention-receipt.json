@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "10000000-0000-4000-8000-000000000002",
+  "commandDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "createdAt": "2026-10-13T00:00:05Z",
+  "kind": "onboarding",
+  "scopeKey": "fixture-operator",
+  "removed": 2,
+  "keptProtected": 880,
+  "keptUnfinished": 0,
+  "reason": "Trim superseded onboarding receipts"
+}

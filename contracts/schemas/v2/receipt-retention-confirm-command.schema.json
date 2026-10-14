@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/receipt-retention-confirm-command.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "kind",
+    "scopeKey",
+    "previewDigest",
+    "reason",
+    "maxRemove"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "kind": {
+      "enum": [
+        "onboarding",
+        "source-command",
+        "external-link"
+      ]
+    },
+    "scopeKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:@-]{1,128}$"
+    },
+    "previewDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "maxRemove": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}

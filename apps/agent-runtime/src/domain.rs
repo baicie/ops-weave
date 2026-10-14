@@ -196,3 +196,69 @@ impl RunState {
         )
     }
 }
+
+/// Durable AIRun state machine of ADR-104. `RunState` above is legacy in-memory state and is not a
+/// persistent execution engine; this mirror keeps the Runtime on the same closed transition table as
+/// the platform run registry until the Runtime owns its own durable state in 5b/5c.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AirunStatus {
+    Pending,
+    Running,
+    WaitingTool,
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+impl AirunStatus {
+    pub fn terminal(&self) -> bool {
+        matches!(self, Self::Succeeded | Self::Failed | Self::Cancelled)
+    }
+    pub fn can_transition_to(&self, next: &Self) -> bool {
+        use AirunStatus::*;
+        matches!(
+            (self, next),
+            (Pending, Running)
+                | (Pending, Failed)
+                | (Pending, Cancelled)
+                | (Running, WaitingTool)
+                | (Running, Succeeded)
+                | (Running, Failed)
+                | (Running, Cancelled)
+                | (WaitingTool, Running)
+                | (WaitingTool, Failed)
+                | (WaitingTool, Cancelled)
+        )
+    }
+}
+
+/// One run registry entry as the platform hands it to the Runtime. Submitting a run executes
+/// nothing; only the future executor seam moves its state, and only with a compare-and-set.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Airun {
+    pub run_id: String,
+    pub tenant_id: String,
+    pub incident_id: String,
+    pub request_id: String,
+    pub command_digest: String,
+    pub status: AirunStatus,
+    pub status_version: u64,
+}
+impl Airun {
+    /// Pure transition; the store applies it with a compare-and-set on `status_version`.
+    pub fn transition_to(&self, next: AirunStatus) -> Option<Self> {
+        if self.status.terminal() || !self.status.can_transition_to(&next) {
+            return None;
+        }
+        Some(Self {
+            run_id: self.run_id.clone(),
+            tenant_id: self.tenant_id.clone(),
+            incident_id: self.incident_id.clone(),
+            request_id: self.request_id.clone(),
+            command_digest: self.command_digest.clone(),
+            status: next,
+            status_version: self.status_version + 1,
+        })
+    }
+}

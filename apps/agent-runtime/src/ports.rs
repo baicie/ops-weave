@@ -87,3 +87,24 @@ pub trait CurrentReadSessionPort: Send + Sync {
     async fn recheck(&self, snapshot: &PlatformSnapshot) -> Result<(), AppError>;
     async fn save(&self, submission: &InsightSubmission) -> Result<SavedInsight, AppError>;
 }
+
+/// Durable run registry port (ADR-104). 5a keeps persistence on the platform side and leaves this
+/// port disabled; it is the seam where the Runtime owns its own state in 5b/5c. Disabled is
+/// explicit: no fixture store may pretend a run was persisted or advanced.
+#[async_trait]
+pub trait RunStore: Send + Sync {
+    async fn submit(&self, _run: &Airun) -> Result<Airun, AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn get(&self, _run_id: &str) -> Result<Option<Airun>, AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn advance(
+        &self,
+        _run_id: &str,
+        _expected_version: u64,
+        _next: AirunStatus,
+    ) -> Result<Option<Airun>, AppError> {
+        Err(AppError::Disabled)
+    }
+}

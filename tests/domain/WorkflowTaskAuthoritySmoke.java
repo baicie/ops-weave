@@ -31,6 +31,7 @@ public final class WorkflowTaskAuthoritySmoke {
             edit.save(p,definition,WorkflowSmoke.layout(definition),0);
             var preview=edit.evaluate(p,definition.id(),1,1,definition.digest(),false,null,UUID.randomUUID());
             edit.publish(p,definition.id(),1,1,definition.digest(),preview.receipt().id());
+            store.transaction(p.tenantId(),s->{s.saveCollectionBinding(p.subjectId().value(),new WorkflowCollectionBinding.Binding(definition.id(),definition.revision(),definition.digest(),definition.source().instanceId(),WorkflowCollectionBinding.State.BOUND,1,clock.instant,"Fixture explicitly binds collection"));return null;});
             runtime=new WorkflowRuntimeService(store,(who,target)->WorkflowSmoke.MODEL,samples,(who,source,cursor,cursorId)->{
                 reads.incrementAndGet(); var value=batch.get();
                 return value==null || !value.completedAt().isAfter(cursor)?Optional.empty():Optional.of(value);

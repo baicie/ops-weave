@@ -15,10 +15,12 @@ final class Transactions {
                 connection.commit();
             } catch (SQLException | RuntimeException failed) {
                 connection.rollback();
-                throw failed instanceof SQLException ? new IllegalStateException("Inventory database write failed") : (RuntimeException) failed;
+                throw failed instanceof SQLException
+                    ? new IllegalStateException("Inventory database write failed", failed)
+                    : (RuntimeException) failed;
             }
         } catch (SQLException failed) {
-            throw new IllegalStateException("Inventory database write failed");
+            throw new IllegalStateException("Inventory database write failed", failed);
         }
     }
 

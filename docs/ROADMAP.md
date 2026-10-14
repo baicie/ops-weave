@@ -677,6 +677,12 @@ Context 中区分分析截止时间与当前访问时间，保存来源、查询
 
 从一次同步调用演进为可查询、可取消、可恢复的诊断任务。
 
+2026-10-13 本机增量（5a 第一段，[ADR-104](adr/104-durable-ai-run-registry.md)）：已验证持久 AIRun 登记——状态机（PENDING/RUNNING/WAITING_TOOL/SUCCEEDED/FAILED/CANCELLED 闭合、终止态不可迁移）、幂等提交（同 requestId 重放同 runId、异内容/异主体 409、摘要只覆盖内容）、只读回读（按 ID 读重新授权、本人游标分页、不可见游标 404）、PG V069 持久（幂等回执 + statusVersion CAS 推进端口）与 Rust `RunStore` 端口镜像；提交与读取 0 模型/工具调用。
+
+2026-10-13 本机增量（5b 第二段，[ADR-104](adr/104-durable-ai-run-registry.md)）：已验证执行接线与控制面——执行器把同步诊断链纳入运行生命周期（租约/fencing 认领、崩溃恢复同 runId 新 attempt 不双跑、旧 worker 提交被拒、WAITING_TOOL⇄RUNNING、只有 SUCCEEDED 与 AIInsight 结论并存）、协作式取消（cancelRequestedAt 不占状态机、安全点落 CANCELLED、幂等回执、取消后成功仍 SUCCEEDED）、恢复/重试（同 runId 新 attempt、恢复前重新授权、未知完成状态先对账费用回执/AIInsight 再认领或重跑、重复费用显式披露、不声称 exactly-once、一次诊断一次模型调用不变式不放开）与 PG V070 租约/回执持久；受控 API 增 `POST /api/v1/ai/runs/{runId}/cancel|retries`。**分段进展：5a、5b 完成；5c（RunEvent 事件协议/SSE/Web 控制台只读面，含 Run 列表/详情+取消/重试 UI）与 5d（Rust 内部状态与跨库对账）待做**，事件流本阶段只有设计（ADR-104 §2.5）；5b 安全点在派发边界（链内部取消观察点不属本段）、恢复只面向未完成运行（终止态不可迁移保持）、OIDC 后台执行未接线。本阶段仍未实现真实来源诊断、真实模型与人工审阅。
+
+2026-10-14 本机增量（5c 第三段，[ADR-104](adr/104-durable-ai-run-registry.md)）：已验证 RunEvent 事件流与控制台只读面——事件是记录不是命令（`{runId,seq,type,occurredAt,payloadVersion,payload}`，类型闭集 7 个、payload 闭合无隐藏推理/密钥/原始日志），在状态流转点同事务落库、被拒绝的 CAS 不落事件；游标回读 `GET /api/v1/ai/runs/{runId}/events?afterSeq=&limit=`（有序分页、hasMore/nextCursor、重放零副作用、授权同 Run 读取边界）；SSE 推送 `.../events/stream` 只是同一游标协议的推送通道（每帧一次回读结果、断线按 `afterSeq`/`Last-Event-ID` 续读、每连接时限/字节/帧数有界、慢客户端断开即按游标续读、轮询回读为等价降级）；游标过期回保留窗 + `gap=true` + 当前快照（保留窗口服务端常量，容量预算留 5d）；Web 控制台 `/#/ai/runs` 只读面（Run 列表/详情、状态/attempt/对账披露、事件时间线游标加载更多+缺口明示、SSE/轮询、取消/重试入口沿用未知结果原样重试）；PG V071 事件表。**分段进展：5a、5b、5c 完成；5d（Rust 内部状态、跨库投递/对账、事件保留容量预算）待做**；控制台不新增可写工具，取消/重试复用既有受控命令。本阶段仍未实现真实来源诊断、真实模型与人工审阅。
+
 ### 后端与 Runtime
 
 先稳定 AIRun / StepRun / Checkpoint / RunEvent 协议，再做实时控制台。运行配置固定 Skill 内容摘要、模型策略版本和工具契约版本。

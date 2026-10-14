@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "2.0",
+  "items": [
+    {
+      "id": "bound-flow",
+      "revision": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceInstanceId": "zabbix-1",
+      "state": "BOUND",
+      "generation": 1,
+      "updatedAt": "2026-10-13T00:00:00Z",
+      "reason": "Enable fixture collection"
+    }
+  ],
+  "count": 1
+}

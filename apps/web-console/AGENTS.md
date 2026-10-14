@@ -14,6 +14,8 @@
 
 单次样本终止确认使用共享 WorkflowSampleRecoverySection/Panel。容器持有原命令、精确证明、取消/会话/页面门禁，Panel只展示。选择UNKNOWN后首次读取一次终止元数据，禁止自动输出核验或重写。失效回执保留原UUID，明确404才允许原样重发/放弃本地确认；终止成功不改原UNKNOWN。
 
+诊断运行只读面由 AiRunsPage 持有会话、列表/详情读取、事件游标与实时通道，AiRunDetailPanel/RunEventTimeline 纯展示。事件是记录不是命令：时间线按 seq 游标加载更多，缺口（gap）显式标注不补猜，SSE 推送不可用时降级为轮询回读，回读/重放/重连零副作用。取消/重试入口复用既有幂等命令（不新增可写工具），未知结果保留原 requestId 只允许查询或原样重发、不自动重试；终态运行入口禁用并说明不可迁移。见[运行登记契约](../../contracts/ai-runs.md)。
+
 先遵循[仓库根AGENTS.md](../../AGENTS.md)，再读[前端开发规范](../../docs/development/frontend-guidelines.md)和[兼容性基线](../../docs/FRONTEND-COMPATIBILITY.md)。
 
 - 沿用React/TypeScript/shadcn及固定依赖，不将视觉参考站点的能力宣称为本项目能力。

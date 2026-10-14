@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "2.0",
+  "items": [
+    {
+      "definition": {
+        "schemaVersion": "2.0",
+        "id": "fixture-service-transform",
+        "revision": 1,
+        "name": "Fixture service cleaning",
+        "source": {
+          "kind": "MANUAL_SAMPLE",
+          "instanceId": "manual"
+        },
+        "target": {
+          "id": "builtin.service",
+          "revision": 1,
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "nodes": [
+          {
+            "id": "source",
+            "type": "SOURCE",
+            "version": "1",
+            "config": {}
+          },
+          {
+            "id": "mapping",
+            "type": "MAP",
+            "version": "1",
+            "config": {
+              "service_name": "name",
+              "service_port": "port"
+            }
+          },
+          {
+            "id": "trim",
+            "type": "TRIM",
+            "version": "1",
+            "config": {}
+          },
+          {
+            "id": "validate",
+            "type": "VALIDATE",
+            "version": "1",
+            "config": {}
+          },
+          {
+            "id": "output",
+            "type": "OUTPUT",
+            "version": "1",
+            "config": {}
+          }
+        ],
+        "edges": [
+          {
+            "from": "source",
+            "to": "mapping"
+          },
+          {
+            "from": "mapping",
+            "to": "trim"
+          },
+          {
+            "from": "trim",
+            "to": "validate"
+          },
+          {
+            "from": "validate",
+            "to": "output"
+          }
+        ]
+      },
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "state": "PUBLISHED",
+      "editVersion": 0,
+      "layout": {
+        "source": {
+          "x": 100,
+          "y": 40
+        },
+        "mapping": {
+          "x": 100,
+          "y": 200
+        },
+        "trim": {
+          "x": 100,
+          "y": 360
+        },
+        "validate": {
+          "x": 100,
+          "y": 520
+        },
+        "output": {
+          "x": 100,
+          "y": 680
+        }
+      },
+      "updatedAt": "2026-10-01T02:00:00Z",
+      "preview": null
+    },
+    {
+      "definition": {
+        "schemaVersion": "2.0",
+        "id": "fixture-second-transform",
+        "revision": 1,
+        "name": "Fixture second cleaning",
+        "source": {
+          "kind": "MANUAL_SAMPLE",
+          "instanceId": "manual"
+        },
+        "target": {
+          "id": "builtin.service",
+          "revision": 1,
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "nodes": [
+          {
+            "id": "source",
+            "type": "SOURCE",
+            "version": "1",
+            "config": {}
+          },
+          {
+            "id": "mapping",
+            "type": "MAP",
+            "version": "1",
+            "config": {
+              "service_name": "name",
+              "service_port": "port"
+            }
+          },
+          {
+            "id": "trim",
+            "type": "TRIM",
+            "version": "1",
+            "config": {}
+          },
+          {
+            "id": "validate",
+            "type": "VALIDATE",
+            "version": "1",
+            "config": {}
+          },
+          {
+            "id": "output",
+            "type": "OUTPUT",
+            "version": "1",
+            "config": {}
+          }
+        ],
+        "edges": [
+          {
+            "from": "source",
+            "to": "mapping"
+          },
+          {
+            "from": "mapping",
+            "to": "trim"
+          },
+          {
+            "from": "trim",
+            "to": "validate"
+          },
+          {
+            "from": "validate",
+            "to": "output"
+          }
+        ]
+      },
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "state": "DRAFT",
+      "editVersion": 1,
+      "layout": {
+        "source": {
+          "x": 100,
+          "y": 40
+        },
+        "mapping": {
+          "x": 100,
+          "y": 200
+        },
+        "trim": {
+          "x": 100,
+          "y": 360
+        },
+        "validate": {
+          "x": 100,
+          "y": 520
+        },
+        "output": {
+          "x": 100,
+          "y": 680
+        }
+      },
+      "updatedAt": "2026-10-01T01:00:00Z",
+      "preview": null
+    }
+  ],
+  "nextCursor": "fixture-second-transform:1",
+  "hasMore": true
+}

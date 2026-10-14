@@ -153,6 +153,13 @@ public interface WorkflowStore {
   Optional<WorkflowRuntimeControl.Receipt> runtimeControl(String owner,UUID requestId);
   int runtimeControlCount(String owner);
   void addRuntimeControl(String owner,WorkflowRuntimeControl.Receipt receipt);
+  /** Collection binding is its own object: publishing never writes one and reading never enables it. */
+  Optional<WorkflowCollectionBinding.Binding> collectionBinding(String owner,String workflowId,int revision);
+  List<WorkflowCollectionBinding.Binding> collectionBindings(String owner);
+  void saveCollectionBinding(String owner,WorkflowCollectionBinding.Binding binding);
+  Optional<WorkflowCollectionBinding.Receipt> collectionBindingCommand(String owner,UUID requestId);
+  int collectionBindingCommandCount(String owner);
+  void addCollectionBindingCommand(String owner,WorkflowCollectionBinding.Receipt receipt);
   List<WorkflowRuntime.Task> tasks(String owner);
   void saveTask(String owner,WorkflowRuntime.Task task);
   Optional<WorkflowRuntime.Execution> execution(String owner,UUID id);

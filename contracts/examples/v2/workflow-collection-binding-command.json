@@ -1,0 +1,9 @@
+{
+  "requestId": "10000000-0000-4000-8000-000000000001",
+  "id": "bound-flow",
+  "revision": 1,
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sourceInstanceId": "zabbix-1",
+  "operation": "ENABLE",
+  "reason": "Enable fixture collection"
+}

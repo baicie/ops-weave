@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "2.0",
+  "items": [
+    {
+      "workflowId": "fixture-trace",
+      "revision": 1,
+      "mode": "PREVIEW",
+      "receipt": {
+        "id": "10000000-0000-4000-8000-000000000073",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "origin": "MANUAL_SAMPLE",
+        "accepted": 1,
+        "rejected": 0,
+        "filtered": 0,
+        "createdAt": "2026-09-28T02:00:00Z"
+      }
+    }
+  ],
+  "nextCursor": null,
+  "hasMore": false
+}

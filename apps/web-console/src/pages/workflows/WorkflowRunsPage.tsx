@@ -1,12 +1,14 @@
 import {WorkflowHistorySection} from './WorkflowHistorySection.tsx'
+import { WorkflowGovernanceSection } from '../../components/workflows/WorkflowGovernanceSection.tsx'
 import {historyEligible} from '../../api/workflow-history.ts'
 import { outputLabel, validateNodeName } from '../../api/workflow-output.ts'
 import { usePageActive, usePageCloseGuard } from '../../state/page-workspace.ts'
 import { PageHeader, QueryToolbar, SummaryGrid, SummaryCard } from '../../components/PageLayout.tsx'
 import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
-import { localPreviewMode, oidcMode, usePlatformSession } from '../../state/platform-session.ts'
+import { localPreviewMode, oidcMode, usePlatformBrowserSession, usePlatformSession, usePlatformToken } from '../../state/platform-session.ts'
 import { readWorkspace, readWorkflow, type Entry, type Run, type Workspace } from '../../api/workflows.ts'
+import { readWorkflowEntries, readWorkflowRuns } from '../../api/workflow-pages.ts'
 import { readWorkflowRun, nodeLabels, issueLabels, runOutcome, outcomeLabels, type RunDetail, type TraceRow, type TraceStep } from '../../api/workflow-runs.ts'
 import { RunStatusBadge } from '../../components/runs/RunStatusBadge.tsx'
 const rowLabels = { ACCEPTED: '成功', REJECTED: '失败', FILTERED: '过滤' }
@@ -17,6 +19,10 @@ export function WorkflowRunsPage() {
   pageActiveRef.current = pageActive
   const lastReadHash = useRef('')
   const [page, setPage] = useState<Workspace | null>(null)
+  const [olderRuns, setOlderRuns] = useState<Run[]>([])
+  const [runMore, setRunMore] = useState(false)
+  const [olderEntries, setOlderEntries] = useState<Entry[]>([])
+  const [entryMore, setEntryMore] = useState(false)
   const [view,setView]=useState<'HISTORY'|'PREVIEW'>('HISTORY')
   const [historyBusy,setHistoryBusy]=useState(false)
   const [linkedKey,setLinkedKey]=useState<string|null>(null)
@@ -34,7 +40,7 @@ export function WorkflowRunsPage() {
   const disposedRef = useRef(false)
   const busyRef = useRef(false)
   const ready = usePlatformSession(change => {
-    activeRef.current?.abort(); activeRef.current = undefined; busyRef.current = false; attempted.current=change.reason!=='credentials'; if(change.reason==='credentials')setSessionGeneration(value=>value+1); setBusy(false); setHistoryBusy(false); setLinkedKey(null); setLinkedEntry(null); setView('HISTORY'); setPage(null); setDetail(null); setRunId(''); setSearch(''); setFilter('ALL'); setRowFilter('ALL'); setError(change.error?.message ?? '')
+    activeRef.current?.abort(); activeRef.current = undefined; busyRef.current = false; attempted.current=change.reason!=='credentials'; if(change.reason==='credentials')setSessionGeneration(value=>value+1); setBusy(false); setHistoryBusy(false); setLinkedKey(null); setLinkedEntry(null); setView('HISTORY'); setPage(null); setOlderRuns([]); setRunMore(false); setOlderEntries([]); setEntryMore(false); setDetail(null); setRunId(''); setSearch(''); setFilter('ALL'); setRowFilter('ALL'); setError(change.error?.message ?? '')
   })
   const readyRef = useRef(ready)
   const loadRef = useRef<() => void>(() => {})
@@ -70,7 +76,35 @@ export function WorkflowRunsPage() {
         catch(failure){if(!current())throw failure;linkError=failure instanceof Error?failure.message:'固定发布版本读取失败'}
       }
       const d = id ? await readWorkflowRun(id, s) : null
-      if (current()) { lastReadHash.current = hash; setLinkedKey(selection); setLinkedEntry(fixed); setError(linkError); if(id)setView('PREVIEW'); setPage(p); setDetail(d); setRunId(id); setRowFilter('ALL') }
+      if (current()) { lastReadHash.current = hash; setLinkedKey(selection); setLinkedEntry(fixed); setError(linkError); if(id)setView('PREVIEW'); setPage(p); setOlderRuns([]); setRunMore(p.runs.truncated); setOlderEntries([]); setEntryMore(p.published.truncated); setDetail(d); setRunId(id); setRowFilter('ALL') }
+    })
+  }
+
+  // Cursor continuations are explicit reads only: the first page comes from the workspace read and
+  // its last row is exactly the continuation cursor of the same deterministic ordering.
+  function loadOlderRuns() {
+    const all = [...(page?.runs.items ?? []), ...olderRuns]
+    const last = all[all.length - 1]
+    if (!last || !runMore || busy) return
+    void request(async (s, current) => {
+      const next = await readWorkflowRuns(s, { after: last.receipt.id, limit: 20 })
+      if (current()) {
+        if (next.items.some(n => all.some(old => old.receipt.id === n.receipt.id))) throw new Error('运行记录重复，请刷新运行记录。')
+        setOlderRuns(items => [...items, ...next.items]); setRunMore(next.hasMore)
+      }
+    })
+  }
+
+  function loadOlderEntries() {
+    const all = [...(page?.published.items ?? []), ...olderEntries]
+    const last = all[all.length - 1]
+    if (!last || !entryMore || busy) return
+    void request(async (s, current) => {
+      const next = await readWorkflowEntries(s, { state: 'PUBLISHED', after: last.definition.id + ':' + last.definition.revision, limit: 20 })
+      if (current()) {
+        if (next.items.some(n => all.some(old => old.definition.id === n.definition.id && old.definition.revision === n.definition.revision))) throw new Error('版本目录重复，请刷新版本目录。')
+        setOlderEntries(items => [...items, ...next.items]); setEntryMore(next.hasMore)
+      }
     })
   }
   function inspect(id: string) {
@@ -104,23 +138,30 @@ export function WorkflowRunsPage() {
     if (returning && ready && page && lastReadHash.current !== location.hash) loadRef.current()
   }, [pageActive, ready])
 
-  const runs = page?.runs.items ?? []
+  const runs = [...(page?.runs.items ?? []), ...olderRuns]
   const visible = runs.filter(r => (filter === 'ALL' || runOutcome(r) === filter) && [r.workflowId, r.receipt.id].some(v => v.includes(search.trim())))
   const counts = runs.reduce((a, r) => ({ accepted: a.accepted + r.receipt.accepted, rejected: a.rejected + r.receipt.rejected, filtered: a.filtered + r.receipt.filtered }), { accepted: 0, rejected: 0, filtered: 0 })
+  const catalog = [...(page?.published.items ?? []), ...olderEntries]
+  const historyEntries = [...catalog, ...(linkedEntry && !catalog.some(e => e.definition.id === linkedEntry.definition.id && e.definition.revision === linkedEntry.definition.revision) ? [linkedEntry] : [])].filter(historyEligible)
   const rows = detail?.trace?.rows.filter(r => rowFilter === 'ALL' || r.status === rowFilter) ?? []
+  const browser = usePlatformBrowserSession()
+  const token = usePlatformToken()
+  const identity = browser?.principal?.subjectId ?? token ?? ''
   return <section className="workflow-runs" data-page="workflow-runs">
     <PageHeader title="工作流运行记录" description="按发布版本查看已记录的检查及节点明细。" actions={<Button variant="outline" disabled={busy||historyBusy||!ready} onClick={load}>{view==='HISTORY'?'刷新版本目录':'刷新运行记录'}</Button>} />
 
     {!ready ? <p className="source-access-hint">{localPreviewMode ? '本地会话尚未就绪，请使用页面上方的重新连接按钮。' : oidcMode ? '请先登录平台，再查询本人运行记录。' : '请先填写平台开发 Token，再查询本人运行记录。'}</p> : null}
-    <p role="alert">{error}</p><p role="status">{busy ? '正在读取…' : ''}</p>
+    <p role="alert">{error}</p>
+    {ready ? <WorkflowGovernanceSection identity={identity} /> : null}<p role="status">{busy ? '正在读取…' : ''}</p>
     <div className="workflow-record-views" role="group" aria-label="运行记录类型"><Button variant="ghost" aria-pressed={view==='HISTORY'} disabled={busy||historyBusy} onClick={()=>setView('HISTORY')}>运行检查历史</Button><Button variant="ghost" aria-pressed={view==='PREVIEW'} disabled={busy||historyBusy} onClick={()=>setView('PREVIEW')}>预览与版本测试</Button></div>
-    <div hidden={view!=='HISTORY'}>{page?.published.truncated?<p className="model-muted">版本目录仅显示最近20项；更早的固定版本可从工作流详情进入。</p>:null}{page?<WorkflowHistorySection key={linkedKey??'selection'} entries={[...page.published.items,...(linkedEntry?[linkedEntry]:[])].filter(historyEligible)} linkedKey={linkedKey} visible={view==='HISTORY'} onBusy={setHistoryBusy}/>:null}</div>
+    <div hidden={view!=='HISTORY'}>{entryMore || olderEntries.length ? <p className="model-muted">{entryMore ? '版本目录还有更早的发布版本，可继续读取；读取与选择都不执行任何操作。' : '已到最早发布版本。'}</p> : null}{entryMore ? <Button variant="outline" disabled={busy || historyBusy || !ready} onClick={loadOlderEntries}>读取更早版本</Button> : null}{page ? <WorkflowHistorySection key={linkedKey??'selection'} entries={historyEntries} linkedKey={linkedKey} visible={view==='HISTORY'} onBusy={setHistoryBusy}/>:null}</div>
     <div hidden={view!=='PREVIEW'}>
     <div className="workflow-boundary"><a href="#/integrations/workflows">← 返回数据工作流</a><span className="lifecycle-pill">只读测试运行</span><span>成功表示转换通过，尚未写入实体、时序或日志存储。</span></div>
     <SummaryGrid label="当前列表运行统计"><SummaryCard label="最近运行" value={page ? runs.length : '—'} hint="当前列表" /><SummaryCard label="转换成功" value={page ? counts.accepted : '—'} hint="条记录" tone="success" /><SummaryCard label="转换失败" value={page ? counts.rejected : '—'} hint="条记录" tone="danger" /><SummaryCard label="规则过滤" value={page ? counts.filtered : '—'} hint="条记录 · 非失败" /></SummaryGrid>
     <QueryToolbar><div className="run-filters"><label>转换结果<select aria-label="筛选运行结果" value={filter} onChange={e => setFilter((e.target as HTMLSelectElement).value)}><option value="ALL">全部结果</option><option value="SUCCEEDED">全部通过</option><option value="PARTIAL">部分失败</option><option value="FAILED">全部失败</option><option value="FILTERED">全部过滤</option></select></label><label>筛选当前列表<input aria-label="筛选工作流或运行 ID" placeholder="工作流 ID / 运行 ID" value={search} onInput={e => setSearch((e.target as HTMLInputElement).value)} /></label></div></QueryToolbar>
-    <div className="run-table-wrap"><table className="run-table"><caption>本人最近20次工作流预览与版本测试</caption><thead><tr><th>工作流 / 运行 ID</th><th>时间与来源</th><th>转换结果</th><th>成功 / 失败 / 过滤</th><th>操作</th></tr></thead><tbody>{visible.map(run => <HistoryRow key={run.receipt.id} run={run} busy={busy} open={inspect} />)}</tbody></table>{!visible.length ? <p className="run-empty">{page ? '没有符合条件的运行记录。' : '读取后查看已保存的运行记录。'}</p> : null}</div>
-    {page?.runs.truncated ? <p>仅展示最近20次；筛选只作用于当前列表。更早的记录可按运行 ID 查询。</p> : null}
+    <div className="run-table-wrap"><table className="run-table"><caption>本人工作流预览与版本测试记录</caption><thead><tr><th>工作流 / 运行 ID</th><th>时间与来源</th><th>转换结果</th><th>成功 / 失败 / 过滤</th><th>操作</th></tr></thead><tbody>{visible.map(run => <HistoryRow key={run.receipt.id} run={run} busy={busy} open={inspect} />)}</tbody></table>{!visible.length ? <p className="run-empty">{page ? '没有符合条件的运行记录。' : '读取后查看已保存的运行记录。'}</p> : null}</div>
+    {runMore || olderRuns.length ? <p>{runMore ? '还有更早的运行记录，可继续读取；筛选只作用于已读取列表。' : '已到最早运行记录。'}</p> : null}
+    {runMore ? <Button variant="outline" disabled={busy || !ready} onClick={loadOlderRuns}>加载更早记录</Button> : null}
     <div className="run-lookup"><label>按运行 ID 回查<input aria-label="查询运行 ID" placeholder="输入完整 UUID" maxLength={36} value={runId} onInput={e => setRunId((e.target as HTMLInputElement).value)} /></label><button type="button" disabled={busy || !runId.trim()} onClick={() => inspect(runId)}>查询详情</button></div>
     {detail ? <section className="run-detail" data-run-detail>
       <header><div><div className="model-eyebrow">RUN DETAIL · 运行明细</div><h3>{detail.run.workflowId + ' · v' + detail.run.revision}</h3><code>{detail.run.receipt.id}</code></div><RunStatusBadge status={runOutcome(detail.run)} label={outcomeLabels[runOutcome(detail.run)]} /></header>

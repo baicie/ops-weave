@@ -79,6 +79,7 @@ public final class WorkflowRelationExecutionSmoke {
             edit = new WorkflowService(store, models, samples, clock);
             if (source.configuration() == null) edit.save(p, d, WorkflowSmoke.layout(d), 0);
             else store.transaction(p.tenantId(), s -> { s.publish(new WorkflowStore.Entry(d, d.digest(), "PUBLISHED", 0, WorkflowSmoke.layout(d), clock.instant, null), p.subjectId().value()); return null; });
+            store.transaction(p.tenantId(), s -> { s.saveCollectionBinding(p.subjectId().value(), new WorkflowCollectionBinding.Binding(d.id(), d.revision(), d.digest(), source.instanceId(), WorkflowCollectionBinding.State.BOUND, 1, clock.instant, "Fixture explicitly binds collection")); return null; });
             runtime = new WorkflowRuntimeService(store, models, samples, (who, src, after, afterId) -> queued.isEmpty() ? Optional.empty() : Optional.of(queued.removeFirst()), outputs, clock, hostSources);
         }
         WorkflowService.Result preview(boolean published, List<Map<String, Object>> rows, UUID batchId) { return edit.evaluate(p, d.id(), 1, published ? 0 : 1, d.digest(), published, rows, batchId); }

@@ -32,6 +32,8 @@ def _assert_operation(path: str, method: str, schema: str, operation_id: str) ->
 def test_workflow_crud_runtime_and_stream_routes_are_registered():
     expected = [
         ("/api/v1/integrations/workflows", "get", "v2/workflow-page.schema.json", "pageWorkflows"),
+        ("/api/v1/integrations/workflows/entries", "get", "v2/workflow-entry-page.schema.json", "pageWorkflowEntries"),
+        ("/api/v1/integrations/workflows/runs", "get", "v2/workflow-run-page.schema.json", "pageWorkflowRuns"),
         ("/api/v1/integrations/workflows/drafts", "post", "v2/workflow-draft-command.schema.json", "saveWorkflowDraft"),
         ("/api/v1/integrations/workflows/drafts/{id}/{revision}", "get", "v2/workflow-entry.schema.json", "getWorkflowDraft"),
         ("/api/v1/integrations/workflows/versions/{id}/{revision}", "get", "v2/workflow-entry.schema.json", "getWorkflowVersion"),

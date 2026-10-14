@@ -21,6 +21,7 @@ const icons: Record<RouteName, string> = {
   'source-corrections': 'M8 7H3l4-4 M3 7h12a5 5 0 0 1 0 10 M16 17h5l-4 4 M21 17H9a5 5 0 0 1 0-10',
   reorganize: 'M9 3h6v5H9z M2 16h6v5H2z M16 16h6v5h-6z M12 8v4 M5 16v-4h14v4',
   retention: 'M4 5h16v15H4z M2 5h20 M9 2h6 M9 10h6 M9 14h6',
+  'ai-runs': 'M4 5h16v14H4z M8 9h8 M8 13h5 M6 17h4 M14 15l2 2 3-4',
   diagnose: 'M9 3h6 M10 3v7L4 20h16l-6-10V3 M8 15h8',
 }
 

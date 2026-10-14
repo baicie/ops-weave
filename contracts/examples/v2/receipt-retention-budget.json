@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "dataMode": "receipt-log",
+  "items": [
+    {
+      "kind": "onboarding",
+      "scopeKey": "fixture-operator",
+      "kept": 120,
+      "keptProtected": 880,
+      "maxPerScope": 1000,
+      "maxPerTenant": 5000,
+      "status": "NEAR_LIMIT",
+      "summary": "Most of the receipt budget is used; plan a cleanup before writes start failing."
+    }
+  ],
+  "count": 1
+}

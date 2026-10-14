@@ -70,6 +70,7 @@ export function parseWorkflow(v: unknown): Definition {
 }
 export function receipt(v: unknown): Receipt { const r = obj(v,['id','digest','inputDigest','origin','accepted','rejected','filtered','createdAt']); text(r.id,36); if (!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(r.id) || !['MANUAL_SAMPLE','fixture','zabbix-jsonrpc'].includes(String(r.origin))) invalid(); digest(r.digest); digest(r.inputDigest); date(r.createdAt); for (const k of ['accepted','rejected','filtered']) integer(r[k],0,5); const count = Number(r.accepted)+Number(r.rejected)+Number(r.filtered); if (count<1 || count>5) invalid(); return v as Receipt }
 function entry(v: unknown): Entry { const e=obj(v,['definition','digest','state','editVersion','layout','updatedAt','preview']); const d=parseWorkflow(e.definition); digest(e.digest);date(e.updatedAt); if (!['DRAFT','PUBLISHED'].includes(String(e.state))) invalid();integer(e.editVersion,e.state==='DRAFT'?1:0,e.state==='DRAFT'?1000000:0); const layout=obj(e.layout,d.nodes.map(n=>n.id));for(const p of Object.values(layout)){const point=obj(p,['x','y']);integer(point.x,0,4000);integer(point.y,0,4000)}if(e.preview!==null && receipt(e.preview).digest!==e.digest)invalid();return v as Entry }
+export function parseRun(v: unknown): Run { const r=obj(v,['workflowId','revision','mode','receipt']);text(r.workflowId,48);integer(r.revision,1,10000);if(!['PREVIEW','RUN'].includes(String(r.mode)))invalid();receipt(r.receipt);return v as Run }
 function paged<T>(v:unknown,parse:(x:unknown)=>T):Page<T>{const p=obj(v,['items','truncated']);if(typeof p.truncated!=='boolean')invalid();return {items:arr(p.items,20).map(parse),truncated:p.truncated}}
 async function workspace(v:unknown):Promise<Workspace> {
  const hasCatalog=!!v&&typeof v==='object'&&Object.hasOwn(v,'operatorCatalog'),hasMappings=!!v&&typeof v==='object'&&Object.hasOwn(v,'metricMappings');
@@ -78,7 +79,7 @@ async function workspace(v:unknown):Promise<Workspace> {
  const drafts=paged(p.drafts,entry),published=paged(p.published,entry);if(drafts.items.some(e=>e.state!=='DRAFT')||published.items.some(e=>e.state!=='PUBLISHED'))invalid();
  for(const m of arr(p.models,55)){const model=obj(m,['definition','digest']);if(parseModel(model.definition).kind!=='ENTITY')invalid();digest(model.digest)}
  const source=obj(p.zabbixSource,['instanceId','mode']);text(source.instanceId,128,true);text(source.mode,32);
- paged(p.runs,v=>{const r=obj(v,['workflowId','revision','mode','receipt']);text(r.workflowId,48);integer(r.revision,1,10000);if(!['PREVIEW','RUN'].includes(String(r.mode)))invalid();receipt(r.receipt);return v as Run});
+ paged(p.runs,parseRun);
  const mappings=hasMappings?await Promise.all(arr(p.metricMappings,100).map(parseMappingDefinition)):[];if(new Set(mappings.map(m=>m.mappingPin.id)).size!==mappings.length)invalid();
  return {...v as Workspace,metricMappings:mappings};
 }

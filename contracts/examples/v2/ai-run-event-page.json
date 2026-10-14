@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "2.0",
+  "runId": "10000000-0000-4000-8000-000000000083",
+  "items": [
+    {
+      "runId": "10000000-0000-4000-8000-000000000083",
+      "seq": 1,
+      "type": "SUBMITTED",
+      "occurredAt": "2026-10-13T01:00:01Z",
+      "payloadVersion": 1,
+      "payload": {
+        "status": "PENDING",
+        "attempt": 0
+      }
+    },
+    {
+      "runId": "10000000-0000-4000-8000-000000000083",
+      "seq": 2,
+      "type": "CLAIMED",
+      "occurredAt": "2026-10-13T01:00:02Z",
+      "payloadVersion": 1,
+      "payload": {
+        "status": "RUNNING",
+        "attempt": 1
+      }
+    }
+  ],
+  "nextCursor": "2",
+  "hasMore": true,
+  "gap": false,
+  "snapshot": {
+    "status": "RUNNING",
+    "statusVersion": 1,
+    "attempt": 1,
+    "updatedAt": "2026-10-13T01:00:02Z"
+  }
+}

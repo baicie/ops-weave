@@ -9,7 +9,9 @@ use opsweave_agent_runtime::{
     config::{Config, Mode},
     context,
     domain::*,
+    error::AppError,
     policies::{self, CallBudget},
+    ports::RunStore,
     skills::LoadedSkill,
 };
 use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
@@ -196,6 +198,74 @@ async fn parallel_calls_share_budget() {
 fn terminal_run_cannot_resume() {
     assert!(!RunState::Succeeded.can_transition_to(&RunState::Running));
     assert!(RunState::Queued.can_transition_to(&RunState::Running));
+}
+#[test]
+fn airun_state_machine_is_closed() {
+    for next in [
+        AirunStatus::Pending,
+        AirunStatus::Running,
+        AirunStatus::WaitingTool,
+        AirunStatus::Succeeded,
+        AirunStatus::Failed,
+        AirunStatus::Cancelled,
+    ] {
+        assert!(!AirunStatus::Succeeded.can_transition_to(&next));
+        assert!(!AirunStatus::Failed.can_transition_to(&next));
+        assert!(!AirunStatus::Cancelled.can_transition_to(&next));
+    }
+    assert!(AirunStatus::Pending.can_transition_to(&AirunStatus::Running));
+    assert!(AirunStatus::Pending.can_transition_to(&AirunStatus::Failed));
+    assert!(AirunStatus::Pending.can_transition_to(&AirunStatus::Cancelled));
+    assert!(!AirunStatus::Pending.can_transition_to(&AirunStatus::Succeeded));
+    assert!(!AirunStatus::Pending.can_transition_to(&AirunStatus::WaitingTool));
+    assert!(!AirunStatus::Pending.can_transition_to(&AirunStatus::Pending));
+    assert!(AirunStatus::Running.can_transition_to(&AirunStatus::WaitingTool));
+    assert!(AirunStatus::Running.can_transition_to(&AirunStatus::Succeeded));
+    assert!(!AirunStatus::Running.can_transition_to(&AirunStatus::Running));
+    assert!(AirunStatus::WaitingTool.can_transition_to(&AirunStatus::Running));
+    assert!(!AirunStatus::WaitingTool.can_transition_to(&AirunStatus::Succeeded));
+    assert!(!AirunStatus::WaitingTool.can_transition_to(&AirunStatus::WaitingTool));
+}
+#[test]
+fn airun_transition_carries_the_version_forward() {
+    let run = Airun {
+        run_id: "10000000-0000-4000-8000-000000000083".to_string(),
+        tenant_id: "tenant".to_string(),
+        incident_id: "10000000-0000-4000-8000-000000000082".to_string(),
+        request_id: "10000000-0000-4000-8000-000000000081".to_string(),
+        command_digest: format!("sha256:{}", "b".repeat(64)),
+        status: AirunStatus::Pending,
+        status_version: 0,
+    };
+    let running = run.clone().transition_to(AirunStatus::Running).unwrap();
+    assert_eq!(running.status, AirunStatus::Running);
+    assert_eq!(running.status_version, 1);
+    assert_eq!(running.run_id, run.run_id);
+    assert!(running.transition_to(AirunStatus::Pending).is_none());
+    let done = running.clone().transition_to(AirunStatus::Succeeded).unwrap();
+    assert_eq!(done.status_version, 2);
+    assert!(done.transition_to(AirunStatus::Running).is_none());
+}
+#[tokio::test]
+async fn run_store_stays_disabled_until_the_runtime_owns_state() {
+    struct NoRunStore;
+    impl RunStore for NoRunStore {}
+    let store = NoRunStore;
+    let run = Airun {
+        run_id: "10000000-0000-4000-8000-000000000083".to_string(),
+        tenant_id: "tenant".to_string(),
+        incident_id: "10000000-0000-4000-8000-000000000082".to_string(),
+        request_id: "10000000-0000-4000-8000-000000000081".to_string(),
+        command_digest: format!("sha256:{}", "b".repeat(64)),
+        status: AirunStatus::Pending,
+        status_version: 0,
+    };
+    assert!(matches!(store.submit(&run).await, Err(AppError::Disabled)));
+    assert!(matches!(store.get(&run.run_id).await, Err(AppError::Disabled)));
+    assert!(matches!(
+        store.advance(&run.run_id, 0, AirunStatus::Running).await,
+        Err(AppError::Disabled)
+    ));
 }
 #[test]
 fn skill_package_loads() {

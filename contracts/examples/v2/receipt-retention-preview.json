@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "onboarding",
+  "scopeKey": "fixture-operator",
+  "previewDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "candidates": [
+    "receipt-1",
+    "receipt-2"
+  ],
+  "removable": 2,
+  "keptProtected": 880,
+  "keptUnfinished": 0,
+  "maxRemove": 50
+}

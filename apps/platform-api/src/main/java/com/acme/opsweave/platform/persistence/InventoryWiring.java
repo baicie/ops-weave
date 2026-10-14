@@ -53,6 +53,7 @@ public final class InventoryWiring implements AutoCloseable {
     private final com.acme.opsweave.incident.api.IncidentStore incidents;
     private final com.acme.opsweave.aicontrol.api.ToolReadStore toolReads;
     private final com.acme.opsweave.aicontrol.api.AiInsightStore insights;
+    private com.acme.opsweave.aicontrol.api.AiRunStore aiRuns;
     private final com.acme.opsweave.aicontrol.api.ModelSpendStore memorySpend = new com.acme.opsweave.aicontrol.infrastructure.InMemoryModelSpendStore();
 
     private InventoryWiring(
@@ -124,6 +125,7 @@ public final class InventoryWiring implements AutoCloseable {
                 new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiInsightStore(incidents, tools, java.time.Clock.systemUTC()));
             wiring.externalLinkRegistrations = new com.acme.opsweave.inventory.infrastructure.InMemoryExternalLinkRegistrationStore(inventory);
             wiring.entityModelPinBackfills = new com.acme.opsweave.inventory.infrastructure.InMemoryEntityModelPinBackfillStore(inventory);
+            wiring.aiRuns = new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiRunStore();
             return wiring;
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -205,6 +207,10 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V065__external_link_registration.sql", "V065__external_link_registration");
         new SchemaMigrator(dataSource).apply("db/migration/V066__entity_relation_correction_confirmation.sql", "V066__entity_relation_correction_confirmation");
         new SchemaMigrator(dataSource).apply("db/migration/V067__model_extension_and_pin_backfill.sql", "V067__model_extension_and_pin_backfill");
+        new SchemaMigrator(dataSource).apply("db/migration/V068__collection_binding_and_retention.sql", "V068__collection_binding_and_retention");
+        new SchemaMigrator(dataSource).apply("db/migration/V069__ai_run_registry.sql", "V069__ai_run_registry");
+        new SchemaMigrator(dataSource).apply("db/migration/V070__ai_run_execution.sql", "V070__ai_run_execution");
+        new SchemaMigrator(dataSource).apply("db/migration/V071__ai_run_events.sql", "V071__ai_run_events");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
@@ -215,7 +221,7 @@ public final class InventoryWiring implements AutoCloseable {
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
             rawSnapshots, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
         var wiring = new InventoryWiring(postgres, postgres, new PostgresEntityInstanceStore(dataSource), new PostgresRelationStore(dataSource), sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
-        wiring.ownedDataSource = dataSource; wiring.externalLinkRegistrations = new PostgresExternalLinkRegistrations(dataSource); wiring.entityModelPinBackfills = new PostgresEntityModelPinBackfillStore(dataSource); return wiring;
+        wiring.ownedDataSource = dataSource; wiring.externalLinkRegistrations = new PostgresExternalLinkRegistrations(dataSource); wiring.entityModelPinBackfills = new PostgresEntityModelPinBackfillStore(dataSource); wiring.aiRuns = new PostgresAiRuns(dataSource); return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
 
@@ -298,6 +304,18 @@ public final class InventoryWiring implements AutoCloseable {
         throw new IllegalStateException("Receipt capacity is unavailable for this store");
     }
 
+    /** The receipt retention view over the governed receipt kinds; the memory build has none to govern. */
+    public com.acme.opsweave.integration.api.ReceiptRetentionStore receiptRetention() {
+        if (ownedDataSource == null) throw new IllegalStateException("Receipt retention needs the postgres store");
+        return new PostgresReceiptRetention(ownedDataSource);
+    }
+
+    /** Operational entity deletion receipts; the memory build refuses instead of pretending to delete. */
+    public com.acme.opsweave.inventory.api.EntityDeletionStore entityDeletions() {
+        if (ownedDataSource == null) throw new IllegalStateException("Entity deletion needs the postgres store");
+        return new PostgresEntityDeletions(ownedDataSource);
+    }
+
     /** The in-memory build stores no snapshot or correction receipts, so it reports zero truthfully. */
     private static final com.acme.opsweave.inventory.api.SourceReceiptCapacityReader EMPTY_RECEIPTS =
         new com.acme.opsweave.inventory.api.SourceReceiptCapacityReader() {
@@ -312,6 +330,11 @@ public final class InventoryWiring implements AutoCloseable {
     public com.acme.opsweave.incident.api.ProblemHistoryReader problemHistory() { return (com.acme.opsweave.incident.api.ProblemHistoryReader) incidents; }
     public com.acme.opsweave.aicontrol.api.ToolReadStore toolReads() { return toolReads; }
     public com.acme.opsweave.aicontrol.api.AiInsightStore insights() { return insights; }
+    /** The durable run registry (ADR-104); the memory build keeps the same semantics without a database. */
+    public com.acme.opsweave.aicontrol.api.AiRunStore aiRuns() {
+        if (aiRuns == null) throw new IllegalStateException("Run registry requires a wired inventory store");
+        return aiRuns;
+    }
     public com.acme.opsweave.aicontrol.api.ModelSpendStore modelSpend() { return ownedDataSource == null ? memorySpend : new PostgresModelSpendStore(ownedDataSource); }
     public com.acme.opsweave.aicontrol.api.AiRetentionStore retention() {
         if(ownedDataSource==null)throw new com.acme.opsweave.aicontrol.domain.ToolFailure(com.acme.opsweave.aicontrol.domain.ToolFailure.Code.UNAVAILABLE);

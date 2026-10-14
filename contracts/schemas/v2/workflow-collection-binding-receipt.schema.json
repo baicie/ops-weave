@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-collection-binding-receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "operation",
+    "commandDigest",
+    "createdAt",
+    "binding"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation": {
+      "enum": [
+        "ENABLE",
+        "DISABLE"
+      ]
+    },
+    "commandDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "binding": {
+      "$ref": "workflow-collection-binding.schema.json"
+    }
+  }
+}

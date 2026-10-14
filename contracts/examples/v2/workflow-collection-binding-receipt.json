@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "10000000-0000-4000-8000-000000000001",
+  "operation": "ENABLE",
+  "commandDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "createdAt": "2026-10-13T00:00:00Z",
+  "binding": {
+    "id": "bound-flow",
+    "revision": 1,
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceInstanceId": "zabbix-1",
+    "state": "BOUND",
+    "generation": 1,
+    "updatedAt": "2026-10-13T00:00:00Z",
+    "reason": "Enable fixture collection"
+  }
+}

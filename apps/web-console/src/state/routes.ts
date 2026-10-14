@@ -1,4 +1,4 @@
-export type RouteName = 'start' | 'topology' | 'source-center' | 'workflow-runs' | 'workflows' | 'model-entities' | 'model-metrics' | 'model-relations' | 'model-relation-instances' | 'diagnose' | 'current-diagnose' | 'reorganize' | 'incidents' | 'inventory' | 'metrics' | 'pipelines' | 'source-scan-runs' | 'retention' | 'source-snapshots' | 'source-corrections'
+export type RouteName = 'start' | 'topology' | 'source-center' | 'workflow-runs' | 'workflows' | 'model-entities' | 'model-metrics' | 'model-relations' | 'model-relation-instances' | 'diagnose' | 'current-diagnose' | 'reorganize' | 'incidents' | 'inventory' | 'metrics' | 'pipelines' | 'source-scan-runs' | 'retention' | 'source-snapshots' | 'source-corrections' | 'ai-runs'
 
 export type Route = {
   name: RouteName
@@ -42,6 +42,7 @@ export const ROUTES: Route[] = [
   { name: 'current-diagnose', path: '/incidents/current-diagnose', label: '平台诊断', group: 'incident', description: '只读诊断与已保存结果、证据', keywords: 'AIInsight AI 分析 根因' },
   { name: 'reorganize', path: '/incidents/reorganize', label: '告警归属调整', group: 'incident', description: '预览和调整告警的事件归属', keywords: '告警 合并 拆分' },
   { name: 'retention', path: '/ai/retention', label: 'AI 数据留存', group: 'ai', description: '诊断正文的留存与清理记录' },
+  { name: 'ai-runs', path: '/ai/runs', label: '诊断运行', group: 'ai', description: '本人运行登记、状态、事件时间线与取消/重试入口', keywords: 'AI Run 运行 事件 取消 重试 对账' },
   { name: 'diagnose', path: '/incidents/diagnose', label: 'Fixture 诊断演示', group: 'development', description: '使用合成数据演示诊断流程', keywords: 'fixture mock 演示 测试', navigation: false },
 ]
 

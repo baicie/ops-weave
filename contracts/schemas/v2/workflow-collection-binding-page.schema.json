@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/workflow-collection-binding-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "items",
+    "count"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "$ref": "workflow-collection-binding.schema.json"
+      }
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "count": {
+            "const": 0
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "then": {
+        "properties": {
+          "items": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "items": {
+            "maxItems": 0
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "then": {
+        "properties": {
+          "count": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

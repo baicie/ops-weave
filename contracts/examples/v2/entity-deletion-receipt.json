@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "10000000-0000-4000-8000-000000000003",
+  "commandDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "createdAt": "2026-10-13T00:00:10Z",
+  "entityId": "10000000-0000-4000-8000-000000000009",
+  "outcome": "SOFT_DELETED",
+  "summary": "The entity is marked deleted; the row and all references are retained.",
+  "auditCount": 1,
+  "keptProtected": 0,
+  "keptUnfinished": 0,
+  "reason": "Retired by operations"
+}

@@ -184,7 +184,10 @@ public final class WorkflowRuntimeService {
         authorize(p,id);
         if(!budget.tryAcquire()) throw fail(WorkflowFailure.Code.BUSY);
         try { return store.transaction(p.tenantId(),s->{
-            var owner=p.subjectId().value(); var e=version(s,id,revision,digest); if(e.definition().source().configuration()!=null)throw fail(WorkflowFailure.Code.SOURCE_UNAVAILABLE); var prior=s.execution(owner,previewId);
+            var owner=p.subjectId().value(); var e=version(s,id,revision,digest); if(e.definition().source().configuration()!=null)throw fail(WorkflowFailure.Code.SOURCE_UNAVAILABLE);
+            // Consuming a stored source batch is collection: it needs the explicit binding first.
+            if(batchId!=null) requireCollection(s,owner,e.definition(),revision,digest);
+            var prior=s.execution(owner,previewId);
             if(prior.isPresent()) {
                 var x=prior.get();
                 if(!x.workflowId().equals(id) || x.revision()!=revision || !x.digest().equals(digest) || !x.settings().equals(settings) || !Objects.equals(x.syncRunId(),batchId)) throw fail(WorkflowFailure.Code.CONFLICT);
@@ -227,6 +230,8 @@ public final class WorkflowRuntimeService {
             for(var delivery=queue.poll();delivery!=null;delivery=queue.poll()) {
                 var listed=delivery.task();
                 if(!listed.state().equals("RUNNING") || delegated!=(listed.authority()!=null)) continue;
+                // A running task may only keep consuming while its published version stays bound for collection.
+                if(!collectionBound(tenant,owner,listed)) continue;
                 if(hostRuntime!=null&&store.transaction(tenant,s->s.published(listed.workflowId(),listed.revision()).map(e->e.definition().source().configuration()!=null).orElse(false))){hostRuntime.tick(tenant,owner,listed,resolver,delivery.dispatch());continue;}
                 store.transaction(tenant,s->{
                     var current=s.task(owner,listed.workflowId()).orElseThrow();
@@ -257,6 +262,24 @@ public final class WorkflowRuntimeService {
             }
         } finally { budget.release(); }
     }
+    /** Fail closed: without the explicit binding a published version never consumes another batch. */
+    private boolean collectionBound(TenantId tenant,String owner,Task task) {
+        try {
+            store.transaction(tenant,s->{
+                var e=version(s,task.workflowId(),task.revision(),task.digest());
+                requireCollection(s,owner,e.definition(),task.revision(),task.digest());
+                return null;
+            });
+            return true;
+        } catch(RuntimeException unbound) {
+            store.transaction(tenant,s->{s.saveTask(owner,new Task(task.workflowId(),task.revision(),task.digest(),task.settings(),task.generation(),"FAILED",task.cursor(),task.cursorId(),now(),error(unbound),task.authority()));return null;});
+            return false;
+        }
+    }
+    private static void requireCollection(WorkflowStore.Session s,String owner,WorkflowDefinition d,int revision,String digest) {
+        s.collectionBinding(owner,d.id(),revision).orElseThrow(()->fail(WorkflowFailure.Code.COLLECTION_BINDING_REQUIRED))
+            .requireConsumption(d.id(),revision,digest,d.source().instanceId());
+    }
     private Execution write(WorkflowStore.Session s,Principal p,WorkflowStore.Entry e,Settings settings,UUID key,Instant time,UUID batchId,List<Map<String,Object>> values,String origin,UUID authorizationId,Runnable guard) {
         if(s.executions(p.subjectId().value()).size()>=200) throw fail(WorkflowFailure.Code.CAPACITY);
         var model=models.resolve(p,e.definition().target()); var evaluation=WorkflowEvaluation.evaluate(e.definition(),model,values);
@@ -282,7 +305,7 @@ public final class WorkflowRuntimeService {
     private static String error(RuntimeException failure) {
         if(!(failure instanceof WorkflowFailure f)) return "RUNTIME_UNAVAILABLE";
         return switch(f.code()) {
-            case FORBIDDEN,MODEL_CHANGED,OPERATOR_CHANGED,INVALID_SAMPLE,AUTHORIZATION_EXPIRED,AUTHORIZATION_REVOKED,EXECUTION_LIMIT -> f.code().name();
+            case FORBIDDEN,MODEL_CHANGED,OPERATOR_CHANGED,INVALID_SAMPLE,AUTHORIZATION_EXPIRED,AUTHORIZATION_REVOKED,EXECUTION_LIMIT,COLLECTION_BINDING_REQUIRED -> f.code().name();
             case CAPACITY -> "BACKLOG_LIMIT";
             default -> "SOURCE_UNAVAILABLE";
         };
