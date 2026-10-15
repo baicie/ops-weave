@@ -2,6 +2,8 @@
 
 先读 `docs/architecture/v4-design.md`、`docs/ROADMAP.md`、`docs/IMPLEMENTATION-STATUS.md`、`docs/VALIDATION-REPORT.md`。只报告实际运行过的检查，不将编写测试等同测试通过。
 
+通用强制规则统一维护在 `.agents/rules/`：所有任务读取 `.agents/rules/00-product-boundary.md`，其他规则按 `.agents/rules/README.md` 中的适用范围读取并遵守；此要求适用于所有 Agent。
+
 ## 语言与依赖
 
 - Java21负责平台业务与采集；Rust负责Agent Runtime；TypeScript负责Web。
@@ -39,3 +41,15 @@
 - 禁止捏造Cargo.lock、验证报告、生产Chart或“已连接”能力。
 - 至少跑契约、纯领域、Rust默认和all-features、TypeScript/build；未运行的如实说明。
 - 不提交.env、真实凭据、node_modules、target、缓存或模型输出中的客户数据。
+
+## OpsWeave 0.1.0 前端设计约束
+
+- 前端任务先读取 `.agents/rules/10-ui-design.md`、`.agents/rules/20-ui-interaction.md`、`.agents/rules/40-ui-qa.md`；涉及可观测数据或调查呈现时还须读取 `.agents/rules/30-observability-visualization.md`。
+- 修改 `apps/web-console/**` 或准备引入 `apps/web-next/**` 前，先阅读 `docs/ui/visual-system.md`、`docs/ui/interaction-contract.md`、`docs/ui/page-blueprints.md` 和 `docs/ui/component-contracts.md`。
+- 新页面先写明 Primary Task、信息优先级、可见状态、失败路径、桌面/窄屏布局，再实现组件；不得把 Controller 字段逐项堆到页面。
+- 使用统一视觉 Token 和复合组件；避免随机色值、任意层级的 Card 嵌套、随机阴影和多个同权重主按钮。候选 Token 只在明确的 `.ow-v2` 范围内试用，不覆盖现有全局样式。
+- Incident、Evidence、Metric、Log、Trace 的数据标签、单位、时间窗、采样、缺失和 Fixture 必须准确；缺失数据不能渲染为 0，AI 假设不能显示成已确认根因。
+- 所有异步区域覆盖 initial/loading/ready/empty/partial/stale/error/forbidden/fixture；身份变更时清理敏感状态，无法证明写入成功时保留 UNKNOWN。
+- 新前端工作完成真实浏览器的 1440/1024/390 三宽度、light/dark 截图审查；无法运行时记录 `visual: NOT_RUN`，不能宣称通过视觉验收。
+- 视觉审查先处理 P0/P1（越权、误导数据、操作不可达、溢出、遮挡、低对比度），再处理 P2 视觉细节；静态脚本只是启发式检查，不替代截图、可访问性和 Playwright。
+- UI 工作按 `opsweave-ui-design` → `opsweave-page-build` → `opsweave-visual-audit` 分阶段；Metrics、Traces、Logs、Evidence 时间线和 RCA 图表另使用 `opsweave-observability-viz`。

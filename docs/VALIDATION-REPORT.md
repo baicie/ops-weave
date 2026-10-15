@@ -1,5 +1,30 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 185. 2026-10-15 · UI Rules & Skills 工程约束接入
+
+附件包中的规则、Skills、UI 规范、候选 Token、截图模板和开发检查脚本已按仓库边界纳入。保留原 `AGENTS.md` 并将适配后的 UI 约束合并其中；当前只有 `apps/web-console`，静态检查默认目标已适配到该目录。候选 `.ow-v2` Token 未接入旧全局样式，没有新增页面、契约、后端接口、数据库或启动单元。
+
+通用规则入口修正：五条规则现统一位于 `.agents/rules/*.md`，以普通 Markdown 声明适用范围，并由根 `AGENTS.md` 要求所有 Agent 显式读取和遵守；已移除原编辑器专属副本及其 `globs`/`alwaysApply` 元数据。四个 Skills 保持原有专项流程。该目录不假定编辑器自动发现，实际读取入口为 `AGENTS.md`。
+
+入口修正后重新运行下列检查。另以实际文件核对五条规则及索引链接存在、适用范围齐备、四份 UI 规则正文保留、四个 Skills 仍存在，原专属规则文件和引用均无残留。
+
+检查在保留既有未提交 M5 改动的完整工作树上执行；本次 UI 约束提交只包含 Rules、Skills、UI 规范、模板、开发脚本及相应文档增量，不包含这些既有后端改动。
+
+| 实际检查 | 结果 |
+|---|---|
+| UI 静态启发式 | `pnpm check:ui` 退出 0，扫描 165 个文件，0 errors、127 warnings。警告来自现有 CSS 色值/`!important` 和 3 个较大的旧组件；脚本仅是静态提示，不能替代视觉门禁。 |
+| Web TypeScript | `pnpm --filter @opsweave/web-console typecheck` 退出 0 |
+| Web 构建 | `pnpm --filter @opsweave/web-console build` 退出 0；保留既有大 chunk warning |
+| 契约 | `.tmp\mvp-check-venv\Scripts\python.exe -X utf8 -m pytest tests/contracts -o addopts= -q` 退出 0，2296 passed |
+| Java 纯领域 | `python -X utf8 scripts/check_java_domain.py` 退出 0，108 组 smoke 通过 |
+| Rust 默认 | `cargo test --workspace --locked -j 4` 退出 0，54 项通过 |
+| Rust all-features | `cargo test --workspace --all-features --locked -j 4` 退出 0，62 项通过 |
+| 仓库与资料边界 | `python scripts/check_repo.py` 退出 0，664 个结构文件、6 个只读 Tool 定义；私有 `check_reference_boundary.py` 退出 0，2481 个 commit candidate files；均无命中正文输出 |
+| 差异检查 | `git diff --check` 退出 0 |
+| 视觉截图 | `visual: NOT_RUN`。本项只接入规则与工具，没有执行页面视觉审查或生成截图。 |
+
+完整 Playwright 本次未运行；规则包没有实现页面或改变浏览器行为，视觉截图仍必须在具体页面改动时按矩阵单独验收。
+
 ## 183. 2026-10-14 · M5-5c 事件流与控制台
 
 按[ROADMAP M5](ROADMAP.md)与[ADR-104](adr/104-durable-ai-run-registry.md)（5c 语义权威：事件是记录不是命令、`RunEvent{runId,seq,type,occurredAt,payloadVersion,payload}` 持久后游标回读、SSE 只是推送通道且轮询降级、重放/重连零副作用、游标过期回快照并标缺口、不输出隐藏推理）执行第三段 **5c「RunEvent 事件流 + SSE + 控制台只读面」**（§177–§182 的既有实现原样保留、未回滚，未做 git 提交）。先核实现状再定边界：5a/5b 已交付持久 AIRun、执行接线/取消/恢复与租约对账，但运行生命周期**没有可观测记录**、无事件协议、无 Web 只读面；仓库内此前没有任何 SSE/流式推送端点，本段按「有界字节/时限」的公共 HTTP 边界新建议通道。

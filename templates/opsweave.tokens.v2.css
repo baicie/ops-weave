@@ -1,0 +1,71 @@
+/* OpsWeave V2 candidate semantic tokens, intentionally scoped. DO NOT overwrite legacy globals.css. */
+.ow-v2 {
+  color-scheme: light;
+  --ow-bg: #f5f7fa;
+  --ow-surface: #ffffff;
+  --ow-raised: #f8fafc;
+  --ow-overlay: #ffffff;
+  --ow-text: #111827;
+  --ow-text-muted: #4b5d73;
+  --ow-border: #d6dee8;
+  --ow-accent: #2456b3;
+  --ow-accent-on: #ffffff;
+  --ow-accent-soft: #eaf1ff;
+  --ow-danger: #b42318;
+  --ow-warning: #946200;
+  --ow-success: #18694a;
+  --ow-unknown: #596579;
+  --ow-focus: #2456b3;
+  --ow-font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --ow-radius-sm: 6px;
+  --ow-radius-lg: 10px;
+  --ow-sidebar: 216px;
+  --ow-header: 56px;
+  --ow-inspector: 340px;
+  --ow-space-1: 4px;
+  --ow-space-2: 8px;
+  --ow-space-3: 12px;
+  --ow-space-4: 16px;
+  --ow-space-6: 24px;
+  --ow-space-8: 32px;
+  --ow-shadow-overlay: 0 8px 30px rgba(17,24,39,0.08);
+  font-family: var(--ow-font);
+  color: var(--ow-text);
+  background: var(--ow-bg);
+}
+
+.ow-v2.dark, .dark .ow-v2, .ow-v2[data-theme="dark"] {
+  color-scheme: dark;
+  --ow-bg: #0b1016;
+  --ow-surface: #121923;
+  --ow-raised: #1a2532;
+  --ow-overlay: #1a2532;
+  --ow-text: #eef2f6;
+  --ow-text-muted: #abb8c7;
+  --ow-border: #344455;
+  --ow-accent: #8db6ff;
+  --ow-accent-on: #101826;
+  --ow-accent-soft: #18335b;
+  --ow-danger: #ff9993;
+  --ow-warning: #ffcc80;
+  --ow-success: #79dab0;
+  --ow-unknown: #b3c0d1;
+  --ow-focus: #8db6ff;
+  --ow-shadow-overlay: 0 8px 30px rgba(0,0,0,0.35);
+}
+
+.ow-v2 :focus-visible {
+  outline: 2px solid var(--ow-focus);
+  outline-offset: 2px;
+}
+.ow-v2 .ow-tabular { font-variant-numeric: tabular-nums; }
+.ow-v2 .ow-text-muted { color: var(--ow-text-muted); }
+.ow-v2 .ow-surface { background: var(--ow-surface); border: 1px solid var(--ow-border); }
+.ow-v2 .ow-primary-action { background: var(--ow-accent); color: var(--ow-accent-on); }
+@media (prefers-reduced-motion: reduce) {
+  .ow-v2 *, .ow-v2 *::before, .ow-v2 *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
