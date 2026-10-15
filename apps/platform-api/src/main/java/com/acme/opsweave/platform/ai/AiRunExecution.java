@@ -37,6 +37,7 @@ public final class AiRunExecution implements AutoCloseable {
 
     private final AiRunExecutionService execution;
     private final AiRunControlService control;
+    private final com.acme.opsweave.aicontrol.application.AiRunRuntimeStateService runtimeStates;
     private final PrincipalResolver resolver;
     private final OpsweaveProperties properties;
     private final ExecutorService nudges = Executors.newVirtualThreadPerTaskExecutor();
@@ -52,6 +53,8 @@ public final class AiRunExecution implements AutoCloseable {
             authorization, incidents, Clock.systemUTC(), "platform-api:" + UUID.randomUUID());
         this.control = new AiRunControlService(wiring.aiRuns(), wiring.insights(), wiring.modelSpend(), this.execution,
             authorization, incidents, Clock.systemUTC());
+        this.runtimeStates = new com.acme.opsweave.aicontrol.application.AiRunRuntimeStateService(
+            wiring.aiRuns(), wiring.aiRunRuntimeStates(), wiring.insights(), wiring.modelSpend(), Clock.systemUTC());
     }
 
     public AiRunExecutionService executor() {
@@ -60,6 +63,11 @@ public final class AiRunExecution implements AutoCloseable {
 
     public AiRunControlService control() {
         return control;
+    }
+
+    /** The 5d cross-store seams: Runtime state delivery, disclosure-only reconciliation, aggregates. */
+    public com.acme.opsweave.aicontrol.application.AiRunRuntimeStateService runtimeStates() {
+        return runtimeStates;
     }
 
     /**
@@ -89,7 +97,13 @@ public final class AiRunExecution implements AutoCloseable {
         if (!enabled()) return;
         try {
             var current = resolver.resolve(new BearerCredentials(properties.auth().dev().token())).orElse(null);
-            if (current != null) execution.tick(current, 4);
+            if (current != null) {
+                execution.tick(current, 4);
+                // 5d cross-store reconciliation: bounded, disclose-only. It compares the registry
+                // with the Runtime's delivered state and records the report snapshot — it never
+                // repairs, never re-runs and never hands a run to a second worker.
+                runtimeStates.reconcileRecent(current, 4);
+            }
         } catch (RuntimeException failure) {
             LOG.log(Level.WARNING, "AI run sweep did not finish; the next sweep retries with fresh identity");
         }

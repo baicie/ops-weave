@@ -18,6 +18,9 @@ pub struct Config {
     pub max_concurrency: usize,
     pub platform_url: Option<String>,
     pub runtime_key: Option<String>,
+    /// Where the Runtime keeps its own durable internal state (5d). Absent means no Runtime-owned
+    /// state is recorded — explicit, never a silent in-memory stand-in.
+    pub state_dir: Option<PathBuf>,
 }
 impl Config {
     pub fn from_env() -> Result<Self, AppError> {
@@ -68,6 +71,7 @@ impl Config {
         };
         let platform_url = env::var("OPSWEAVE_PLATFORM_URL").ok();
         let runtime_key = env::var("OPSWEAVE_RUNTIME_KEY").ok();
+        let state_dir = env::var_os("OPSWEAVE_RUNTIME_STATE_DIR").map(PathBuf::from);
         if mode == Mode::PlatformDev && (platform_url.is_none() || runtime_key.is_none()) {
             return Err(AppError::Configuration(
                 "Platform development mode requires explicit platform URL and Runtime result key"
@@ -86,6 +90,7 @@ impl Config {
             max_concurrency: 4,
             platform_url,
             runtime_key,
+            state_dir,
         })
     }
 }

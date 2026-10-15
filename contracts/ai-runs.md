@@ -1,6 +1,6 @@
 # 诊断运行登记契约（ai-run）
 
-M5（[ADR-104](../docs/adr/104-durable-ai-run-registry.md)）：把一次同步诊断请求升级为**可查询、可取消、可恢复**的运行登记。5a 覆盖「提交 / 按 ID 读 / 列表分页」；5b 覆盖「执行接线、协作式取消、恢复/重试与未知完成对账」；5c 覆盖「有序事件记录、游标回读、SSE 推送通道（轮询降级）」与 Web 控制台只读面。本文件不描述任何未实施行为。
+M5（[ADR-104](../docs/adr/104-durable-ai-run-registry.md)）：把一次同步诊断请求升级为**可查询、可取消、可恢复**的运行登记。5a 覆盖「提交 / 按 ID 读 / 列表分页」；5b 覆盖「执行接线、协作式取消、恢复/重试与未知完成对账」；5c 覆盖「有序事件记录、游标回读、SSE 推送通道（轮询降级）」与 Web 控制台只读面；5d 覆盖「Runtime 状态投递回执、跨库对账报告与运行观测聚合」。本文件不描述任何未实施行为。
 
 ## 1. 对象
 
@@ -99,7 +99,7 @@ PENDING → FAILED | CANCELLED
 | `RECONCILED` | `disclosure`（`ai-run-reconciliation` 闭合对象） |
 | `FINISHED` | `status ∈ {SUCCEEDED, FAILED, CANCELLED}`；`FAILED`/`CANCELLED` 必带 `reason`、`SUCCEEDED` 必无；可带 `disclosure` |
 
-**保留窗口与游标过期**：服务端定义每运行保留窗口（当前常量 200 条，超出即丢最旧）。游标过期（`afterSeq + 1 < 保留窗最低 seq`）时回**最新保留窗 + `gap=true` + `snapshot`**（`{status, statusVersion, attempt, updatedAt}` 当前运行快照），显式标注缺口、不假装连续；容量预算与截断观测属 5d。
+**保留窗口与游标过期**：服务端定义每运行保留窗口（当前常量 200 条，超出即丢最旧）。游标过期（`afterSeq + 1 < 保留窗最低 seq`）时回**最新保留窗 + `gap=true` + `snapshot`**（`{status, statusVersion, attempt, updatedAt}` 当前运行快照），显式标注缺口、不假装连续；容量预算与截断观测见 §12（5d）。
 
 **游标回读** `GET /api/v1/ai/runs/{runId}/events?afterSeq=&limit=`：
 
@@ -135,4 +135,36 @@ PENDING → FAILED | CANCELLED
 
 ## 9. 明确不在本契约内
 
-StepRun/Checkpoint、跨库可靠投递与 Rust 侧 Runtime 内部状态持久化属 5d；事件保留窗口的容量预算与截断观测属 5d（保留窗口本身是本契约的服务端常量）。Web 控制台只读面（Run 列表/详情 + 事件时间线 + 取消/重试操作入口）随 5c 交付，**复用本契约的读回与既有控制命令，不新增可写工具**。本契约不预留可写工具、不新增权限词表、不执行任何模型调用之外的副作用；一次诊断仍是一次模型调用（共享 `model_spend` 预算与 permit/回执），Skill 固定版本 pin 不变。运行登记不替代 AIInsight：结果仍由 AIInsight 持久化并授权读取。执行安全点在派发边界（派发前/派发后）；诊断链内部（工具读取与模型调用之间）的取消观察点不属本段。
+Runtime 的 StepRun/Checkpoint **内部状态本身**（步骤明细、检查点内容、证据复核记录正文）不跨库、不在本契约内：它们由 Runtime 自有存储（Rust 侧 journal）持久，平台只接收 §10 的闭合计数回执投影，`db/migrations/ai/V001__ai_run_prototype.sql` 的 `ai_runtime.run` 仍是未加载原型。Web 控制台只读面（Run 列表/详情 + 事件时间线 + 取消/重试操作入口）随 5c 交付，**复用本契约的读回与既有控制命令，不新增可写工具**。本契约不预留可写工具、不新增权限词表、不执行任何模型调用之外的副作用；一次诊断仍是一次模型调用（共享 `model_spend` 预算与 permit/回执），Skill 固定版本 pin 不变。运行登记不替代 AIInsight：结果仍由 AIInsight 持久化并授权读取。执行安全点在派发边界（派发前/派发后）；诊断链内部（工具读取与模型调用之间）的取消观察点不属本段。
+
+## 10. Runtime 状态投递（`POST /api/v1/ai/runs/{runId}/runtime-states`，5d）
+
+Runtime 自有内部状态（StepRun/Checkpoint/attempt/证据复核记录）由 Runtime 持久与恢复；跨库只投递**闭合计数回执投影** `ai-run-runtime-state`（`requestId`/`runId`/`attempt`/`status`/`stepCount`/`checkpointSeq`/`evidenceRecheckCount`/`reportedAt`，全部 `additionalProperties:false`）：**不含步骤名、检查点内容、证据正文、身份字段**。
+
+- **至少一次投递、幂等回执**：`requestId` 是投递幂等键，与提交/控制命令共用一个幂等命名空间（跨族复用 409 `AI_RUN_REQUEST_REUSED`）。重放返回**逐字节一致**的 `ai-run-runtime-state-receipt`（回执由已存回执投影导出，不带新时间戳）；同 `requestId` 异内容 409。投递可能重复，回执吸收重复；**不声称 exactly-once**。
+- **回执投影有界**：每运行保留窗口 50 条，超出丢最旧并计数（`ai-run-observability.runtime.droppedReports`），截断如实披露。
+- **投递永不移动运行**：不改 `status`/`statusVersion`/`attempt`/租约，不执行任何工作、不发放权限；Runtime 发送失败/结果未知时本地 outbox 记为 `Unknown`（不是「已投递」也不静默丢弃），重试仍可能重复投递。
+- 通道要求 runtime attestation 凭据（`X-OpsWeave-Runtime-Key`，loopback dev 模式）加当前主体的本人运行；错误码闭集 `200/400/401/403/404/409/503`。
+
+## 11. 跨库对账报告（`GET /api/v1/ai/runs/{runId}/runtime-reconciliation`，5d）
+
+`ai-run-cross-store-report` 是**披露不是命令**：`{runId, comparedAt, repair: "none", platform, runtime, findings}`，两侧视图都是闭合记录（`platform` 只有 status/statusVersion/attempt/updatedAt；`runtime` 只有 status/attempt/stepCount/checkpointSeq/reportedAt），`findings` 闭集 8 个：
+
+| finding | 语义 |
+|---|---|
+| `MISSING_ON_PLATFORM` | Runtime 有状态而平台登记不存在 |
+| `MISSING_RUNTIME_STATE` | 平台有运行而从未收到/记录 Runtime 状态回执 |
+| `STATUS_MISMATCH` | 双方都未终态但状态不一致 |
+| `PLATFORM_TERMINAL_RUNTIME_ACTIVE` | 平台已终态而 Runtime 仍在运行（**显式披露，不静默修补**） |
+| `RUNTIME_TERMINAL_PLATFORM_ACTIVE` | Runtime 已终态而平台仍未落定 |
+| `ATTEMPT_MISMATCH` | attempt 计数不一致（如 Runtime 未见过的恢复 attempt） |
+| `STALE_RUNTIME_REPORT` | 已投递状态早于平台最近一次流转 |
+| `UNDELIVERED_STATE_REPORT` | Runtime 侧存在未确认送达的状态报告 |
+
+- **`repair` 恒为 `"none"`**：报告只披露不一致，不改写任何一边、不重跑、不双跑、不启动/停止任何执行；恢复仍走 §5 的 retry 入口（重授权、租约/fencing、同 runId 新 attempt）。
+- 阅读是只读投影（读取零副作用）；定期/触发式对账把同一报告记录为**每运行一份的快照**（观测产物不是状态，被更新不改变任何运行）。`findings` 的声音性（每条 finding 必须与两侧视图相符）在领域构造期重算拒绝，Schema 以 if-then 闭合可表达部分（缺失侧、终态活跃方向）。
+- 错误码闭集 `200/400/401/403/404/503`。
+
+## 12. 运行观测聚合（`GET /api/v1/ai/runs/{runId}/observability`，5d）
+
+`ai-run-observability` 是**有界只读聚合**：`events`（保留窗口 `window`、现存 `retained`、被截断 `dropped`、截断标记 `truncated`——三者互相印证，截断历史不冒充完整）、`spend`（`priorModelCalls`/`uncertainPriorFees`，费用照实保留不退、`uncertainPriorFees ≤ priorModelCalls`）、`runtime`（已投递回执 `deliveredReports`/`droppedReports` 与最新回执的 `latestAttempt`/`lastReportedAt`，无回执时为空）。读取永不执行、**没有隐藏后台任务**；错误码闭集 `200/400/401/403/404/503`。

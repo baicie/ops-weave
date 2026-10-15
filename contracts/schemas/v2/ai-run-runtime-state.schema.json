@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-runtime-state.schema.json",
+  "title": "Runtime internal state attestation (M5 5d)",
+  "description": "The closed at-least-once delivery body of one Runtime state report: counters and status only. It carries no step names, no checkpoint content, no evidence body and no identity fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "runId",
+    "attempt",
+    "status",
+    "stepCount",
+    "checkpointSeq",
+    "evidenceRecheckCount",
+    "reportedAt"
+  ],
+  "properties": {
+    "requestId": {
+      "description": "Idempotency key of this delivery (client-generated UUID). A replay with the same request id answers with the same receipt; the same request id with different content is an explicit conflict.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "attempt": {
+      "description": "Dispatch attempts the Runtime itself observed for this run; never the platform's authority.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "status": {
+      "description": "The Runtime's internal run status, the same closed state vocabulary as the registry.",
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "WAITING_TOOL",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "stepCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "checkpointSeq": {
+      "description": "Sequence number of the newest checkpoint the Runtime holds (0 when none).",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "evidenceRecheckCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "reportedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

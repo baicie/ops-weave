@@ -127,6 +127,10 @@ pub struct PlatformSnapshot {
     pub(crate) evidence: Evidence,
 }
 impl PlatformSnapshot {
+    /// A snapshot obtained through a read port only. Callers never fabricate one from model text.
+    pub fn new(document: serde_json::Value, evidence: Evidence) -> Self {
+        Self { document, evidence }
+    }
     pub fn document(&self) -> &serde_json::Value {
         &self.document
     }
@@ -199,9 +203,11 @@ impl RunState {
 
 /// Durable AIRun state machine of ADR-104. `RunState` above is legacy in-memory state and is not a
 /// persistent execution engine; this mirror keeps the Runtime on the same closed transition table as
-/// the platform run registry until the Runtime owns its own durable state in 5b/5c.
+/// the platform run registry until the Runtime owns its own durable state in 5b/5c. The wire names
+/// are the platform's own state vocabulary (`PENDING`…`CANCELLED`), so both stores spell one state
+/// the same way.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AirunStatus {
     Pending,
     Running,

@@ -59,6 +59,8 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("db/migrations/platform/V069__ai_run_registry.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V070__ai_run_execution.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V071__ai_run_events.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V072__ai_run_runtime_state.sql")) { into("db/migration") }
+    from(rootProject.file("db/migrations/platform/V073__skill_release_registry.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V039__source_metric_metadata_budget.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V032__workflow_runtime.sql")) { into("db/migration") }
     from(rootProject.file("db/migrations/platform/V033__workflow_graph_trace_budget.sql")) { into("db/migration") }

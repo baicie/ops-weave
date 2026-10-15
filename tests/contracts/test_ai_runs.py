@@ -49,7 +49,9 @@ def _method(path, method):
 @pytest.mark.parametrize('name', ['ai-run-command', 'ai-run', 'ai-run-page', 'ai-run-reconciliation',
                                   'ai-run-cancel-command', 'ai-run-cancel-receipt',
                                   'ai-run-retry-command', 'ai-run-retry-receipt',
-                                  'ai-run-event', 'ai-run-event-page'])
+                                  'ai-run-event', 'ai-run-event-page',
+                                  'ai-run-runtime-state', 'ai-run-runtime-state-receipt',
+                                  'ai-run-cross-store-report', 'ai-run-observability'])
 def test_explicit_fixtures(name):
     validator(name).validate(sample(name))
 
@@ -335,11 +337,23 @@ def test_openapi_registers_the_run_routes_with_closed_schemas():
     assert 'operationId: streamAiRunEvents' in stream
     assert 'text/event-stream' in stream
     assert 'Last-Event-ID' in stream
+    delivery = _method('/api/v1/ai/runs/{runId}/runtime-states', 'post')
+    assert 'operationId: reportAiRunRuntimeState' in delivery
+    assert '../schemas/v2/ai-run-runtime-state.schema.json' in delivery
+    assert '../schemas/v2/ai-run-runtime-state-receipt.schema.json' in delivery
+    reconciliation = _method('/api/v1/ai/runs/{runId}/runtime-reconciliation', 'get')
+    assert 'operationId: readAiRunRuntimeReconciliation' in reconciliation
+    assert '../schemas/v2/ai-run-cross-store-report.schema.json' in reconciliation
+    observability = _method('/api/v1/ai/runs/{runId}/observability', 'get')
+    assert 'operationId: readAiRunObservability' in observability
+    assert '../schemas/v2/ai-run-observability.schema.json' in observability
     for name in ['ai-run-command.schema.json', 'ai-run.schema.json', 'ai-run-page.schema.json',
                  'ai-run-reconciliation.schema.json', 'ai-run-cancel-command.schema.json',
                  'ai-run-cancel-receipt.schema.json', 'ai-run-retry-command.schema.json',
                  'ai-run-retry-receipt.schema.json', 'ai-run-event.schema.json',
-                 'ai-run-event-page.schema.json']:
+                 'ai-run-event-page.schema.json', 'ai-run-runtime-state.schema.json',
+                 'ai-run-runtime-state-receipt.schema.json', 'ai-run-cross-store-report.schema.json',
+                 'ai-run-observability.schema.json']:
         schema = (ROOT / 'contracts/schemas/v2' / name).read_text(encoding='utf-8')
         assert '"additionalProperties": false' in schema
 
@@ -353,6 +367,9 @@ def test_openapi_error_codes_are_a_closed_set():
         ('/api/v1/ai/runs/{runId}/retries', 'post'): {'200', '400', '401', '403', '404', '409', '503'},
         ('/api/v1/ai/runs/{runId}/events', 'get'): {'200', '400', '401', '403', '404', '503'},
         ('/api/v1/ai/runs/{runId}/events/stream', 'get'): {'200', '400', '401', '403', '404', '503'},
+        ('/api/v1/ai/runs/{runId}/runtime-states', 'post'): {'200', '400', '401', '403', '404', '409', '503'},
+        ('/api/v1/ai/runs/{runId}/runtime-reconciliation', 'get'): {'200', '400', '401', '403', '404', '503'},
+        ('/api/v1/ai/runs/{runId}/observability', 'get'): {'200', '400', '401', '403', '404', '503'},
     }
     for (path, method), codes in expected.items():
         body = _method(path, method)
@@ -369,3 +386,112 @@ def test_operation_ids_stay_unique():
     assert operation_ids.count('retryAiRun') == 1
     assert operation_ids.count('listAiRunEvents') == 1
     assert operation_ids.count('streamAiRunEvents') == 1
+    assert operation_ids.count('reportAiRunRuntimeState') == 1
+    assert operation_ids.count('readAiRunRuntimeReconciliation') == 1
+    assert operation_ids.count('readAiRunObservability') == 1
+
+
+def test_runtime_state_attestation_is_closed_and_carries_no_identity_or_internals():
+    body = sample('ai-run-runtime-state')
+    for field in ['requestId', 'runId', 'attempt', 'status', 'stepCount', 'checkpointSeq',
+                  'evidenceRecheckCount', 'reportedAt']:
+        rejects('ai-run-runtime-state', {k: v for k, v in body.items() if k != field})
+    for key, value in [('tenantId', 'other'), ('owner', 'someone'), ('actor', 'someone'),
+                       ('permissions', ['ai.diagnose']), ('status', 'QUEUED'), ('status', 'running'),
+                       ('attempt', 0), ('attempt', 1.5), ('attempt', 1000001),
+                       ('stepCount', -1), ('stepCount', 1001), ('checkpointSeq', -1),
+                       ('checkpointSeq', 1000000001), ('evidenceRecheckCount', 1001),
+                       ('requestId', 'not-a-uuid'), ('runId', 'not-a-uuid'), ('reportedAt', 'yesterday'),
+                       ('steps', []), ('checkpoints', []), ('evidence', []),
+                       ('reasoning', 'the model thought ...'), ('rawLog', 'customer log line')]:
+        rejects('ai-run-runtime-state', dict(body, **{key: value}))
+
+
+def test_delivery_receipt_is_closed_and_derived_from_the_stored_report():
+    receipt = sample('ai-run-runtime-state-receipt')
+    body = sample('ai-run-runtime-state')
+    assert receipt['requestId'] == body['requestId']
+    assert receipt['runId'] == body['runId']
+    assert receipt['attempt'] == body['attempt']
+    assert receipt['status'] == body['status']
+    assert receipt['recordedAt'] == body['reportedAt']
+    for key, value in [('requestId', 'not-a-uuid'), ('runId', 'not-a-uuid'), ('attempt', 0),
+                       ('attempt', 1.5), ('status', 'QUEUED'), ('recordedAt', 'yesterday'),
+                       ('recorded', True), ('tenantId', 'other'), ('extra', 1)]:
+        rejects('ai-run-runtime-state-receipt', dict(receipt, **{key: value}))
+    rejects('ai-run-runtime-state-receipt', {k: v for k, v in receipt.items() if k != 'recordedAt'})
+
+
+def test_cross_store_report_discloses_divergence_and_repair_is_always_none():
+    value = sample('ai-run-cross-store-report')
+    assert value['repair'] == 'none'
+    assert 'PLATFORM_TERMINAL_RUNTIME_ACTIVE' in value['findings']
+    rejects('ai-run-cross-store-report', dict(value, repair='rewrite'))
+    rejects('ai-run-cross-store-report', dict(value, repair=None))
+    rejects('ai-run-cross-store-report', {k: v for k, v in value.items() if k != 'repair'})
+    for key, value_ in [('runId', 'not-a-uuid'), ('comparedAt', 'yesterday'), ('findings', []),
+                        ('findings', ['REPAIRED']), ('findings', ['STATUS_MISMATCH', 'STATUS_MISMATCH']),
+                        ('extra', True), ('tenantId', 'other'), ('owner', 'someone')]:
+        broken = dict(value)
+        broken[key] = value_
+        rejects('ai-run-cross-store-report', broken)
+    rejects('ai-run-cross-store-report', dict(value, findings=['MISSING_ON_PLATFORM']))
+    # Both sides are closed records: no identity fields, no step or checkpoint internals.
+    for side in ['platform', 'runtime']:
+        broken = copy.deepcopy(value)
+        broken[side]['tenantId'] = 'other'
+        rejects('ai-run-cross-store-report', broken)
+        broken = copy.deepcopy(value)
+        broken[side]['steps'] = []
+        rejects('ai-run-cross-store-report', broken)
+    # A missing side is explicit and forces its finding; the other side is never the whole truth.
+    missing_runtime = dict(value, runtime=None, findings=['MISSING_RUNTIME_STATE'])
+    validator('ai-run-cross-store-report').validate(missing_runtime)
+    rejects('ai-run-cross-store-report', dict(value, runtime=None, findings=['STATUS_MISMATCH']))
+    rejects('ai-run-cross-store-report', dict(missing_runtime, platform=None))
+    missing_platform = dict(value, platform=None, runtime=value['runtime'],
+                            findings=['MISSING_ON_PLATFORM', 'STALE_RUNTIME_REPORT'])
+    validator('ai-run-cross-store-report').validate(missing_platform)
+    # Terminal-vs-active divergence has its own finding and cannot hide behind a status mismatch;
+    # the reverse direction is closed the same way (a sound finding set is also closed in the domain,
+    # where the report constructor recomputes and rejects invented findings).
+    both_active = dict(value, platform=dict(value['platform'], status='RUNNING'),
+                       runtime=dict(value['runtime'], status='RUNNING'), findings=['STALE_RUNTIME_REPORT'])
+    validator('ai-run-cross-store-report').validate(both_active)
+    rejects('ai-run-cross-store-report', dict(value, findings=['STATUS_MISMATCH']))
+    rejects('ai-run-cross-store-report', dict(both_active, findings=['RUNTIME_TERMINAL_PLATFORM_ACTIVE']))
+
+
+def test_observability_is_closed_and_its_counters_agree():
+    value = sample('ai-run-observability')
+    for key, source in [('events', 'events'), ('spend', 'spend'), ('runtime', 'runtime')]:
+        for field in value[source]:
+            broken = copy.deepcopy(value)
+            del broken[source][field]
+            rejects('ai-run-observability', broken)
+    for key, patch in [('runId', 'not-a-uuid'), ('status', 'QUEUED'), ('statusVersion', -1),
+                       ('attempt', 1.5), ('events', {'window': 200, 'retained': 7, 'dropped': 0, 'truncated': True}),
+                       ('events', {'window': 200, 'retained': 7, 'dropped': 3, 'truncated': False}),
+                       ('events', {'window': 0, 'retained': 0, 'dropped': 0, 'truncated': False}),
+                       ('spend', {'priorModelCalls': 0, 'uncertainPriorFees': 1}),
+                       ('spend', {'priorModelCalls': 1, 'uncertainPriorFees': 9}),
+                       ('runtime', {'deliveredReports': 0, 'droppedReports': 0, 'latestAttempt': 1,
+                                    'lastReportedAt': '2026-10-14T01:00:02Z'}),
+                       ('runtime', {'deliveredReports': 2, 'droppedReports': 0, 'latestAttempt': None,
+                                    'lastReportedAt': None}),
+                       ('runtime', {'deliveredReports': 2, 'droppedReports': 0, 'latestAttempt': 1,
+                                    'lastReportedAt': None}),
+                       ('extra', 1)]:
+        broken = dict(value)
+        broken[key] = patch
+        rejects('ai-run-observability', broken)
+    empty = dict(value, status='PENDING', statusVersion=0, attempt=0,
+                 events={'window': 200, 'retained': 0, 'dropped': 0, 'truncated': False},
+                 spend={'priorModelCalls': 0, 'uncertainPriorFees': 0},
+                 runtime={'deliveredReports': 0, 'droppedReports': 0, 'latestAttempt': None,
+                          'lastReportedAt': None})
+    validator('ai-run-observability').validate(empty)
+    truncated = dict(value, events={'window': 3, 'retained': 3, 'dropped': 2, 'truncated': True})
+    validator('ai-run-observability').validate(truncated)
+    # retained <= window and uncertainPriorFees <= priorModelCalls are additionally closed in the
+    # domain (record invariants); the schema closes what its conditionals can express.

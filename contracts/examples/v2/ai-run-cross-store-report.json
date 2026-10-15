@@ -1,0 +1,22 @@
+{
+  "runId": "10000000-0000-4000-8000-000000000083",
+  "comparedAt": "2026-10-14T01:05:00Z",
+  "repair": "none",
+  "platform": {
+    "status": "SUCCEEDED",
+    "statusVersion": 5,
+    "attempt": 1,
+    "updatedAt": "2026-10-14T01:00:05Z"
+  },
+  "runtime": {
+    "status": "RUNNING",
+    "attempt": 1,
+    "stepCount": 2,
+    "checkpointSeq": 1,
+    "reportedAt": "2026-10-14T01:00:02Z"
+  },
+  "findings": [
+    "PLATFORM_TERMINAL_RUNTIME_ACTIVE",
+    "STALE_RUNTIME_REPORT"
+  ]
+}

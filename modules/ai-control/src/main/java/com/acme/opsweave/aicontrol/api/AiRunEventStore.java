@@ -1,6 +1,7 @@
 package com.acme.opsweave.aicontrol.api;
 
 import com.acme.opsweave.aicontrol.domain.AiRunEvent;
+import com.acme.opsweave.aicontrol.domain.ToolFailure;
 import com.acme.opsweave.sharedkernel.TenantId;
 
 import java.time.Instant;
@@ -32,4 +33,21 @@ public interface AiRunEventStore {
 
     /** The retained sequence bounds of this run's event log; both are 0 when nothing is retained. */
     AiRunEvent.Bounds bounds(TenantId tenant, UUID runId);
+
+    /**
+     * The capacity facts of this run's event log (5d): the server-defined window, how many records
+     * are kept and how many were truncated by the window. The truncation flag and the dropped count
+     * say the same thing — a truncated history is disclosed, never presented as complete.
+     */
+    Retention retention(TenantId tenant, UUID runId);
+
+    /** The retention window facts of one run's event log. */
+    record Retention(int window, int retained, long dropped, boolean truncated) {
+        public Retention {
+            if (window < 1 || retained < 0 || retained > window || dropped < 0) {
+                throw new ToolFailure(ToolFailure.Code.INVALID_REQUEST);
+            }
+            if (truncated != (dropped > 0)) throw new ToolFailure(ToolFailure.Code.INVALID_REQUEST);
+        }
+    }
 }

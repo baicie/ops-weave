@@ -2,7 +2,9 @@ package com.acme.opsweave.platform.ai;
 
 import com.acme.opsweave.aicontrol.domain.AiRun;
 import com.acme.opsweave.aicontrol.domain.AiRunControl;
+import com.acme.opsweave.aicontrol.domain.AiRunCrossStore;
 import com.acme.opsweave.aicontrol.domain.AiRunEvent;
+import com.acme.opsweave.aicontrol.domain.AiRunRuntimeState;
 import com.acme.opsweave.aicontrol.domain.InsightSubmission;
 import com.acme.opsweave.aicontrol.domain.ToolWindow;
 import com.acme.opsweave.identity.domain.SubjectId;
@@ -11,6 +13,7 @@ import com.acme.opsweave.sharedkernel.TenantId;
 import tools.jackson.databind.JsonNode;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -101,6 +104,151 @@ public final class AiRunJson {
         body.put("attempt", receipt.attempt());
         body.put("status", receipt.status().name());
         body.put("reconciliation", reconciliation(receipt.reconciliation()));
+        return body;
+    }
+
+    /** The closed Runtime state attestation (contracts/schemas/v2/ai-run-runtime-state). */
+    public static AiRunRuntimeState.Report runtimeState(JsonNode n) {
+        fields(n, Set.of("requestId", "runId", "attempt", "status", "stepCount", "checkpointSeq",
+            "evidenceRecheckCount", "reportedAt"));
+        var report = new AiRunRuntimeState.Report(uuid(n, "requestId"), uuid(n, "runId"), intValue(n, "attempt"),
+            status(n).name(), intValue(n, "stepCount"), longValue(n, "checkpointSeq"), intValue(n, "evidenceRecheckCount"),
+            Instant.parse(text(n, "reportedAt")));
+        if (!CatalogJson.JSON.readTree(storage(report)).equals(n)) {
+            throw new IllegalArgumentException("Invalid runtime state report");
+        }
+        return report;
+    }
+
+    public static Map<String, Object> wire(AiRunRuntimeState.Report report) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("requestId", report.requestId().toString());
+        body.put("runId", report.runId().toString());
+        body.put("attempt", report.attempt());
+        body.put("status", report.status());
+        body.put("stepCount", report.stepCount());
+        body.put("checkpointSeq", report.checkpointSeq());
+        body.put("evidenceRecheckCount", report.evidenceRecheckCount());
+        body.put("reportedAt", report.reportedAt().toString());
+        return body;
+    }
+
+    public static String storage(AiRunRuntimeState.Report report) {
+        return CatalogJson.JSON.writeValueAsString(wire(report));
+    }
+
+    public static AiRunRuntimeState.Report runtimeState(String json) {
+        return runtimeState(CatalogJson.JSON.readTree(json));
+    }
+
+    /** The idempotent delivery receipt (contracts/schemas/v2/ai-run-runtime-state-receipt). */
+    public static Map<String, Object> wire(AiRunRuntimeState.Receipt receipt) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("requestId", receipt.requestId().toString());
+        body.put("runId", receipt.runId().toString());
+        body.put("attempt", receipt.attempt());
+        body.put("status", receipt.status());
+        body.put("recordedAt", receipt.recordedAt().toString());
+        return body;
+    }
+
+    /**
+     * The cross-store reconciliation report (contracts/schemas/v2/ai-run-cross-store-report):
+     * both sides' closed views, the closed finding list and the constant {@code repair: "none"}.
+     */
+    public static Map<String, Object> wire(AiRunCrossStore.Report report) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("runId", report.runId().toString());
+        body.put("comparedAt", report.comparedAt().toString());
+        body.put("repair", report.repair());
+        body.put("platform", report.platform() == null ? null : platformView(report.platform()));
+        body.put("runtime", report.runtime() == null ? null : runtimeView(report.runtime()));
+        body.put("findings", report.findings().stream().map(Enum::name).toList());
+        return body;
+    }
+
+    private static Map<String, Object> platformView(AiRunCrossStore.PlatformView view) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("status", view.status());
+        body.put("statusVersion", view.statusVersion());
+        body.put("attempt", view.attempt());
+        body.put("updatedAt", view.updatedAt().toString());
+        return body;
+    }
+
+    private static Map<String, Object> runtimeView(AiRunCrossStore.RuntimeView view) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("status", view.status());
+        body.put("attempt", view.attempt());
+        body.put("stepCount", view.stepCount());
+        body.put("checkpointSeq", view.checkpointSeq());
+        body.put("reportedAt", view.reportedAt().toString());
+        return body;
+    }
+
+    public static String storage(AiRunCrossStore.Report report) {
+        return CatalogJson.JSON.writeValueAsString(wire(report));
+    }
+
+    public static AiRunCrossStore.Report crossStoreReport(String json) {
+        var n = CatalogJson.JSON.readTree(json);
+        fields(n, Set.of("runId", "comparedAt", "repair", "platform", "runtime", "findings"));
+        if (!AiRunCrossStore.REPAIR.equals(text(n, "repair"))) throw new IllegalArgumentException("Invalid repair mode");
+        var items = n.get("findings");
+        if (items == null || !items.isArray()) throw new IllegalArgumentException("Invalid findings");
+        var findings = new ArrayList<AiRunCrossStore.Finding>();
+        for (var item : items) {
+            try {
+                findings.add(AiRunCrossStore.Finding.valueOf(item.asString()));
+            } catch (IllegalArgumentException closed) {
+                throw new IllegalArgumentException("Invalid finding");
+            }
+        }
+        var report = new AiRunCrossStore.Report(uuid(n, "runId"), Instant.parse(text(n, "comparedAt")),
+            n.get("platform").isNull() ? null : platformView(n.get("platform")),
+            n.get("runtime").isNull() ? null : runtimeView(n.get("runtime")), findings);
+        if (!CatalogJson.JSON.readTree(storage(report)).equals(n)) {
+            throw new IllegalArgumentException("Invalid stored cross-store report");
+        }
+        return report;
+    }
+
+    private static AiRunCrossStore.PlatformView platformView(JsonNode n) {
+        fields(n, Set.of("status", "statusVersion", "attempt", "updatedAt"));
+        return new AiRunCrossStore.PlatformView(text(n, "status"), longValue(n, "statusVersion"),
+            intValue(n, "attempt"), Instant.parse(text(n, "updatedAt")));
+    }
+
+    private static AiRunCrossStore.RuntimeView runtimeView(JsonNode n) {
+        fields(n, Set.of("status", "attempt", "stepCount", "checkpointSeq", "reportedAt"));
+        return new AiRunCrossStore.RuntimeView(text(n, "status"), intValue(n, "attempt"), intValue(n, "stepCount"),
+            longValue(n, "checkpointSeq"), Instant.parse(text(n, "reportedAt")));
+    }
+
+    /** The bounded observability aggregate (contracts/schemas/v2/ai-run-observability). */
+    public static Map<String, Object> wire(AiRunRuntimeState.Observability observability) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("runId", observability.runId().toString());
+        body.put("status", observability.status());
+        body.put("statusVersion", observability.statusVersion());
+        body.put("attempt", observability.attempt());
+        var events = new LinkedHashMap<String, Object>();
+        events.put("window", observability.events().window());
+        events.put("retained", observability.events().retained());
+        events.put("dropped", observability.events().dropped());
+        events.put("truncated", observability.events().truncated());
+        body.put("events", events);
+        var spend = new LinkedHashMap<String, Object>();
+        spend.put("priorModelCalls", observability.spend().priorModelCalls());
+        spend.put("uncertainPriorFees", observability.spend().uncertainPriorFees());
+        body.put("spend", spend);
+        var runtime = new LinkedHashMap<String, Object>();
+        runtime.put("deliveredReports", observability.runtime().deliveredReports());
+        runtime.put("droppedReports", observability.runtime().droppedReports());
+        runtime.put("latestAttempt", observability.runtime().latestAttempt());
+        runtime.put("lastReportedAt",
+            observability.runtime().lastReportedAt() == null ? null : observability.runtime().lastReportedAt().toString());
+        body.put("runtime", runtime);
         return body;
     }
 

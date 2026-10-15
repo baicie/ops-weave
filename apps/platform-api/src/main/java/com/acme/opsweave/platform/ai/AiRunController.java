@@ -42,13 +42,15 @@ public final class AiRunController {
     private final AiRunService service;
     private final AiRunEventService events;
     private final AiRunExecution execution;
+    private final RuntimeOrigin origin;
 
     public AiRunController(PrincipalContext principals, AuthorizationService authorization, IncidentService incidents,
-            InventoryWiring wiring, AiRunExecution execution) {
+            InventoryWiring wiring, AiRunExecution execution, RuntimeOrigin origin) {
         this.principals = principals;
         this.service = new AiRunService(authorization, incidents, wiring.aiRuns(), Clock.systemUTC());
         this.events = new AiRunEventService(this.service, wiring.aiRuns());
         this.execution = execution;
+        this.origin = origin;
     }
 
     /** Idempotent submission: a replay answers with the same run, changed content is a conflict. */
@@ -224,6 +226,47 @@ public final class AiRunController {
             throw new ToolFailure(ToolFailure.Code.INVALID_REQUEST);
         }
         return AiRunEvent.cursor(afterSeq != null ? afterSeq : header);
+    }
+
+    /**
+     * Idempotent Runtime state delivery (M5 5d, the runtime attestation channel): one bounded
+     * receipt projection of the Runtime's internal progress is recorded and nothing else — no state
+     * move, no execution, no permission grant. A replay answers with the original receipt, the same
+     * request id with different content (or one borrowed from another command family) is an explicit
+     * conflict, and a duplicate delivery is absorbed by the request id. Exactly-once is never
+     * claimed on either side.
+     */
+    @PostMapping(value = "/{runId}/runtime-states", consumes = "application/json")
+    public Object runtimeState(@PathVariable String runId, HttpServletRequest request) throws IOException {
+        if (request.getQueryString() != null) throw new IllegalArgumentException();
+        origin.require(request);
+        var id = uuid(runId);
+        var report = AiRunJson.runtimeState(CatalogJson.read(request));
+        return AiRunJson.wire(execution.runtimeStates().report(principals.requirePrincipal(), id, report));
+    }
+
+    /**
+     * The read-only cross-store reconciliation report (M5 5d): the registry state against the last
+     * delivered Runtime state, with the closed finding list and the constant {@code repair: "none"}.
+     * Reading discloses divergence — it never repairs, never re-runs and never advances a run.
+     */
+    @GetMapping("/{runId}/runtime-reconciliation")
+    public Object reconciliation(@PathVariable String runId, HttpServletRequest request) {
+        if (request.getQueryString() != null) throw new IllegalArgumentException();
+        var run = service.get(principals.requirePrincipal(), uuid(runId));
+        return AiRunJson.wire(execution.runtimeStates().reconcile(run));
+    }
+
+    /**
+     * The bounded read-only observability aggregate of one run: the event retention window with its
+     * truncation counters, the model fee counters and the delivered Runtime state reports. Reading
+     * it executes nothing and nothing runs in the background because it was read.
+     */
+    @GetMapping("/{runId}/observability")
+    public Object observability(@PathVariable String runId, HttpServletRequest request) {
+        if (request.getQueryString() != null) throw new IllegalArgumentException();
+        var run = service.get(principals.requirePrincipal(), uuid(runId));
+        return AiRunJson.wire(execution.runtimeStates().observability(run));
     }
 
     private static UUID uuid(String value) {

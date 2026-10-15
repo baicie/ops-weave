@@ -54,6 +54,8 @@ public final class InventoryWiring implements AutoCloseable {
     private final com.acme.opsweave.aicontrol.api.ToolReadStore toolReads;
     private final com.acme.opsweave.aicontrol.api.AiInsightStore insights;
     private com.acme.opsweave.aicontrol.api.AiRunStore aiRuns;
+    private com.acme.opsweave.aicontrol.api.AiRunRuntimeStateStore aiRunRuntimeStates;
+    private com.acme.opsweave.aicontrol.api.SkillReleaseStore skillReleases;
     private final com.acme.opsweave.aicontrol.api.ModelSpendStore memorySpend = new com.acme.opsweave.aicontrol.infrastructure.InMemoryModelSpendStore();
 
     private InventoryWiring(
@@ -126,6 +128,8 @@ public final class InventoryWiring implements AutoCloseable {
             wiring.externalLinkRegistrations = new com.acme.opsweave.inventory.infrastructure.InMemoryExternalLinkRegistrationStore(inventory);
             wiring.entityModelPinBackfills = new com.acme.opsweave.inventory.infrastructure.InMemoryEntityModelPinBackfillStore(inventory);
             wiring.aiRuns = new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiRunStore();
+            wiring.aiRunRuntimeStates = new com.acme.opsweave.aicontrol.infrastructure.InMemoryAiRunRuntimeStateStore();
+            wiring.skillReleases = new com.acme.opsweave.aicontrol.infrastructure.InMemorySkillReleaseStore();
             return wiring;
         }
         if (!"postgres".equalsIgnoreCase(store)) {
@@ -211,6 +215,8 @@ public final class InventoryWiring implements AutoCloseable {
         new SchemaMigrator(dataSource).apply("db/migration/V069__ai_run_registry.sql", "V069__ai_run_registry");
         new SchemaMigrator(dataSource).apply("db/migration/V070__ai_run_execution.sql", "V070__ai_run_execution");
         new SchemaMigrator(dataSource).apply("db/migration/V071__ai_run_events.sql", "V071__ai_run_events");
+        new SchemaMigrator(dataSource).apply("db/migration/V072__ai_run_runtime_state.sql", "V072__ai_run_runtime_state");
+        new SchemaMigrator(dataSource).apply("db/migration/V073__skill_release_registry.sql", "V073__skill_release_registry");
         PostgresInventoryStore postgres = new PostgresInventoryStore(dataSource);
         PostgresSyncStore sync = new PostgresSyncStore(dataSource, properties.scanRunRetention(null, null));
         var metrics = new PostgresMetricDefinitionStore(dataSource);
@@ -221,7 +227,7 @@ public final class InventoryWiring implements AutoCloseable {
         var sourceSnapshots = com.acme.opsweave.inventory.infrastructure.AuditedSourceStores.snapshots(
             rawSnapshots, rejected, java.time.Clock.systemUTC(), cmdbImportSource);
         var wiring = new InventoryWiring(postgres, postgres, new PostgresEntityInstanceStore(dataSource), new PostgresRelationStore(dataSource), sync, sync, metrics, metrics, new PostgresSourceConnectionChecks(dataSource), rejected, cmdbImportSource, sourceSnapshots, rawSnapshots, sourceReviews, "postgres", sync, new PostgresPipelineVersionStore(dataSource), new PostgresPipelineReplayStore(dataSource), new PostgresPipelineDraftStore(dataSource), new PostgresIncidentStore(dataSource), new PostgresToolReadStore(dataSource), new PostgresAiInsightStore(dataSource, java.time.Clock.systemUTC()));
-        wiring.ownedDataSource = dataSource; wiring.externalLinkRegistrations = new PostgresExternalLinkRegistrations(dataSource); wiring.entityModelPinBackfills = new PostgresEntityModelPinBackfillStore(dataSource); wiring.aiRuns = new PostgresAiRuns(dataSource); return wiring;
+        wiring.ownedDataSource = dataSource; wiring.externalLinkRegistrations = new PostgresExternalLinkRegistrations(dataSource); wiring.entityModelPinBackfills = new PostgresEntityModelPinBackfillStore(dataSource); wiring.aiRuns = new PostgresAiRuns(dataSource); wiring.aiRunRuntimeStates = new PostgresAiRunRuntimeStates(dataSource); wiring.skillReleases = new PostgresSkillReleases(dataSource); return wiring;
         } catch (RuntimeException failed) { dataSource.close(); throw failed; }
     }
 
@@ -334,6 +340,19 @@ public final class InventoryWiring implements AutoCloseable {
     public com.acme.opsweave.aicontrol.api.AiRunStore aiRuns() {
         if (aiRuns == null) throw new IllegalStateException("Run registry requires a wired inventory store");
         return aiRuns;
+    }
+
+    public com.acme.opsweave.aicontrol.api.AiRunRuntimeStateStore aiRunRuntimeStates() {
+        if (aiRunRuntimeStates == null) {
+            throw new IllegalStateException("Runtime state receipts require a wired inventory store");
+        }
+        return aiRunRuntimeStates;
+    }
+
+    /** The platform Skill registry (ADR-105); the memory build keeps the same semantics without a database. */
+    public com.acme.opsweave.aicontrol.api.SkillReleaseStore skillReleases() {
+        if (skillReleases == null) throw new IllegalStateException("Skill registry requires a wired inventory store");
+        return skillReleases;
     }
     public com.acme.opsweave.aicontrol.api.ModelSpendStore modelSpend() { return ownedDataSource == null ? memorySpend : new PostgresModelSpendStore(ownedDataSource); }
     public com.acme.opsweave.aicontrol.api.AiRetentionStore retention() {

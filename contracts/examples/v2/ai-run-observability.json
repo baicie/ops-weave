@@ -1,0 +1,22 @@
+{
+  "runId": "10000000-0000-4000-8000-000000000083",
+  "status": "SUCCEEDED",
+  "statusVersion": 5,
+  "attempt": 1,
+  "events": {
+    "window": 200,
+    "retained": 7,
+    "dropped": 3,
+    "truncated": true
+  },
+  "spend": {
+    "priorModelCalls": 1,
+    "uncertainPriorFees": 0
+  },
+  "runtime": {
+    "deliveredReports": 2,
+    "droppedReports": 0,
+    "latestAttempt": 1,
+    "lastReportedAt": "2026-10-14T01:00:02Z"
+  }
+}

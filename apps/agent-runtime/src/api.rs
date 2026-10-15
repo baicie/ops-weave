@@ -3,7 +3,7 @@ use crate::{
     config::{Config, Mode},
     domain::{CurrentDiagnoseRequest, DiagnoseRequest, Principal, RunResult, SavedInsight},
     error::AppError,
-    ports::{ModelPort, PlatformReadPort},
+    ports::{ModelPort, PlatformReadPort, RuntimeStateStore},
     skills::LoadedSkill,
     workflows,
 };
@@ -29,6 +29,8 @@ pub struct AppState {
     pub platform: Arc<dyn PlatformReadPort>,
     pub concurrency: Semaphore,
     pub current_platform: Option<crate::adapters::platform_http::PlatformHttp>,
+    /// The Runtime's own durable internal state (5d). Absent means nothing is recorded —explicit.
+    pub runtime_state: Option<Arc<crate::adapters::journal::JournalRuntimeStateStore>>,
     active_current: Mutex<BTreeSet<(String, String)>>,
 }
 impl AppState {
@@ -90,6 +92,22 @@ impl AppState {
         } else {
             None
         };
+        // The Runtime's own durable state (5d): a journal directory means every internal step,
+        // checkpoint and evidence recheck survives a crash; without it nothing is recorded and the
+        // Runtime says so —it never pretends progress was persisted.
+        let runtime_state = match config.state_dir.as_ref() {
+            Some(dir) => {
+                std::fs::create_dir_all(dir).map_err(|_| {
+                    AppError::Configuration("Runtime state directory is not writable".into())
+                })?;
+                Some(Arc::new(
+                    crate::adapters::journal::JournalRuntimeStateStore::open(
+                        dir.join("runtime-state.jsonl"),
+                    )?,
+                ))
+            }
+            None => None,
+        };
         Ok(Arc::new(Self {
             config,
             skill,
@@ -97,6 +115,7 @@ impl AppState {
             platform: Arc::new(FixturePlatform),
             concurrency,
             current_platform,
+            runtime_state,
             active_current: Mutex::new(BTreeSet::new()),
         }))
     }
@@ -228,16 +247,85 @@ async fn execute_current(
     } else {
         s.config.model.as_deref().ok_or(AppError::Disabled)?
     };
-    let result = crate::current_workflows::diagnose(
+    // Runtime-owned internal state (5d): every step, checkpoint and evidence recheck of this
+    // dispatch is recorded durably when the Runtime was started with a state journal. The recorder
+    // is observability —its own failure never fails or re-runs the chain.
+    let session: Arc<dyn crate::ports::CurrentReadSessionPort> = read.clone();
+    let recorder = match s.runtime_state.clone() {
+        Some(store) => Some(Arc::new(
+            crate::adapters::journal::RuntimeStateRecorder::start(
+                store,
+                session.clone(),
+                &r.run_id,
+            )
+            .await?,
+        )),
+        None => None,
+    };
+    let session: Arc<dyn crate::ports::CurrentReadSessionPort> = match recorder.as_ref() {
+        Some(recorder) => recorder.clone(),
+        None => session,
+    };
+    let outcome = crate::current_workflows::diagnose(
         r,
         s.skill.as_ref().ok_or(AppError::Disabled)?,
-        read,
+        session,
         s.model.clone(),
         model_name,
     )
-    .await?;
+    .await;
+    if let Some(recorder) = recorder.as_ref() {
+        recorder
+            .mark_status(if outcome.is_ok() {
+                crate::domain::AirunStatus::Succeeded
+            } else {
+                crate::domain::AirunStatus::Failed
+            })
+            .await;
+        finalize_state_report(&s, recorder, token, &r.run_id).await;
+    }
+    let result = outcome?;
     tracing::info!(run_id=%r.run_id, provider=%s.model.name(), status="saved", "current diagnosis finished");
     Ok(Json(result))
+}
+
+/// Deliver one closed attestation of the Runtime's internal state to the platform —at-least-once.
+/// The outbox entry is written first; the delivery attempt is then recorded as `Delivered` or
+/// `Unknown` (never as a silent success and never dropped). Exactly-once is not claimed: a retry may
+/// deliver the same report twice and the platform deduplicates on its request id.
+async fn finalize_state_report(
+    s: &Arc<AppState>,
+    recorder: &Arc<crate::adapters::journal::RuntimeStateRecorder>,
+    token: &str,
+    run_id: &str,
+) {
+    let store = match s.runtime_state.as_ref() {
+        Some(store) => store,
+        None => return,
+    };
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let report = match recorder.report(&request_id).await {
+        Ok(Some(report)) => report,
+        _ => return,
+    };
+    let entry = crate::runtime_state::OutboxEntry::enqueue(report.clone(), chrono::Utc::now());
+    if store.enqueue(&entry).await.is_err() {
+        return;
+    }
+    let platform = match s.current_platform.as_ref() {
+        Some(platform) => platform,
+        None => return,
+    };
+    let delivered = matches!(
+        platform.deliver_runtime_state(token, run_id, &report).await,
+        Ok(crate::runtime_state::DeliveryState::Delivered)
+    );
+    if !delivered {
+        tracing::warn!(run_id, "runtime state report delivery unconfirmed; the outbox keeps it as Unknown for an explicit retry");
+    }
+    if let Some(updated) = entry.record_attempt(delivered, chrono::Utc::now()) {
+        let _ = store.update_delivery(&request_id, &updated).await;
+    }
 }
 async fn diagnose(
     State(s): State<Arc<AppState>>,

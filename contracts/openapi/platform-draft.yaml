@@ -230,6 +230,100 @@ paths:
         '403': {description: Not authorized}
         '404': {description: Run not found or not visible}
         '503': {description: Store unavailable or the stream budget is exhausted}
+  /api/v1/ai/runs/{runId}/runtime-states:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    post:
+      summary: Deliver one Runtime state attestation idempotently; delivery records a receipt and moves nothing
+      operationId: reportAiRunRuntimeState
+      description: >
+        The runtime attestation channel (M5 5d, at-least-once). One closed report is one bounded
+        receipt projection of the Runtime's internal progress — attempt, internal status and three
+        counters; the StepRun/Checkpoint internals stay Runtime-owned and are never stored on the
+        platform. Recording a receipt never moves the run: no status, status version, attempt or
+        lease changes because a report arrived. The request id is the idempotency key and shares the
+        one namespace of submissions and control commands: a replay answers with the original
+        receipt (byte-identical), the same request id with different content or borrowed from
+        another command family is 409 AI_RUN_REQUEST_REUSED. Delivery is at-least-once: a retry may
+        deliver the same report twice and the request id absorbs the duplicate. Exactly-once is
+        never claimed. The channel requires the runtime attestation credential in addition to the
+        caller's own run.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/v2/ai-run-runtime-state.schema.json'
+      responses:
+        '200':
+          description: The idempotent delivery receipt
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-runtime-state-receipt.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized or the runtime attestation is missing}
+        '404': {description: Run not found or not visible}
+        '409': {description: Reused request id with different content}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}/runtime-reconciliation:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Read the cross-store reconciliation report; reading discloses divergence and never repairs
+      operationId: readAiRunRuntimeReconciliation
+      description: >
+        The explicit comparison of one run's registry state against the Runtime's internal state as
+        last delivered. Findings are a closed set and repair is the constant "none": a report
+        discloses divergence — the platform terminal while the Runtime still works, the reverse,
+        status or attempt disagreement, a stale or missing attestation — and never repairs, rewrites,
+        starts, stops or re-runs anything, and never claims the two stores are one. Recovery stays
+        the retry entry with its own re-authorization and fencing. Reading executes nothing and is
+        side-effect free; the periodic pass records the same report as a bounded snapshot.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: The disclose-only cross-store report
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-cross-store-report.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '503': {description: Store unavailable}
+  /api/v1/ai/runs/{runId}/observability:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: runId, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Read the bounded run observability aggregate; reading executes nothing
+      operationId: readAiRunObservability
+      description: >
+        The bounded read-only aggregate of one run: the event retention window with its truncation
+        counters (kept records, dropped records and the truncation flag say the same thing), the
+        model fee counters (prior calls and uncertain fees, never a refund or a hidden charge) and
+        the delivered Runtime state reports with their bounded window. It is a projection over
+        stored facts — reading it executes nothing, and nothing runs in the background because it
+        was read.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: The bounded observability aggregate
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/v2/ai-run-observability.schema.json'
+        '400': {description: Invalid request}
+        '401': {description: Unauthenticated}
+        '403': {description: Not authorized}
+        '404': {description: Run not found or not visible}
+        '503': {description: Store unavailable}
   /api/v1/integrations/workflows/collection-bindings:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}

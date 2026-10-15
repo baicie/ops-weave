@@ -685,6 +685,8 @@ Context 中区分分析截止时间与当前访问时间，保存来源、查询
 
 2026-10-14 本机增量（5c 第三段，[ADR-104](adr/104-durable-ai-run-registry.md)）：已验证 RunEvent 事件流与控制台只读面——事件是记录不是命令（`{runId,seq,type,occurredAt,payloadVersion,payload}`，类型闭集 7 个、payload 闭合无隐藏推理/密钥/原始日志），在状态流转点同事务落库、被拒绝的 CAS 不落事件；游标回读 `GET /api/v1/ai/runs/{runId}/events?afterSeq=&limit=`（有序分页、hasMore/nextCursor、重放零副作用、授权同 Run 读取边界）；SSE 推送 `.../events/stream` 只是同一游标协议的推送通道（每帧一次回读结果、断线按 `afterSeq`/`Last-Event-ID` 续读、每连接时限/字节/帧数有界、慢客户端断开即按游标续读、轮询回读为等价降级）；游标过期回保留窗 + `gap=true` + 当前快照（保留窗口服务端常量，容量预算留 5d）；Web 控制台 `/#/ai/runs` 只读面（Run 列表/详情、状态/attempt/对账披露、事件时间线游标加载更多+缺口明示、SSE/轮询、取消/重试入口沿用未知结果原样重试）；PG V071 事件表。**分段进展：5a、5b、5c 完成；5d（Rust 内部状态、跨库投递/对账、事件保留容量预算）待做**；控制台不新增可写工具，取消/重试复用既有受控命令。本阶段仍未实现真实来源诊断、真实模型与人工审阅。
 
+2026-10-14 本机增量（5d 第四段，[ADR-104](adr/104-durable-ai-run-registry.md)）：已验证 Runtime 内部状态与跨库对账——Rust 侧 StepRun/Checkpoint/attempt/证据复核记录经纯领域+端口+文件 journal 持久（append-only、逐条 fsync、重放恢复、撕裂尾行计数披露；不引入 SQLx/第二数据库，`ai_runtime.run` 原型保持未加载），崩溃后同 run 新 attempt 恢复内部进度、不双跑；跨库**至少一次**投递闭合计数投影到 `POST /api/v1/ai/runs/{runId}/runtime-states`（V072 有界回执投影 50/run、requestId 幂等重放逐字节一致、异内容/跨族 409、投递永不移动运行、失败/未知显式 `Unknown`、**不声称 exactly-once**）；跨库对账 `ai-run-cross-store-report`（`repair` 恒 `"none"`、findings 闭集 8 个）只读披露 + 定期快照——平台已终态而 Runtime 仍运行等分歧显式披露，`ai_run`/事件/费用/派发零变化，恢复仍走 5b retry（租约/fencing 保持）；观测 `GET .../observability`（事件窗口截断计数/标记、费用计数、投递回执计数，有界只读、无隐藏后台任务）。**分段进展：5a、5b、5c、5d 全部落地，§10 目标「可查询、可取消、可恢复 + 运行状态持久化 + 跨库可靠投递/对账」主体闭环**；M5 退出仍待真实来源诊断、真实模型、人工审阅与 OIDC 后台执行、生产身份/TLS/多实例验收；对账/观测报告的控制台展示与双进程端到端投递联测留后续。
+
 ### 后端与 Runtime
 
 先稳定 AIRun / StepRun / Checkpoint / RunEvent 协议，再做实时控制台。运行配置固定 Skill 内容摘要、模型策略版本和工具契约版本。

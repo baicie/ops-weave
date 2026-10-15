@@ -1,5 +1,16 @@
 # 本次交付验证报告 · OpsWeave v4
 
+## 2026-10-15 · 剩余工作区提交复核
+
+按用户要求保存剩余工作区：包含 §184 的 Runtime 持久状态与跨库对账，以及在研的 Skill 发布登记代码和 V073 迁移/回退。代码提交不构成 M6 退出或真实环境验收；本次未改业务实现。
+
+- `./gradlew.bat :modules:ai-control:compileJava :apps:platform-api:compileJava :apps:platform-api:compileTestJava --offline --console=plain` 退出 0，`BUILD SUCCESSFUL`，14 项任务均为 UP-TO-DATE；这是编译检查，不是测试执行。
+- `python scripts/check_repo.py` 退出 0，664 个结构文件、6 个只读 Tool 定义。
+- 私有 `check_reference_boundary.py --policy <本机词表>` 退出 0，2481 个 commit candidate files；未输出命中正文或词表内容。
+- `git diff --check` 与暂存差异检查通过；候选路径未包含环境文件、密钥文件、缓存或构建输出。
+
+本轮未重新运行契约、Java 纯领域、Rust 默认/all-features、TypeScript/build、数据库或浏览器测试。本会话先前在同一业务源码工作树运行的契约 2296、Java 纯领域 108 组、Rust 54/62 和 Web typecheck/build 结果保留在 §185；不把这些既有结果计为本轮重跑，也不据此宣称在研 Skill 登记已完成专项验收。
+
 ## 185. 2026-10-15 · UI Rules & Skills 工程约束接入
 
 附件包中的规则、Skills、UI 规范、候选 Token、截图模板和开发检查脚本已按仓库边界纳入。保留原 `AGENTS.md` 并将适配后的 UI 约束合并其中；当前只有 `apps/web-console`，静态检查默认目标已适配到该目录。候选 `.ow-v2` Token 未接入旧全局样式，没有新增页面、契约、后端接口、数据库或启动单元。
@@ -24,6 +35,46 @@
 | 视觉截图 | `visual: NOT_RUN`。本项只接入规则与工具，没有执行页面视觉审查或生成截图。 |
 
 完整 Playwright 本次未运行；规则包没有实现页面或改变浏览器行为，视觉截图仍必须在具体页面改动时按矩阵单独验收。
+
+## 184. 2026-10-14 · M5-5d Runtime 内部状态与跨库对账
+
+按[ROADMAP M5](ROADMAP.md)§10 与[ADR-104](adr/104-durable-ai-run-registry.md)（5d 边界：Rust 侧 StepRun/Checkpoint 内部状态、跨库可靠投递/对账、事件保留窗口与容量观测）执行收尾段 **5d「Runtime 内部状态与跨库可靠投递/对账」**（§177–§183 的既有实现原样保留、未回滚，未做 git 提交）。先核实现状再定边界：5a–5c 已交付持久 AIRun（V069–071）、执行接线/取消/恢复/租约对账（Java 平台持有 `ai_control.ai_run` 登记）与 RunEvent 事件流/SSE/控制台，但 **Runtime 侧内部进度无任何持久化**（`RunState` 仍是内存枚举、`db/migrations/ai/V001__ai_run_prototype.sql` 是未加载原型）、两侧状态出现分歧时无人披露、事件保留窗口截断不可观测。本段补齐这三处，且**不删除不假装启用** `ai_runtime.run` 原型。
+
+**Rust Runtime 内部状态（StepRun/Checkpoint/attempt/证据复核，崩溃可恢复）**：`apps/agent-runtime` 新增纯领域 `runtime_state.rs`（`StepRun{CONTEXT_BUILD/MODEL_CALL/EVIDENCE_RECHECK/INSIGHT_SAVE × Running/Succeeded/Failed 闭集}`、`Checkpoint`（每运行 seq 严格单调、evidence ids/missing 保留不补猜）、`EvidenceRecheck`（复核判定 `Current/Expired/Missing/Unavailable` 按 `asOf`/`availableAt`/`expiresAt` 推导）、`RuntimeState` 组装拒绝跨 run/未来 attempt/非单调 seq——**结构违规是拒绝不是修补**）与端口 `RuntimeStateStore`/`PlatformRunViewPort`/`StateReportDelivery`（默认 Disabled，显式）；实现是**文件 journal**（`adapters/journal.rs`：append-only JSONL、每条 flush+fsync、open 时重放恢复；**撕裂尾行计数披露** `Recovery{recordsReplayed,tornTailLines}`、尾行之外的损坏行 fail-closed 不静默丢数据）与内存孪生，**不引入 SQLx/第二数据库/新依赖**（domain 不依赖 Rig/Axum/SQLx/rmcp 保持）。`RuntimeStateRecorder` 是链的记录缝（装饰 `CurrentReadSessionPort`：上下文读取/模型调用/证据复核/结论保存逐条落 StepRun 与 Checkpoint），`OPSWEAVE_RUNTIME_STATE_DIR` 配置后经 `AppState` 接线，派发次数即 Runtime 侧 attempt；录制失败只告警**不影响链也不伪造记录**（观测不是权威）。重启恢复演练：同 journal 重开后 steps/checkpoints/rechecks/状态逐条复原（`the_journal_recovers_every_recorded_step_after_a_restart`）、App 级重开复原（`the_runtime_state_journal_is_wired_and_recovered_across_app_restarts`）、崩溃后同 run 新 attempt 不产生第二个 run。
+
+**跨库可靠投递（至少一次、幂等回执、不声称 exactly-once）**：Runtime 把闭合计数投影 `ai-run-runtime-state`（`requestId/runId/attempt/status/stepCount/checkpointSeq/evidenceRecheckCount/reportedAt`，**不含步骤名/检查点内容/证据正文/身份字段**）经 outbox 投递到平台 `POST /api/v1/ai/runs/{runId}/runtime-states`（`X-OpsWeave-Runtime-Key` runtime attestation + 本人运行；Rust 客户端 `PlatformHttp::deliver_runtime_state` 按契约 Schema 校验回执）。平台侧只落**有界回执投影**（V072 `ai_control.ai_run_runtime_state`，每运行窗口 50 条、超出丢最旧并以 `run_seq` 计数披露），**投递永不移动运行**（status/statusVersion/attempt/租约零变化、0 事件、0 模型/工具调用，PG 实测逐字节断言）；`requestId` 与提交/控制命令共用一个幂等命名空间（重放回**逐字节一致**回执、异内容或跨族复用 409 `AI_RUN_REQUEST_REUSED`）。Rust 侧 outbox 对失败/未知结果记 `Unknown`（**不是「已投递」也不静默丢弃**）、重试有界（5 次）超出仍为 `Unknown` 可见，重试可能重复投递由 requestId 吸收——**at-least-once，明确不声称 exactly-once**（真实 HTTP 端到端 `runtime_state_delivery_is_at_least_once_and_never_claims_exactly_once`：成功→Delivered、平台 503→Unknown、平台拒绝→显式错误）。
+
+**跨库对账（披露不修补）**：`ai-run-cross-store-report` 契约对象（`repair` 恒为 `"none"`）比对平台登记与 Runtime 已投递状态，`findings` 闭集 8 个（`MISSING_ON_PLATFORM/MISSING_RUNTIME_STATE/STATUS_MISMATCH/PLATFORM_TERMINAL_RUNTIME_ACTIVE/RUNTIME_TERMINAL_PLATFORM_ACTIVE/ATTEMPT_MISMATCH/STALE_RUNTIME_REPORT/UNDELIVERED_STATE_REPORT`；终态活跃方向各占独立 finding 不藏进通用状态不一致）。两侧各有一份同源实现：Rust `runtime_state::reconcile`（纯函数，读两侧、零写入）与 Java `AiRunCrossStore.compare`（构造期重算 findings、声音性/唯一性/排序不符即拒）。读取接口 `GET /api/v1/ai/runs/{runId}/runtime-reconciliation` 只读零副作用；定期/触发式对账（既有 5s 恢复扫描内、有界 ≤4 运行/tick）把同一报告记录为**每运行一份快照**（`ai_control.ai_run_cross_store_report`，观测产物不是状态），一致运行只在旧快照仍带 findings 时改写。**不静默修补、不双跑**：PG 实测平台已终态而 Runtime 报 RUNNING 时披露 `PLATFORM_TERMINAL_RUNTIME_ACTIVE+STALE_RUNTIME_REPORT`，随后 `ai_control.ai_run` 行逐字节不变、事件零新增、`model_spend` 零新增、不派发；恢复仍走 5b retry 入口（重授权、租约/fencing、同 runId 新 attempt），一次诊断一次模型调用不变式不放开。
+
+**事件保留与容量观测**：`GET /api/v1/ai/runs/{runId}/observability` 有界只读聚合——`events`（`window/retained/dropped/truncated`：截断计数与截断标记互相印证，`AiRunEventStore.retention` 由保留窗最低 seq 推导）、`spend`（`priorModelCalls/uncertainPriorFees`，费用照实保留不退）、`runtime`（已投递回执 `deliveredReports/droppedReports` 与最新回执 attempt/时间，无回执为空）。读取永不执行、**无隐藏后台任务**（聚合按请求现算）；PG 实测小窗口（3）下截断如实披露（`truncated=true`、`dropped>0`、`retained≤3`）。
+
+**契约**：新增闭合 Schema 4 个（`ai-run-runtime-state`/`ai-run-runtime-state-receipt`/`ai-run-cross-store-report`/`ai-run-observability`，全部 `additionalProperties:false`，if-then 闭合「缺失侧必带对应 finding、终态活跃方向 finding 必与两侧状态相符、`truncated⇔dropped>0`、`uncertainPriorFees≤priorModelCalls`、latestAttempt/lastReportedAt 成对」）+ 示例 4 份；OpenAPI 3 条新路径（`reportAiRunRuntimeState`/`readAiRunRuntimeReconciliation`/`readAiRunObservability`，`clientRequestId` 关联参数、错误码闭集 POST `200/400/401/403/404/409/503`、GET `200/400/401/403/404/503`）；[诊断运行登记契约](../contracts/ai-runs.md)补 §10–§12（5d 三接口）并改写 §9 边界（StepRun/Checkpoint 内部状态仍不跨库）。
+
+| 5d 验收（ADR-104 §3） | 证据 | 判定 |
+|---|---|---|
+| 重启恢复演练 | Rust `the_journal_recovers_every_recorded_step_after_a_restart`（journal 重开复原 steps/checkpoints/rechecks/状态、同 run 新 attempt）+ `the_runtime_state_journal_is_wired_and_recovered_across_app_restarts`（AppState 级重开复原）+ `a_torn_journal_tail_is_disclosed_and_a_corrupt_record_fails_closed`（撕裂尾行计数披露、尾外损坏 fail-closed） | **已验证** |
+| 跨库对账 | Rust `reconciliation_discloses_every_divergence_and_repairs_nothing`（8 类 finding 逐项、两侧输入零改写、异 run 报告拒绝）+ Java `AiRunRuntimeStateSmoke` 63 checks（构造期声音性拒绝发明/重复/乱序 finding）+ PG `theCrossStoreReconciliationDisclosesDivergenceAndRepairsNothing`（真库分歧披露 + `ai_run` 行/事件/费用零变化 + 快照记录） | **已验证** |
+| 容量上限与截断披露 | PG `observabilityDisclosesTruncatedEventWindowsFeesAndDeliveries`（小窗口 3 实测 `truncated=true`/`dropped>0`/`retained≤3`、回执窗口 50 丢旧计数、费用计数）+ 内存同语义 + 契约 `truncated⇔dropped` if-then 负例 | **已验证** |
+| 可靠投递（至少一次） | `runtime_state_delivery_is_at_least_once_and_never_claims_exactly_once`（真实 HTTP：Delivered/Unknown/显式拒绝三向）+ `outbox_delivery_is_at_least_once_and_keeps_unknown_outcomes_visible`（Unknown 不冒充成功、5 次预算后仍 Unknown）+ PG 幂等重放/异内容 409/跨族 409 + 投递后运行行逐字节不变 | **已验证** |
+| 不双跑/租约 fencing 沿用 5b | 5d 不新增执行入口：恢复仍走 `POST .../retries`（§182 逐项实测原样）；对账只读+快照，PG 断言 0 派发、`ai_run` attempt/fence 不变 | **已验证** |
+| 重放零副作用 | 投递重放只回同一回执、对账/观测读取 0 写入（PG 前后行逐字节断言）、事件读回零副作用保持（§183 原样） | **已验证** |
+
+| 实际检查 | 结果 |
+|---|---|
+| Java 编译 | `.\gradlew.bat :modules:ai-control:compileJava :apps:platform-api:compileJava :apps:platform-api:compileTestJava --console=plain` BUILD SUCCESSFUL |
+| Java/PG 定向 IT（真实 PG `127.0.0.1:15439/opsweave_relation_test`） | 28 类 **118 项 = 117 通过 / 0 失败 / 0 错误 / 1 跳过**：新增 `PostgresAiRunRuntimeStateIT` 3（V072 实跑：投递幂等/有界窗口/跨族 409/运行行零变化、跨库对账披露与零修补、观测截断/费用/回执计数）+ §183 定向集 27 类 115 项原样，1 跳过仍为 VM 时序库门控 |
+| 契约 | `.tmp\mvp-check-venv\Scripts\python.exe -X utf8 -m pytest tests/contracts -o addopts= -q` 退出 0，**2296 passed**（较 §183 的 2288 净增 8：4 新 Schema 示例校验 + 投递/回执闭集与身份字段拒绝、对账报告 repair 恒 none 与 finding 闭集/if-then 负例、观测聚合计数互相印证负例、OpenAPI 3 新路径与错误码闭集） |
+| Java 纯领域 | `python -X utf8 scripts/check_java_domain.py` 退出 0，**108 个 smoke 主类全部通过**（新增 `AiRunRuntimeStateSmoke` **63 checks**：attestation/回执/观测闭集负例、幂等投递与跨族冲突、有界回执窗丢旧计数、对账 8 类 finding 与构造期声音性拒绝、读取零副作用、截断计数互证） |
+| Web TypeScript | `pnpm --filter @opsweave/web-console typecheck` 退出 0 |
+| Web 构建 | `pnpm --filter @opsweave/web-console build` 退出 0（保留既有大 chunk warning） |
+| 浏览器全量（系统 Chrome，chromium，workers=2） | `pnpm --filter @opsweave/web-console exec playwright test --project=chromium --workers=2` **948 项 = 948 通过 / 0 失败 / 0 跳过**（8.5 分钟；本段无 UI 改动，回归保持绿） |
+| Rust | `cargo test --workspace --locked -j 4` **54 项**（7+10+9+28）退出 0；`cargo test --workspace --all-features --locked -j 4` **62 项**（15+10+9+28）退出 0（较 §183 的 44/52 各 **+10**：`platform_http` 9→10 新增真实 HTTP 投递三向语义，新增 `tests/runtime_state_tests.rs` **9 项**——journal 重启恢复/撕裂尾行与尾外损坏/内部状态闭合表与终止态不可迁移/outbox 至少一次与 Unknown 保留/attestation 只带计数与平台 wire 词汇/记录闭集负例/对账负例与零修补/记录缝捕获链进度/App 级 journal 接线重启恢复）；`cargo fmt --check` 退出 0（本段执行 `cargo fmt --all` 归一新增与改动文件后复验，churn 仅限本段触及文件） |
+| 仓库与资料边界 | `check_repo.py`（**664 structured files**、6 read-only tool definitions）退出 0、私有 `check_reference_boundary.py --policy C:\Users\20555\opsweave-reference-policy.json`（**2446 commit candidate files**）退出 0、`git diff --check` 退出 0 |
+| Skill/digest 不变 | `git status --porcelain extensions/skills` 无输出（未触碰已发布 Skill；运行 pin 不变） |
+
+**既有改动与缺陷披露**：(1) Rust `AirunStatus` 的 serde 词汇由 `snake_case` 改为 `SCREAMING_SNAKE_CASE`，与平台 wire 状态词汇同源（两侧一个状态一种拼写）；既有 Rust 测试未依赖旧拼写。(2) 投递回执 `recordedAt` 改为由**已存回执投影导出**（= 该回执的 `reportedAt`）：初版按调用时刻生成时间戳导致重放回执不逐字节一致（PG 实测暴露），改为确定性导出后幂等重放成立（回执本身也因此不携带新时间戳）。(3) `AiRunEventStore` 增 `retention` 端口（InMemory/Postgres 同语义），`InMemoryAiRunStore`/`PostgresAiRuns` 补实现；`AiRunController` 构造器增 `RuntimeOrigin`（投递通道走 runtime attestation）；`AiRunExecution.poll` 在既有 5s 恢复扫描内追加**有界**跨库对账（≤4 运行/tick，只读+快照）。(4) 工具面一次 PowerShell `Get-Content -Raw`/`Set-Content` 替换损坏了 5 个 Rust 文件中的非 ASCII 字符（em-dash），按字节逐处修复（UTF-8 全部有效）后全部 Rust 测试重跑通过；后续文本改动改用编辑工具。(5) 契约 Schema 的「每条 finding 与两侧视图相符」声音性在两侧领域构造期重算拒绝，JSON Schema 以 if-then 闭合可表达部分（缺失侧、终态活跃方向、计数互证），不可表达部分（`retained≤window`、`STATUS_MISMATCH` 的双侧差异条件）由领域闭集兜底并在契约测试注释中如实说明。
+
+**验收口径与边界**：5d 交付「Runtime 内部状态持久化与崩溃恢复、跨库至少一次投递与幂等回执、只披露不修补的跨库对账、事件保留截断与运行/费用观测聚合」。**明确不宣称**：不声称跨库 exactly-once（投递是 at-least-once、未知结果显式 `Unknown`、重复由 requestId 吸收）；不静默修补任何不一致（`repair` 恒 `"none"`，双跑禁止、恢复仍走 5b retry）；平台不保存 StepRun/Checkpoint 内部状态（只存计数回执投影，`ai_runtime.run` 原型仍未加载、另行 ADR）；Rust 状态录制是观测不是权威（录制失败不影响链）；派发闭合体未扩展（Runtime 的 attempt 是它观察到的派发次数，与平台 attempt 的差异以 `ATTEMPT_MISMATCH` 披露而非强制对齐）。**新增剩余项**：跨库对账/观测报告未接入 Web 控制台（本段无 UI 改动，API 与契约为准）；Runtime→平台 HTTP 投递在 Rust 侧由真实 HTTP 测试覆盖，端到端双进程联测（真实 platform-dev + Runtime journal）未跑；OIDC 模式后台委派执行仍未接线（仅 dev loopback）；journal 压缩/轮转未实施（append-only，容量以运行数×记录数为界）。既有边界保持：一次诊断一次模型调用、共享预算、Skill 固定 pin、费用不退、重放零副作用、不新增可写工具、事件不输出隐藏推理/密钥/原始日志、诊断链内部取消观察点属派发边界之外。所有 PG/HTTP 证据为真实本机 PostgreSQL 与本机 HTTP；Rust 测试中的平台视图/交付端为**显式标注的 fixture**（真实 HTTP 投递为回环假平台）。本段未改不可变版本语义、未新增权限词表、未改已发布 Skill、未改 M0–M4 退出状态；未做 git 提交。
 
 ## 183. 2026-10-14 · M5-5c 事件流与控制台
 

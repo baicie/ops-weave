@@ -76,6 +76,7 @@ fn app(mode: Mode) -> axum::Router {
             max_concurrency: 2,
             platform_url: None,
             runtime_key: None,
+            state_dir: None,
         })
         .unwrap(),
     )
@@ -242,7 +243,10 @@ fn airun_transition_carries_the_version_forward() {
     assert_eq!(running.status_version, 1);
     assert_eq!(running.run_id, run.run_id);
     assert!(running.transition_to(AirunStatus::Pending).is_none());
-    let done = running.clone().transition_to(AirunStatus::Succeeded).unwrap();
+    let done = running
+        .clone()
+        .transition_to(AirunStatus::Succeeded)
+        .unwrap();
     assert_eq!(done.status_version, 2);
     assert!(done.transition_to(AirunStatus::Running).is_none());
 }
@@ -261,7 +265,10 @@ async fn run_store_stays_disabled_until_the_runtime_owns_state() {
         status_version: 0,
     };
     assert!(matches!(store.submit(&run).await, Err(AppError::Disabled)));
-    assert!(matches!(store.get(&run.run_id).await, Err(AppError::Disabled)));
+    assert!(matches!(
+        store.get(&run.run_id).await,
+        Err(AppError::Disabled)
+    ));
     assert!(matches!(
         store.advance(&run.run_id, 0, AirunStatus::Running).await,
         Err(AppError::Disabled)

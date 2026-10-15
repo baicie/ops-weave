@@ -1,0 +1,407 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-cross-store-report.schema.json",
+  "title": "Cross-store reconciliation report (M5 5d)",
+  "description": "The explicit comparison of one run's platform registry state against the Runtime's own internal state. Findings are a closed set and repair is the constant \"none\": a report discloses divergence, it never repairs it, never re-runs anything and never claims the two stores are one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "comparedAt",
+    "repair",
+    "platform",
+    "runtime",
+    "findings"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "comparedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "repair": {
+      "const": "none"
+    },
+    "platform": {
+      "description": "The platform registry view. Null only when the registry does not know the run.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "statusVersion",
+            "attempt",
+            "updatedAt"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "PENDING",
+                "RUNNING",
+                "WAITING_TOOL",
+                "SUCCEEDED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            },
+            "statusVersion": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "updatedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "runtime": {
+      "description": "The Runtime's internal view as last delivered. Null when no state report arrived or was recorded.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attempt",
+            "stepCount",
+            "checkpointSeq",
+            "reportedAt"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "PENDING",
+                "RUNNING",
+                "WAITING_TOOL",
+                "SUCCEEDED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "stepCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "checkpointSeq": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "reportedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "MISSING_ON_PLATFORM",
+          "MISSING_RUNTIME_STATE",
+          "STATUS_MISMATCH",
+          "PLATFORM_TERMINAL_RUNTIME_ACTIVE",
+          "RUNTIME_TERMINAL_PLATFORM_ACTIVE",
+          "ATTEMPT_MISMATCH",
+          "STALE_RUNTIME_REPORT",
+          "UNDELIVERED_STATE_REPORT"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "platform": {
+            "type": "object"
+          },
+          "findings": {
+            "contains": {
+              "const": "MISSING_RUNTIME_STATE"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "platform"
+        ],
+        "properties": {
+          "platform": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "MISSING_ON_PLATFORM"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "findings"
+        ],
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "MISSING_RUNTIME_STATE"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "findings"
+        ],
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "MISSING_ON_PLATFORM"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "platform": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "platform",
+          "runtime"
+        ],
+        "properties": {
+          "platform": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "SUCCEEDED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              }
+            }
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "RUNNING",
+                  "WAITING_TOOL"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "PLATFORM_TERMINAL_RUNTIME_ACTIVE"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "findings"
+        ],
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "PLATFORM_TERMINAL_RUNTIME_ACTIVE"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "platform": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "SUCCEEDED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              }
+            }
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "RUNNING",
+                  "WAITING_TOOL"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "findings"
+        ],
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "RUNTIME_TERMINAL_PLATFORM_ACTIVE"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "platform": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "RUNNING",
+                  "WAITING_TOOL"
+                ]
+              }
+            }
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "SUCCEEDED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "platform",
+          "runtime"
+        ],
+        "properties": {
+          "platform": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "RUNNING",
+                  "WAITING_TOOL"
+                ]
+              }
+            }
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "SUCCEEDED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "findings": {
+            "contains": {
+              "const": "RUNTIME_TERMINAL_PLATFORM_ACTIVE"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

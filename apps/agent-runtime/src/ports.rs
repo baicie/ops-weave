@@ -108,3 +108,90 @@ pub trait RunStore: Send + Sync {
         Err(AppError::Disabled)
     }
 }
+
+/// The Runtime's own durable internal state (M5 5d): steps, checkpoints, evidence rechecks, the
+/// attempt counter of observed dispatches and the delivery outbox. Implementations must survive a
+/// process restart (the journal adapter replays its records on open) and must never hand back
+/// invented progress; Disabled is explicit.
+#[async_trait]
+pub trait RuntimeStateStore: Send + Sync {
+    async fn record_step(&self, _step: &crate::runtime_state::StepRun) -> Result<(), AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn save_checkpoint(
+        &self,
+        _checkpoint: &crate::runtime_state::Checkpoint,
+    ) -> Result<(), AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn record_recheck(
+        &self,
+        _recheck: &crate::runtime_state::EvidenceRecheck,
+    ) -> Result<(), AppError> {
+        Err(AppError::Disabled)
+    }
+    /// Open (or continue) one run's internal state with a new dispatch attempt. `attempt` is the
+    /// count of dispatches the Runtime itself observed for this run.
+    async fn open_run(
+        &self,
+        _run_id: &str,
+        _tenant_id: &str,
+        _at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<crate::runtime_state::RuntimeState, AppError> {
+        Err(AppError::Disabled)
+    }
+    /// Move the internal status. A terminal internal status never moves again (explicit conflict,
+    /// never a silent no-op) and the store keeps the closed transition table of `AirunStatus`.
+    async fn set_status(
+        &self,
+        _run_id: &str,
+        _status: AirunStatus,
+        _at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn state(
+        &self,
+        _run_id: &str,
+    ) -> Result<Option<crate::runtime_state::RuntimeState>, AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn enqueue(&self, _entry: &crate::runtime_state::OutboxEntry) -> Result<(), AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn outbox(&self) -> Result<Vec<crate::runtime_state::OutboxEntry>, AppError> {
+        Err(AppError::Disabled)
+    }
+    async fn update_delivery(
+        &self,
+        _request_id: &str,
+        _entry: &crate::runtime_state::OutboxEntry,
+    ) -> Result<(), AppError> {
+        Err(AppError::Disabled)
+    }
+}
+
+/// The platform run registry as the Runtime reads it, through the controlled platform API only.
+/// Disabled is explicit: no fixture may pretend the platform was consulted.
+#[async_trait]
+pub trait PlatformRunViewPort: Send + Sync {
+    async fn run_view(
+        &self,
+        _run_id: &str,
+    ) -> Result<Option<crate::runtime_state::PlatformRunView>, AppError> {
+        Err(AppError::Disabled)
+    }
+}
+
+/// One delivery of a runtime state report to the platform. At-least-once: the caller retries after
+/// an `Unknown` outcome and the platform deduplicates on the report's idempotency key. Exactly-once
+/// is never claimed.
+#[async_trait]
+pub trait StateReportDelivery: Send + Sync {
+    async fn deliver(
+        &self,
+        _report: &crate::runtime_state::RuntimeStateReport,
+    ) -> Result<crate::runtime_state::DeliveryState, AppError> {
+        Err(AppError::Disabled)
+    }
+}

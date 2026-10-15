@@ -396,6 +396,28 @@ final class PostgresAiRuns implements AiRunStore {
         }
     }
 
+    @Override
+    public com.acme.opsweave.aicontrol.api.AiRunEventStore.Retention retention(TenantId tenant, UUID runId) {
+        try (var c = source.getConnection();
+             var read = c.prepareStatement("SELECT count(*) AS kept, coalesce(min(seq),0) AS lowest"
+                 + " FROM ai_control.ai_run_event WHERE tenant_id=? AND run_id=?")) {
+            read.setString(1, tenant.value());
+            read.setObject(2, runId);
+            try (var rows = read.executeQuery()) {
+                rows.next();
+                int kept = rows.getInt("kept");
+                long lowest = rows.getLong("lowest");
+                if (kept == 0) {
+                    return new com.acme.opsweave.aicontrol.api.AiRunEventStore.Retention(retained, 0, 0, false);
+                }
+                long dropped = lowest - 1;
+                return new com.acme.opsweave.aicontrol.api.AiRunEventStore.Retention(retained, kept, dropped, dropped > 0);
+            }
+        } catch (SQLException | IllegalArgumentException failed) {
+            throw unavailable();
+        }
+    }
+
     /**
      * Insert the next event of one run and drop rows below the retained window. The caller holds the
      * run row lock, so the sequence assignment is serialized with every transition record.

@@ -1,6 +1,6 @@
 # ADR-104：M5 可恢复诊断运行——持久 AIRun 登记、协作式取消、事件协议与分段计划
 
-状态：已采纳（设计权威；5a、5b、5c 已实施）。2026-10-13，配合验证报告第 181 节（5a 第一段）、第 182 节（5b 执行接线、取消与恢复）与第 183 节（5c 事件流与控制台）。
+状态：已采纳（设计权威；5a、5b、5c、5d 已实施）。2026-10-13，配合验证报告第 181 节（5a 第一段）、第 182 节（5b 执行接线、取消与恢复）与第 183 节（5c 事件流与控制台）；2026-10-14 第 184 节（5d Runtime 内部状态与跨库对账）。
 
 ## 1. 背景与范围
 
@@ -21,7 +21,7 @@ M5 的目标（ROADMAP §10）是把同步诊断升级为**可查询、可取消
 ### 2.2 持久化与所有权（5a：Java 平台先行）
 
 - 5a 的 AIRun 登记持久在平台 PostgreSQL（`ai_control.ai_run` + 幂等回执 `ai_control.ai_run_command`，迁移 V069，注册于 `apps/platform-api/build.gradle.kts` processResources 与 `InventoryWiring`），与 AIInsight/模型预算同库同边界：身份、授权、幂等、预算检查都在 Java 受控 API 上，Rust 只经受控平台 API 访问、不直写平台表。
-- 这**不改变**目标所有权划分（ROADMAP §10「Java 拥有平台 AIInsight，Rust 拥有 Runtime 状态」）：平台侧保存的是**运行登记与回执投影**（提交身份、固定配置、状态与时间），不保存 Rust 的 StepRun/Checkpoint 内部状态。Rust 侧的 Runtime 内部状态、租约执行与跨库可靠投递/对账在 5b/5c 落地（`db/migrations/ai/V001__ai_run_prototype.sql` 的 `ai_runtime.run` 保持「未加载原型」，不删除也不假装已启用，是否启用另行 ADR）。
+- 这**不改变**目标所有权划分（ROADMAP §10「Java 拥有平台 AIInsight，Rust 拥有 Runtime 状态」）：平台侧保存的是**运行登记与回执投影**（提交身份、固定配置、状态与时间），不保存 Rust 的 StepRun/Checkpoint 内部状态。Rust 侧的 Runtime 内部状态、租约执行与跨库可靠投递/对账在 5b/5c/5d 落地（租约执行属 5b，Runtime 内部状态与跨库投递/对账属 5d，见 §3 实施注；`db/migrations/ai/V001__ai_run_prototype.sql` 的 `ai_runtime.run` 保持「未加载原型」，不删除也不假装已启用，是否启用另行 ADR）。
 - Rust 侧 5a 的最小接线是**领域镜像**：`AirunStatus` 状态机与 `RunStore` 端口（默认 Disabled，无 SQLx/Rig/Axum 依赖），确保两侧状态语义同源；不在 5a 引入 Rust 持久化。
 
 ### 2.3 取消语义（5b 已实施）
@@ -66,7 +66,9 @@ M5 的目标（ROADMAP §10）是把同步诊断升级为**可查询、可取消
 | **5a（本段，已实施）** | 持久 AIRun 登记 + 幂等提交 + 只读回读（按 ID 读、列表游标分页）+ 领域状态机 + PG 持久（V069）+ CAS 推进端口 + 契约 Schema/OpenAPI + Rust `RunStore` 端口镜像 | 契约正负例、纯领域 smoke、真实 PG IT（幂等重放/并发单赢家/游标分页/CAS 与终止态不可变/零模型调用）、Rust 状态机镜像测试全部通过；受控 API 不执行任何模型或工具 |
 | **5b（已实施）** | 执行接线（把现有同步诊断纳入 AIRun 生命周期）、协作式取消、恢复/重试与租约/fencing、未知完成对账、部分结果边界 | 重复提交、Worker 崩溃/重启、取消、权限撤回、未知结果对账用例通过；不双跑、重复费用显式披露（§182 逐项实测通过；Web 控制台面移交 5c） |
 | **5c（已实施）** | RunEvent 有序事件流 + 游标回读 + SSE 通道（轮询降级）+ Web 控制台只读面 | 乱序/重复事件、断线重连、游标过期回快照、重放无副作用、慢客户端有界用例通过；前端只渲染有限窗口 |
-| **5d（按需）** | Rust 侧 Runtime 内部状态（StepRun/Checkpoint）持久化与跨库可靠投递/对账、事件保留窗口与容量预算、运行/费用观测聚合 | 重启恢复演练、跨库对账、容量上限与截断披露 |
+| **5d（已实施）** | Rust 侧 Runtime 内部状态（StepRun/Checkpoint）持久化与跨库可靠投递/对账、事件保留窗口与容量预算、运行/费用观测聚合 | 重启恢复演练、跨库对账、容量上限与截断披露 |
+
+> 5d 实施注（验证报告 §184）：Runtime 内部状态（StepRun/Checkpoint/attempt/证据复核）由 **Rust 自有 journal** 持久（append-only JSONL + 逐条 fsync + open 重放恢复，撕裂尾行计数披露、尾外损坏 fail-closed；纯领域 + 端口 + 基础设施实现，**不引入 SQLx/第二数据库**，`db/migrations/ai/V001__ai_run_prototype.sql` 的 `ai_runtime.run` 保持未加载原型、是否启用另行 ADR）。跨库是**至少一次**投递：闭合计数投影（不含内部明细）经 outbox 送平台幂等回执（V072 有界回执投影，每运行 50 条丢旧计数），失败/未知显式 `Unknown`、重试可能重复由 requestId 吸收——**不声称 exactly-once**；投递永不移动运行。跨库对账两侧同源（Rust 纯函数 + Java 构造期声音性重算），`ai-run-cross-store-report` 的 `repair` 恒为 `"none"`：平台终态/Runtime 活跃等分歧**显式披露**为报告（只读接口 + 定期快照），不静默改写、不双跑，恢复仍走 §2.4 的 retry 入口（租约/fencing 不变）。事件保留窗口的容量预算与截断观测（计数/标记）与运行/费用/投递聚合经有界只读接口交付（无隐藏后台任务）。控制台未接入 5d 报告展示，双进程端到端投递联测与 journal 压缩/轮转留后续。
 
 M5 不属 M0–M4，不改变既有里程碑退出状态；M4 的真实来源/真实模型/人工评估退出项继续待验收。
 

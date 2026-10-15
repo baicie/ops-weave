@@ -1,0 +1,597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-observability.schema.json",
+  "title": "Run observability aggregate (M5 5d)",
+  "description": "The bounded read-only aggregate over one run: the event retention window with its truncation counters, the model fee counters and the delivered runtime state reports. A read computes this on demand; nothing runs in the background because it was read.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "status",
+    "statusVersion",
+    "attempt",
+    "events",
+    "spend",
+    "runtime"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "WAITING_TOOL",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "statusVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "events": {
+      "description": "Event retention window of this run: how many records are kept, how many were truncated and whether truncation happened.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window",
+        "retained",
+        "dropped",
+        "truncated"
+      ],
+      "properties": {
+        "window": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "retained": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "spend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "priorModelCalls",
+        "uncertainPriorFees"
+      ],
+      "properties": {
+        "priorModelCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "uncertainPriorFees": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        }
+      }
+    },
+    "runtime": {
+      "description": "The delivered Runtime state reports: retained count, truncated count and the newest attestation's attempt and time (null when none was retained).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deliveredReports",
+        "droppedReports",
+        "latestAttempt",
+        "lastReportedAt"
+      ],
+      "properties": {
+        "deliveredReports": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "droppedReports": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "latestAttempt": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastReportedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "object",
+            "required": [
+              "dropped"
+            ],
+            "properties": {
+              "dropped": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "events": {
+            "properties": {
+              "truncated": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "object",
+            "required": [
+              "truncated"
+            ],
+            "properties": {
+              "truncated": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "events": {
+            "properties": {
+              "dropped": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "object",
+            "required": [
+              "latestAttempt"
+            ],
+            "properties": {
+              "latestAttempt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "deliveredReports": {
+                "const": 0
+              },
+              "lastReportedAt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "object",
+            "required": [
+              "deliveredReports"
+            ],
+            "properties": {
+              "deliveredReports": {
+                "const": 0
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "latestAttempt": {
+                "type": "null"
+              },
+              "lastReportedAt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "object",
+            "required": [
+              "latestAttempt"
+            ],
+            "properties": {
+              "latestAttempt": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "lastReportedAt": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "object",
+            "required": [
+              "lastReportedAt"
+            ],
+            "properties": {
+              "lastReportedAt": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "latestAttempt": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 2
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 3
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 3
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 4
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 4
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 5
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 5
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 6
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 6
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 7
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 7
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "spend"
+        ],
+        "properties": {
+          "spend": {
+            "type": "object",
+            "required": [
+              "uncertainPriorFees"
+            ],
+            "properties": {
+              "uncertainPriorFees": {
+                "const": 8
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spend": {
+            "properties": {
+              "priorModelCalls": {
+                "minimum": 8
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -29,6 +29,7 @@ struct Fake {
     calls: AtomicUsize,
     saved: Mutex<Value>,
     spend: Mutex<Value>,
+    runtime_states: Mutex<Value>,
 }
 struct Server {
     base: String,
@@ -48,6 +49,7 @@ async fn server() -> Server {
         calls: AtomicUsize::new(0),
         saved: Mutex::new(Value::Null),
         spend: Mutex::new(Value::Null),
+        runtime_states: Mutex::new(Value::Null),
     });
     let router = Router::new()
         .route("/api/v1/ai/read-sessions", post(open))
@@ -55,6 +57,10 @@ async fn server() -> Server {
         .route("/api/v1/ai/insights", post(save))
         .route("/api/v1/ai/insights/{id}", get(lookup))
         .route("/api/v1/ai/model-calls/{operation}", post(spend))
+        .route(
+            "/api/v1/ai/runs/{runId}/runtime-states",
+            post(runtime_state),
+        )
         .with_state(fake.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
@@ -67,6 +73,37 @@ fn auth(headers: &HeaderMap) -> bool {
     headers.get("authorization").and_then(|v| v.to_str().ok()) == Some(&format!("Bearer {TOKEN}"))
 }
 const RUNTIME_KEY: &str = "runtime-attestation-local-testing-only-0123456789";
+async fn runtime_state(
+    State(fake): State<Arc<Fake>>,
+    Path(run_id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<Value>,
+) -> Response {
+    if !auth(&headers)
+        || headers
+            .get("x-opsweave-runtime-key")
+            .and_then(|v| v.to_str().ok())
+            != Some(RUNTIME_KEY)
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let mode = fake.mode.lock().unwrap().clone();
+    if mode == "runtime-state-failure" {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    if mode == "runtime-state-reject" {
+        return StatusCode::CONFLICT.into_response();
+    }
+    *fake.runtime_states.lock().unwrap() = input.clone();
+    Json(json!({
+        "requestId": input["requestId"],
+        "runId": run_id,
+        "attempt": input["attempt"],
+        "status": input["status"],
+        "recordedAt": json!(Utc::now())
+    }))
+    .into_response()
+}
 async fn spend(
     State(fake): State<Arc<Fake>>,
     Path(operation): Path<String>,
@@ -575,4 +612,51 @@ async fn current_workflow_never_accepts_failed_or_replaced_save_receipts() {
             "{mode}"
         );
     }
+}
+
+#[tokio::test]
+async fn runtime_state_delivery_is_at_least_once_and_never_claims_exactly_once() {
+    use opsweave_agent_runtime::{
+        domain::AirunStatus,
+        runtime_state::{DeliveryState, RuntimeStateReport},
+    };
+    let run_id = Uuid::new_v4().to_string();
+    let report = RuntimeStateReport::new(
+        &Uuid::new_v4().to_string(),
+        &run_id,
+        1,
+        AirunStatus::Running,
+        2,
+        1,
+        1,
+        Utc::now(),
+    )
+    .unwrap();
+    let server = server().await;
+    let platform = PlatformHttp::loopback_runtime(&server.base, RUNTIME_KEY).unwrap();
+    // The delivery rides the Runtime attestation channel and the platform answers with a receipt.
+    let delivered = platform
+        .deliver_runtime_state(TOKEN, &run_id, &report)
+        .await
+        .unwrap();
+    assert_eq!(delivered, DeliveryState::Delivered);
+    let received = server.fake.runtime_states.lock().unwrap().clone();
+    assert_eq!(received["requestId"], report.request_id.as_str());
+    assert_eq!(received["status"], "RUNNING");
+    assert_eq!(received["stepCount"], 2);
+    assert!(received.get("steps").is_none());
+    // A platform outage is Unknown: never a silent success and never a silent drop. The outbox
+    // retries the same request id, so the platform may record the report twice —at-least-once.
+    *server.fake.mode.lock().unwrap() = "runtime-state-failure".into();
+    let outcome = platform
+        .deliver_runtime_state(TOKEN, &run_id, &report)
+        .await
+        .unwrap();
+    assert_eq!(outcome, DeliveryState::Unknown);
+    // A platform rejection is an explicit error: retrying identical content cannot converge.
+    *server.fake.mode.lock().unwrap() = "runtime-state-reject".into();
+    assert!(platform
+        .deliver_runtime_state(TOKEN, &run_id, &report)
+        .await
+        .is_err());
 }

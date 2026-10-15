@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/ai-run-runtime-state-receipt.schema.json",
+  "title": "Runtime state delivery receipt (M5 5d)",
+  "description": "The idempotent receipt of one accepted state report. The platform records the attestation as a bounded receipt projection; it never stores the Runtime's internal steps or checkpoints and never advances the run because a report arrived.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "runId",
+    "attempt",
+    "status",
+    "recordedAt"
+  ],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "WAITING_TOOL",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "recordedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -25,6 +25,7 @@ struct Inner {
     results: jsonschema::Validator,
     insights: jsonschema::Validator,
     spend: jsonschema::Validator,
+    receipts: jsonschema::Validator,
     runtime_key: Option<HeaderValue>,
     concurrency: Semaphore,
 }
@@ -85,6 +86,9 @@ fn schema(name: &str) -> Result<Value, AppError> {
         "model-spend-record.schema.json" => source!("v1/model-spend-record.schema.json"),
         "model-spend-policy.schema.json" => source!("v1/model-spend-policy.schema.json"),
         "model-spend-usage.schema.json" => source!("v1/model-spend-usage.schema.json"),
+        "ai-run-runtime-state-receipt.schema.json" => {
+            source!("v2/ai-run-runtime-state-receipt.schema.json")
+        }
         _ => {
             return Err(AppError::Configuration(
                 "Unsupported built-in contract reference".into(),
@@ -173,6 +177,7 @@ impl PlatformHttp {
             results: validator("tool-result.schema.json")?,
             insights: validator("ai-insight-result.schema.json")?,
             spend: validator("model-spend-result.schema.json")?,
+            receipts: validator("ai-run-runtime-state-receipt.schema.json")?,
             runtime_key: None,
             concurrency: Semaphore::new(4),
         })))
@@ -191,6 +196,46 @@ impl PlatformHttp {
             .ok_or(AppError::Platform)?
             .runtime_key = Some(header);
         Ok(value)
+    }
+    /// Deliver one closed runtime state report to the platform registry's idempotent ingest
+    /// (M5 5d, at-least-once). The outcome is honest: {@code Delivered} only when the platform
+    /// answered with a matching receipt, {@code Unknown} on any transport or platform failure — the
+    /// report may already have been recorded, which is exactly why the request id is idempotent —
+    /// and an explicit error when the platform rejected the report itself. Exactly-once is never
+    /// claimed; the caller retries from its outbox and duplicates are absorbed by the request id.
+    pub async fn deliver_runtime_state(
+        &self,
+        bearer: &str,
+        run_id: &str,
+        report: &crate::runtime_state::RuntimeStateReport,
+    ) -> Result<crate::runtime_state::DeliveryState, AppError> {
+        if bearer.len() < 32 || bearer.len() > 4096 || !bearer.bytes().all(|c| c.is_ascii_graphic())
+        {
+            return Err(AppError::Configuration("Invalid bearer credential".into()));
+        }
+        let mut authorization = HeaderValue::from_str(&format!("Bearer {bearer}"))
+            .map_err(|_| AppError::Configuration("Invalid bearer credential".into()))?;
+        authorization.set_sensitive(true);
+        let body = serde_json::to_value(report).map_err(|_| AppError::InvalidOutput)?;
+        let path = format!("api/v1/ai/runs/{run_id}/runtime-states");
+        match self.post(&path, &authorization, None, body).await {
+            Ok(receipt) => {
+                if let Err(_debug) = self.0.receipts.validate(&receipt) {
+                    return Err(AppError::InvalidOutput);
+                }
+                if receipt["runId"] != run_id || receipt["requestId"] != report.request_id {
+                    return Err(AppError::Platform);
+                }
+                Ok(crate::runtime_state::DeliveryState::Delivered)
+            }
+            // A failure that may or may not have recorded the report: say Unknown, never Delivered.
+            Err(AppError::Platform)
+            | Err(AppError::Timeout)
+            | Err(AppError::Busy)
+            | Err(AppError::Provider) => Ok(crate::runtime_state::DeliveryState::Unknown),
+            // The platform answered and rejected the report: retrying the same content cannot help.
+            Err(rejected) => Err(rejected),
+        }
     }
     /// Forwards only this request's credential to the fixed Java origin; Java constructs the principal.
     pub async fn open(
@@ -301,7 +346,8 @@ impl PlatformHttp {
             "api/v1/ai/insights"
                 | "api/v1/ai/model-calls/reservations"
                 | "api/v1/ai/model-calls/reports"
-        ) {
+        ) || (path.starts_with("api/v1/ai/runs/") && path.ends_with("/runtime-states"))
+        {
             request = request.header(
                 "X-OpsWeave-Runtime-Key",
                 self.0

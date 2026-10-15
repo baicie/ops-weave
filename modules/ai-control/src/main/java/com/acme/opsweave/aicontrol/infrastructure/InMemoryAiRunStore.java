@@ -1,5 +1,6 @@
 package com.acme.opsweave.aicontrol.infrastructure;
 
+import com.acme.opsweave.aicontrol.api.AiRunEventStore;
 import com.acme.opsweave.aicontrol.api.AiRunStore;
 import com.acme.opsweave.aicontrol.domain.AiRun;
 import com.acme.opsweave.aicontrol.domain.AiRunControl;
@@ -86,6 +87,14 @@ public final class InMemoryAiRunStore implements AiRunStore {
         var log = events.get(key(tenant, runId));
         if (log == null || log.isEmpty()) return AiRunEvent.Bounds.none();
         return new AiRunEvent.Bounds(log.get(0).seq(), log.get(log.size() - 1).seq());
+    }
+
+    @Override
+    public synchronized AiRunEventStore.Retention retention(TenantId tenant, UUID runId) {
+        var log = events.get(key(tenant, runId));
+        if (log == null || log.isEmpty()) return new AiRunEventStore.Retention(retained, 0, 0, false);
+        long dropped = log.get(0).seq() - 1;
+        return new AiRunEventStore.Retention(retained, log.size(), dropped, dropped > 0);
     }
 
     @Override
