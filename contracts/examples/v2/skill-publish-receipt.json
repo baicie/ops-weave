@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "10500000-0000-4000-8000-000000000004",
+  "draftId": "10500000-0000-4000-8000-000000000001",
+  "skillId": "custom.incident-diagnosis",
+  "version": "1.0.0",
+  "contentDigest": "sha256:811ad7ccbf994e284835e5cabd96636a135b2b81e4fe611e0b7e3f61a54e3731",
+  "review": {
+    "approvedAt": "2026-10-15T03:05:00Z"
+  },
+  "publishedAt": "2026-10-15T03:05:00Z"
+}

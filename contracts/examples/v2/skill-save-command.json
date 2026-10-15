@@ -1,0 +1,30 @@
+{
+  "requestId": "10500000-0000-4000-8000-000000000002",
+  "skillId": "custom.incident-diagnosis",
+  "version": "1.0.0",
+  "editVersion": 1,
+  "content": {
+    "executionTemplate": "readonly-current-incident-diagnosis-v1",
+    "prompt": "Use the permitted current incident evidence. Preserve missing data and label every conclusion as a hypothesis.",
+    "outputSchema": "{\"type\":\"object\",\"properties\":{\"summary\":{\"type\":\"string\"}},\"required\":[\"summary\"],\"additionalProperties\":false}",
+    "allowedTools": [
+      "incident.get@2.0.0",
+      "metric.summary@2.0.0",
+      "evidence.get@2.0.0"
+    ],
+    "knowledgeScope": "current",
+    "modelPolicyRef": "reasoning-structured-readonly",
+    "sideEffects": "forbidden",
+    "maxToolCalls": 4,
+    "maxEvidence": 2,
+    "maxContextBytes": 65536,
+    "deadlineMs": 55000,
+    "tests": [
+      {
+        "id": "missing-data",
+        "question": "Synthetic Fixture: observations are incomplete.",
+        "expectedOutput": "{\"summary\":\"Hypothesis remains unconfirmed because observations are missing.\"}"
+      }
+    ]
+  }
+}

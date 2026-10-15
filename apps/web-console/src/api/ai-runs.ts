@@ -1,5 +1,6 @@
 import { platformCredentials } from './credential-session.ts'
 import { platformClient } from './http.ts'
+import { validateDiagnosis } from './insights.ts'
 
 // Handwritten boundary for the canonical ai-run, ai-run-page, ai-run-event and ai-run-event-page schemas.
 // Events are records: reading or replaying them never executes anything, and the payloads are closed —
@@ -41,6 +42,10 @@ export type AiRun = {
 }
 
 export type AiRunPage = { schemaVersion: '2.0'; items: AiRun[]; nextCursor: string | null; hasMore: boolean }
+export type AiRunSubmit = {
+  requestId: string; incidentId: string; question: string; timeRange: { from: string; to: string }
+  knowledgeMode: 'current'; skill: { id: string; version: string; digest: string }
+}
 
 export type RunEventType = 'SUBMITTED' | 'CLAIMED' | 'STATUS_CHANGED' | 'TOOL_WAIT' | 'CANCEL_REQUESTED' | 'RECONCILED' | 'FINISHED'
 export const RUN_EVENT_TYPES: RunEventType[] = ['SUBMITTED', 'CLAIMED', 'STATUS_CHANGED', 'TOOL_WAIT', 'CANCEL_REQUESTED', 'RECONCILED', 'FINISHED']
@@ -120,7 +125,8 @@ export function parseAiRun(v: unknown): AiRun {
     && typeof r.skill.digest === 'string' && /^sha256:[0-9a-f]{64}$/.test(r.skill.digest))
   const status = parseStatus(r.status)
   if (keys.includes('cancelRequestedAt')) check(time(r.cancelRequestedAt))
-  if (keys.includes('reason')) check(status === 'FAILED' || status === 'CANCELLED'); else check(status !== 'FAILED' && status !== 'CANCELLED')
+  if (keys.includes('reason')) { check(status === 'FAILED' || status === 'CANCELLED'); parseReason(r.reason) }
+  else check(status !== 'FAILED' && status !== 'CANCELLED')
   if (keys.includes('disclosure')) parseReconciliation(r.disclosure)
   return v as AiRun
 }
@@ -213,7 +219,28 @@ export async function listAiRuns(signal: AbortSignal, after?: string): Promise<A
 
 export async function readAiRun(runId: string, signal: AbortSignal): Promise<AiRun> {
   check(isUuid(runId))
-  return parseAiRun(await request(`/api/v1/ai/runs/${runId}`, signal))
+  const run = parseAiRun(await request(`/api/v1/ai/runs/${runId}`, signal))
+  check(run.runId === runId)
+  return run
+}
+
+const instant = (value: string) => value.replace(/\.0+Z$/, 'Z')
+export function requireRunCommand(run: AiRun, body: AiRunSubmit) {
+  check(run.requestId === body.requestId && run.incidentId === body.incidentId && run.question === body.question
+    && instant(run.timeRange.from) === instant(body.timeRange.from) && instant(run.timeRange.to) === instant(body.timeRange.to)
+    && run.knowledgeMode === body.knowledgeMode && run.skill.id === body.skill.id
+    && run.skill.version === body.skill.version && run.skill.digest === body.skill.digest)
+}
+
+/** One explicit idempotent submission, with no transport retry or substitute request id. */
+export async function submitAiRun(body: AiRunSubmit, signal: AbortSignal): Promise<AiRun> {
+  validateDiagnosis({ ...body, runId: body.requestId })
+  exact(body, ['requestId', 'incidentId', 'question', 'timeRange', 'knowledgeMode', 'skill'])
+  exact(body.skill, ['id', 'version', 'digest'])
+  check(body.skill.id === 'incident.diagnose' && body.skill.version === '2.0.0' && /^sha256:[0-9a-f]{64}$/.test(body.skill.digest))
+  const run = parseAiRun(await request('/api/v1/ai/runs', signal, body))
+  requireRunCommand(run, body)
+  return run
 }
 
 export async function readAiRunEvents(runId: string, afterSeq: number, signal: AbortSignal, limit = 20): Promise<RunEventPage> {

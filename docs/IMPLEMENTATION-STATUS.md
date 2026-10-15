@@ -1,5 +1,7 @@
 # 实现状态 · v4
 
+2026-10-15 执行补记：已按[执行计划](development/0.1.0-execution-plan.md)建立验收矩阵和三张核心页面蓝图，接入持久 AIRun 故障调查工作台，补齐 Skill 发布登记契约、错误映射、对象读取权限、分页与跨请求串行化。当前是分阶段开发交付，完整目标仍在执行；本轮实际检查及未验收项见[执行进展](development/2026-10-15-execution-progress.md)，不视为 M5/M6 或真实环境退出。
+
 2026-10-15 提交补记：按用户要求一并保存剩余工作区，包含 §184 的 Runtime 持久状态/跨库对账实现，以及在研的 Skill 发布登记领域、应用服务、HTTP 入口、内存/PostgreSQL 存储和 V073 迁移/回退。后者按开发进度归档，不视为 M6 已验收；完整契约登记、专项测试和真实数据库/HTTP 验收仍需单独核对。提交复核实际通过 Java 主代码/测试代码编译、仓库结构、私有资料边界和差异检查，见验证报告中的提交复核记录。
 
 2026-10-15 §185节：将 UI Rules & Skills 作为 OpsWeave 0.1.0 的正式工程约束纳入仓库。`.agents/rules/` 使用普通 Markdown，为所有 Agent 提供产品边界、视觉 Token、交互状态、可观测语义和视觉 QA 五条通用规则；根 `AGENTS.md` 明确要求按索引范围读取并遵守，不依赖编辑器自动加载。`.agents/skills/` 提供 `opsweave-ui-design`、`opsweave-page-build`、`opsweave-visual-audit`、`opsweave-observability-viz` 四个按需流程；`docs/ui/`、`templates/` 和 `scripts/check_ui_static_rules.mjs` 提供规范、候选 Token、截图模板与无依赖静态启发式检查。现有 `apps/web-console` 是当前检查目标，`.ow-v2` Token 保持候选且不覆盖旧全局样式。此项没有实现新页面、后端能力、契约、数据库或启动单元；本次没有运行真实浏览器截图，视觉门禁保持 `visual: NOT_RUN`。实际检查见 `VALIDATION-REPORT.md` §185。

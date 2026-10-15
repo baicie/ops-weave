@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-release-pointer.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "skillId",
+    "currentVersion",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "skillId": {
+      "$ref": "skill-common.schema.json#/$defs/skillId"
+    },
+    "currentVersion": {
+      "$ref": "skill-common.schema.json#/$defs/version"
+    },
+    "updatedAt": {
+      "$ref": "skill-common.schema.json#/$defs/instant"
+    }
+  }
+}

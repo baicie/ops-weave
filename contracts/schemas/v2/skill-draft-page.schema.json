@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-draft-page.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "items",
+    "nextCursor",
+    "hasMore"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "skill-draft.schema.json"
+      }
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "skill-common.schema.json#/$defs/uuid"
+        }
+      ]
+    },
+    "hasMore": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "hasMore": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nextCursor": {
+            "type": "string"
+          },
+          "items": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "nextCursor": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

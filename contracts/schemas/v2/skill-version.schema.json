@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-version.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "skillId",
+    "version",
+    "contentDigest",
+    "content",
+    "review",
+    "publishedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "skillId": {
+      "$ref": "skill-common.schema.json#/$defs/skillId"
+    },
+    "version": {
+      "$ref": "skill-common.schema.json#/$defs/version"
+    },
+    "contentDigest": {
+      "$ref": "skill-common.schema.json#/$defs/digest"
+    },
+    "content": {
+      "$ref": "skill-content.schema.json"
+    },
+    "review": {
+      "$ref": "skill-common.schema.json#/$defs/review"
+    },
+    "publishedAt": {
+      "$ref": "skill-common.schema.json#/$defs/instant"
+    }
+  }
+}

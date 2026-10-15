@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-rollback-command.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "toVersion",
+    "reason"
+  ],
+  "properties": {
+    "requestId": {
+      "$ref": "skill-common.schema.json#/$defs/uuid"
+    },
+    "toVersion": {
+      "$ref": "skill-common.schema.json#/$defs/version"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    }
+  }
+}

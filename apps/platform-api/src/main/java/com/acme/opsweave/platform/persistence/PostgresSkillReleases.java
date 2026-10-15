@@ -43,6 +43,7 @@ final class PostgresSkillReleases implements SkillReleaseStore {
                 out[0] = SkillDraftSaveReceipts.decode(prior);
                 return;
             }
+            lockSkill(c, tenant, command.skillId());
             SkillDraft.SaveReceipt receipt;
             var existing = findDraft(c, tenant, command.skillId(), command.version());
             if (existing.isEmpty()) {
@@ -77,8 +78,7 @@ final class PostgresSkillReleases implements SkillReleaseStore {
                 out[0] = SkillDraftSaveReceipts.decodeReview(prior);
                 return;
             }
-            var existing = findDraft(c, tenant, command.draftId())
-                .orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+            var existing = lockedDraft(c, tenant, command.draftId());
             var next = existing.submitted(at);
             updateDraft(c, next);
             var receipt = new SkillDraft.ReviewReceipt(command.requestId(), next.draftId(), next.skillId(),
@@ -97,11 +97,21 @@ final class PostgresSkillReleases implements SkillReleaseStore {
         Transactions.run(source, c -> {
             var prior = replay(c, tenant, command.requestId(), "PUBLISH", command.commandDigest());
             if (prior != null) {
-                out[0] = SkillDraftSaveReceipts.decodePublish(prior);
+                var body = com.acme.opsweave.platform.catalog.CatalogJson.JSON.readTree(prior);
+                var published = findVersion(c, tenant, SkillDraftSaveReceipts.text(body, "skillId"),
+                    SkillDraftSaveReceipts.text(body, "version"))
+                    .orElseThrow(() -> new IllegalStateException("Published Skill receipt has no version"));
+                // Public receipts omit identity. Recover the original reviewer from the immutable
+                // private version record, rather than inventing an actor when replaying a command.
+                var receipt = SkillDraftSaveReceipts.decodePublish(prior, published.review());
+                if (!receipt.contentDigest().equals(published.contentDigest())
+                    || !receipt.publishedAt().equals(published.publishedAt())) {
+                    throw new IllegalStateException("Published Skill receipt does not match its version");
+                }
+                out[0] = receipt;
                 return;
             }
-            var existing = findDraft(c, tenant, command.draftId())
-                .orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+            var existing = lockedDraft(c, tenant, command.draftId());
             if (!check.result().passed() || !check.contentDigest().equals(existing.contentDigest())) {
                 throw new SkillRelease.Conflict("SKILL_CHECK_FAILED");
             }
@@ -133,6 +143,7 @@ final class PostgresSkillReleases implements SkillReleaseStore {
                 out[0] = SkillDraftSaveReceipts.decodeRollback(prior);
                 return;
             }
+            lockSkill(c, tenant, command.skillId());
             var pointer = pointer(c, tenant, command.skillId())
                 .orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
             if (command.toVersion().equals(pointer.currentVersion())) {
@@ -164,13 +175,31 @@ final class PostgresSkillReleases implements SkillReleaseStore {
     public List<SkillDraft> pageDrafts(TenantId tenant, String after, int limit) {
         if (limit < 1) throw new IllegalArgumentException("page limit out of bounds");
         try (var c = source.getConnection()) {
+            Timestamp cursorAt = null;
+            if (after != null) {
+                try (var anchor = c.prepareStatement("SELECT created_at FROM ai_control.skill_draft"
+                    + " WHERE tenant_id=? AND draft_id::text=?")) {
+                    anchor.setString(1, tenant.value());
+                    anchor.setString(2, after);
+                    try (var rows = anchor.executeQuery()) {
+                        if (!rows.next()) throw new ToolFailure(ToolFailure.Code.NOT_FOUND);
+                        cursorAt = rows.getTimestamp("created_at");
+                    }
+                }
+            }
             String sql = "SELECT body,author_subject FROM ai_control.skill_draft WHERE tenant_id=?";
-            if (after != null) sql += " AND draft_id::text<?";
+            if (after != null) sql += " AND (created_at<? OR (created_at=? AND draft_id::text<?))";
             sql += " ORDER BY created_at DESC, draft_id::text DESC LIMIT ?";
             try (var read = c.prepareStatement(sql)) {
                 read.setString(1, tenant.value());
-                if (after != null) read.setString(2, after);
-                read.setInt(after != null ? 3 : 2, limit);
+                if (after != null) {
+                    read.setTimestamp(2, cursorAt);
+                    read.setTimestamp(3, cursorAt);
+                    read.setString(4, after);
+                    read.setInt(5, limit);
+                } else {
+                    read.setInt(2, limit);
+                }
                 try (var rows = read.executeQuery()) {
                     var page = new ArrayList<SkillDraft>();
                     while (rows.next()) {
@@ -198,14 +227,33 @@ final class PostgresSkillReleases implements SkillReleaseStore {
     public List<SkillRelease.Version> pageVersions(TenantId tenant, String skillId, String after, int limit) {
         if (limit < 1) throw new IllegalArgumentException("page limit out of bounds");
         try (var c = source.getConnection()) {
+            Timestamp cursorAt = null;
+            if (after != null) {
+                try (var anchor = c.prepareStatement("SELECT published_at FROM ai_control.skill_version"
+                    + " WHERE tenant_id=? AND skill_id=? AND version=?")) {
+                    anchor.setString(1, tenant.value());
+                    anchor.setString(2, skillId);
+                    anchor.setString(3, after);
+                    try (var rows = anchor.executeQuery()) {
+                        if (!rows.next()) throw new ToolFailure(ToolFailure.Code.NOT_FOUND);
+                        cursorAt = rows.getTimestamp("published_at");
+                    }
+                }
+            }
             String sql = "SELECT body,reviewer_subject FROM ai_control.skill_version WHERE tenant_id=? AND skill_id=?";
-            if (after != null) sql += " AND version<?";
+            if (after != null) sql += " AND (published_at<? OR (published_at=? AND version<?))";
             sql += " ORDER BY published_at DESC, version DESC LIMIT ?";
             try (var read = c.prepareStatement(sql)) {
                 read.setString(1, tenant.value());
                 read.setString(2, skillId);
-                if (after != null) read.setString(3, after);
-                read.setInt(after != null ? 4 : 3, limit);
+                if (after != null) {
+                    read.setTimestamp(3, cursorAt);
+                    read.setTimestamp(4, cursorAt);
+                    read.setString(5, after);
+                    read.setInt(6, limit);
+                } else {
+                    read.setInt(3, limit);
+                }
                 try (var rows = read.executeQuery()) {
                     var page = new ArrayList<SkillRelease.Version>();
                     while (rows.next()) {
@@ -230,6 +278,27 @@ final class PostgresSkillReleases implements SkillReleaseStore {
     }
 
     // ---- internals ----
+
+    /**
+     * Every command first locks its request id, then its tenant/Skill. This serializes CAS edits,
+     * review/publication and pointer movement across distinct request ids and versions. No draft
+     * row lock is acquired before the Skill lock, so commands share one lock order.
+     */
+    private static void lockSkill(Connection c, TenantId tenant, String skillId) throws SQLException {
+        try (var lock = c.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))")) {
+            lock.setString(1, "skill-state|" + tenant.value() + "|" + skillId);
+            lock.executeQuery();
+        }
+    }
+
+    private static SkillDraft lockedDraft(Connection c, TenantId tenant, UUID draftId) throws SQLException {
+        var before = findDraft(c, tenant, draftId)
+            .orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+        lockSkill(c, tenant, before.skillId());
+        // The lookup before the Skill lock only identifies the immutable coordinate. State and
+        // content must be read again after all competing commands on this Skill have finished.
+        return findDraft(c, tenant, draftId).orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+    }
 
     /** First writer wins: a stored command with the same request id must name the same content. */
     private static String replay(Connection c, TenantId tenant, UUID requestId, String kind, String digest)
@@ -270,7 +339,7 @@ final class PostgresSkillReleases implements SkillReleaseStore {
     private static void insertDraft(Connection c, SkillDraft draft) throws SQLException {
         try (var insert = c.prepareStatement("INSERT INTO ai_control.skill_draft"
             + " (tenant_id,draft_id,skill_id,version,state,edit_version,content_digest,body,author_subject,"
-            + "created_at_text,updated_at_text,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + "created_at_text,updated_at_text,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?)")) {
             int i = 1;
             insert.setString(i++, draft.tenantId().value());
             insert.setObject(i++, draft.draftId());
@@ -428,12 +497,15 @@ final class PostgresSkillReleases implements SkillReleaseStore {
                 SkillJson.wire(receipt));
         }
 
-        static SkillDraft.PublishReceipt decodePublish(String json) {
+        static SkillDraft.PublishReceipt decodePublish(String json, SkillRelease.Review originalReview) {
             var n = com.acme.opsweave.platform.catalog.CatalogJson.JSON.readTree(json);
             var review = n.get("review");
+            if (!originalReview.approvedAt().equals(Instant.parse(text(review, "approvedAt")))) {
+                throw new IllegalStateException("Published Skill receipt does not match its review");
+            }
             return new SkillDraft.PublishReceipt(uuid(n, "requestId"), uuid(n, "draftId"),
                 text(n, "skillId"), text(n, "version"), text(n, "contentDigest"),
-                new SkillRelease.Review(new SubjectId("reviewer"), Instant.parse(text(review, "approvedAt"))),
+                originalReview,
                 Instant.parse(text(n, "publishedAt")));
         }
 

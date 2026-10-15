@@ -11,6 +11,228 @@ info:
     All API responses use Cache-Control no-store and an X-OpsWeave-Request-Id UUID.
     The optional client request ID is correlation metadata only, not identity or idempotency.
 paths:
+  /api/v1/skills/drafts:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+    post:
+      operationId: saveSkillDraft
+      description: >
+        Save inline configuration with skill.manage and current object authority. editVersion 1 creates a coordinate; later saves compare the existing editVersion and return it incremented. An IN_REVIEW save explicitly withdraws review. Commands share tenant-scoped requestId receipts; another actor is not a new receipt namespace. No model or tool executes. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/skill-save-command.schema.json'}
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-save-receipt.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '409':
+          description: Reused request, stale state, immutable or reserved coordinate, or deterministic check failed; no pointer move
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-conflict.schema.json'}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+    get:
+      operationId: listSkillDrafts
+      description: >
+        Tenant-wide bounded drafts ordered by createdAt DESC then draftId DESC. Requires skill.read plus tenant-wide scope or the explicit wildcard skill scope; a narrow object scope cannot list all drafts. after names the last returned draft UUID. Continuation uses the full createdAt/draftId ordering tuple. Unknown or cross-tenant cursor is 404, never a restart. Not a snapshot or opaque authorization token. Reading neither submits nor executes.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {in: query, name: after, required: false, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-draft-page.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/{draftId}/check:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: draftId, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: checkSkillDraft
+      description: >
+        Compute the deterministic content gate and limited top-level expected-output shape checks after current skill.read object authorization. This is not a complete JSON Schema evaluator or a model-quality comparison. modelComparison is always not-run. Does not persist a report, call a model or touch a tool. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-check.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/drafts/{draftId}/reviews:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: draftId, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: submitSkillDraftReview
+      description: >
+        Submit the existing coordinate for review using skill.manage and current object scope. The body carries only requestId; identity and draft coordinate come from trusted principal and path. Does not itself require a passing deterministic check. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/skill-review-command.schema.json'}
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-review-receipt.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '409':
+          description: Reused request, stale state, immutable or reserved coordinate, or deterministic check failed; no pointer move
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-conflict.schema.json'}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/drafts/{draftId}/publications:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: draftId, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: publishSkillDraft
+      description: >
+        Publish is the approval act: current skill.manage object scope, IN_REVIEW state, passing deterministic check and publisher different from original author are required. Appends an immutable version and moves only this registry pointer. Packaged reserved coordinates cannot be shadowed. Runtime loading and AIRun admission still use existing packaged fixed pins. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/skill-publish-command.schema.json'}
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-publish-receipt.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '409':
+          description: Reused request, stale state, immutable or reserved coordinate, or deterministic check failed; no pointer move
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-conflict.schema.json'}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/{skillId}/rollbacks:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: skillId, required: true, schema: {type: string, maxLength: 64, pattern: '^[a-z][a-z0-9]*(\.[a-z][a-z0-9-]*){0,3}$'}}
+    post:
+      operationId: rollbackSkillRelease
+      description: >
+        Move this registry pointer to a different retained published version with current skill.manage object scope and an explicit reason. Existing implementation does not impose semver or publication-time ordering on the target. Published history and existing AIRun pins do not change. No model or tool executes. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/v2/skill-rollback-command.schema.json'}
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-rollback-receipt.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '409':
+          description: Reused request, stale state, immutable or reserved coordinate, or deterministic check failed; no pointer move
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-conflict.schema.json'}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/{skillId}/versions/{version}:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: skillId, required: true, schema: {type: string, maxLength: 64, pattern: '^[a-z][a-z0-9]*(\.[a-z][a-z0-9-]*){0,3}$'}}
+      - {in: path, name: version, required: true, schema: {type: string, pattern: '^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$'}}
+    get:
+      operationId: getSkillVersion
+      description: >
+        Read one tenant-scoped immutable registry version after current skill.read object authorization. contentDigest anchors authored inline text; it is not the packaged Runtime digest. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-version.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/{skillId}/versions:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: skillId, required: true, schema: {type: string, maxLength: 64, pattern: '^[a-z][a-z0-9]*(\.[a-z][a-z0-9-]*){0,3}$'}}
+    get:
+      operationId: listSkillVersions
+      description: >
+        Read retained immutable registry versions ordered by publishedAt DESC then version DESC after current skill.read object authorization. Limit bounds returned items; the internal extra row is not emitted. after is the last returned version, anchored by the full publishedAt/version ordering tuple. Unknown, cross-tenant or cross-skill cursor is 404. Cursor is not a snapshot or authorization token.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      parameters:
+        - {in: query, name: limit, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {in: query, name: after, required: false, schema: {type: string, pattern: '^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$'}}
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-version-page.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
+  /api/v1/skills/{skillId}/release:
+    parameters:
+      - {$ref: '#/components/parameters/clientRequestId'}
+      - {in: path, name: skillId, required: true, schema: {type: string, maxLength: 64, pattern: '^[a-z][a-z0-9]*(\.[a-z][a-z0-9-]*){0,3}$'}}
+    get:
+      operationId: getSkillReleasePointer
+      description: >
+        Read the tenant registry release pointer after current skill.read object authorization. This metadata endpoint does not activate a Skill or alter existing fixed AIRun pins. No query parameters.
+      security: [{bearerAuth: []}, {browserSession: []}]
+      responses:
+        '200':
+          description: Closed Skill registry response; Synthetic Fixture examples are not execution evidence
+          content:
+            application/json:
+              schema: {$ref: '../schemas/v2/skill-release-pointer.schema.json'}
+        '400': {description: Invalid closed JSON or path/query; duplicate fields and unknown query keys are refused}
+        '401': {description: Unauthenticated}
+        '403': {description: Current trusted permission or skill object scope denied}
+        '404': {description: Record or cursor absent in the current tenant and Skill scope}
+        '503': {description: Registry unavailable; no fallback or automatic retry}
   /api/v1/ai/runs:
     parameters:
       - {$ref: '#/components/parameters/clientRequestId'}

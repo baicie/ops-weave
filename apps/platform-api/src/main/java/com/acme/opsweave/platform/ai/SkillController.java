@@ -49,14 +49,14 @@ public final class SkillController {
      * Reading computes nothing stateful and writes nothing.
      */
     @GetMapping("/{draftId}/check")
-    public Object check(@PathVariable String draftId, HttpServletRequest request) {
+    public Object check(@PathVariable("draftId") String draftId, HttpServletRequest request) {
         if (request.getQueryString() != null) throw new IllegalArgumentException();
         return SkillJson.wire(service.check(principals.requirePrincipal(), uuid(draftId)));
     }
 
     /** Idempotent review submission: the content freezes and the draft becomes publishable. */
     @PostMapping(value = "/drafts/{draftId}/reviews", consumes = "application/json")
-    public Object submit(@PathVariable String draftId, HttpServletRequest request) throws IOException {
+    public Object submit(@PathVariable("draftId") String draftId, HttpServletRequest request) throws IOException {
         if (request.getQueryString() != null) throw new IllegalArgumentException();
         var command = SkillJson.reviewCommand(CatalogJson.read(request), uuid(draftId));
         return SkillJson.wire(service.submit(principals.requirePrincipal(), command));
@@ -68,7 +68,7 @@ public final class SkillController {
      * packaged Skill.
      */
     @PostMapping(value = "/drafts/{draftId}/publications", consumes = "application/json")
-    public Object publish(@PathVariable String draftId, HttpServletRequest request) throws IOException {
+    public Object publish(@PathVariable("draftId") String draftId, HttpServletRequest request) throws IOException {
         if (request.getQueryString() != null) throw new IllegalArgumentException();
         var command = SkillJson.publishCommand(CatalogJson.read(request), uuid(draftId));
         return SkillJson.wire(service.publish(principals.requirePrincipal(), command));
@@ -76,7 +76,7 @@ public final class SkillController {
 
     /** Idempotent rollback: the release pointer moves back, published history never changes. */
     @PostMapping(value = "/{skillId}/rollbacks", consumes = "application/json")
-    public Object rollback(@PathVariable String skillId, HttpServletRequest request) throws IOException {
+    public Object rollback(@PathVariable("skillId") String skillId, HttpServletRequest request) throws IOException {
         if (request.getQueryString() != null) throw new IllegalArgumentException();
         var command = SkillJson.rollbackCommand(CatalogJson.read(request), skillId);
         return SkillJson.wire(service.rollback(principals.requirePrincipal(), command));
@@ -96,23 +96,26 @@ public final class SkillController {
 
     /** Read one published version — the immutable pin an AIRun references. */
     @GetMapping("/{skillId}/versions/{version}")
-    public Object version(@PathVariable String skillId, @PathVariable String version, HttpServletRequest request) {
+    public Object version(@PathVariable("skillId") String skillId, @PathVariable("version") String version, HttpServletRequest request) {
         if (request.getQueryString() != null) throw new IllegalArgumentException();
         return SkillJson.wire(service.version(principals.requirePrincipal(), skillId, version));
     }
 
     /** Bounded version readback of one Skill; published history is append-only. */
     @GetMapping("/{skillId}/versions")
-    public Object versions(@PathVariable String skillId, HttpServletRequest request) {
+    public Object versions(@PathVariable("skillId") String skillId, HttpServletRequest request) {
         var bounds = bounds(request);
-        var items = service.versions(principals.requirePrincipal(), skillId, bounds.after(), bounds.limit());
-        return SkillJson.versionPage(items, nextVersionCursor(items, bounds.limit()),
-            items.size() > (bounds.limit() == null ? 20 : bounds.limit()));
+        int size = bounds.limit() == null ? 20 : bounds.limit();
+        var rows = service.versions(principals.requirePrincipal(), skillId, bounds.after(), bounds.limit());
+        boolean hasMore = rows.size() > size;
+        var items = hasMore ? rows.subList(0, size) : rows;
+        return SkillJson.versionPage(items,
+            hasMore ? items.get(items.size() - 1).version() : null, hasMore);
     }
 
     /** The release pointer of one Skill: what new runs pin right now. */
     @GetMapping("/{skillId}/release")
-    public Object release(@PathVariable String skillId, HttpServletRequest request) {
+    public Object release(@PathVariable("skillId") String skillId, HttpServletRequest request) {
         if (request.getQueryString() != null) throw new IllegalArgumentException();
         return SkillJson.wire(service.release(principals.requirePrincipal(), skillId));
     }
@@ -143,17 +146,6 @@ public final class SkillController {
             after = afters[0];
         }
         return new Bounds(after, limit);
-    }
-
-    private static String nextDraftCursor(java.util.List<com.acme.opsweave.aicontrol.domain.SkillDraft> items, Integer limit) {
-        int size = limit == null ? 20 : limit;
-        return items.size() > size ? items.get(items.size() - 1).draftId().toString() : null;
-    }
-
-    private static String nextVersionCursor(java.util.List<com.acme.opsweave.aicontrol.domain.SkillRelease.Version> items,
-            Integer limit) {
-        int size = limit == null ? 20 : limit;
-        return items.size() > size ? items.get(items.size() - 1).version() : null;
     }
 
     private static UUID uuid(String value) {

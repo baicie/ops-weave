@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-review-receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "draftId",
+    "skillId",
+    "version",
+    "state",
+    "submittedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "requestId": {
+      "$ref": "skill-common.schema.json#/$defs/uuid"
+    },
+    "draftId": {
+      "$ref": "skill-common.schema.json#/$defs/uuid"
+    },
+    "skillId": {
+      "$ref": "skill-common.schema.json#/$defs/skillId"
+    },
+    "version": {
+      "$ref": "skill-common.schema.json#/$defs/version"
+    },
+    "state": {
+      "const": "IN_REVIEW"
+    },
+    "submittedAt": {
+      "$ref": "skill-common.schema.json#/$defs/instant"
+    }
+  }
+}

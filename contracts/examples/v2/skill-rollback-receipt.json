@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "2.0",
+  "requestId": "10500000-0000-4000-8000-000000000005",
+  "skillId": "custom.incident-diagnosis",
+  "fromVersion": "1.1.0",
+  "toVersion": "1.0.0",
+  "reason": "Synthetic Fixture: restore the reviewed configuration.",
+  "rolledBackAt": "2026-10-15T03:10:00Z"
+}

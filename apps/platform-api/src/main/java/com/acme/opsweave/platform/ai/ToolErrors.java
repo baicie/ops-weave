@@ -8,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes = {ToolController.class, InsightController.class, DiagnosisController.class, ModelSpendController.class, AiRetentionController.class, AiRunController.class})
+@RestControllerAdvice(assignableTypes = {ToolController.class, InsightController.class, DiagnosisController.class, ModelSpendController.class, AiRetentionController.class, AiRunController.class, SkillController.class})
 public final class ToolErrors {
     /** Errors are written as JSON whatever the client asked for (an SSE reader still gets JSON errors). */
     private static ResponseEntity<Map<String, String>> error(int status, String code) {
@@ -27,6 +27,11 @@ public final class ToolErrors {
     /** Durable run registry conflicts: a reused request id or an illegal state transition. */
     @ExceptionHandler(com.acme.opsweave.aicontrol.domain.AiRun.Conflict.class)
     ResponseEntity<Map<String, String>> run(com.acme.opsweave.aicontrol.domain.AiRun.Conflict failed) {
+        return error(409, failed.code());
+    }
+    /** Registry commands preserve their closed conflict code without disclosing submitted content. */
+    @ExceptionHandler(com.acme.opsweave.aicontrol.domain.SkillRelease.Conflict.class)
+    ResponseEntity<Map<String, String>> skill(com.acme.opsweave.aicontrol.domain.SkillRelease.Conflict failed) {
         return error(409, failed.code());
     }
     @ExceptionHandler(IncidentFailure.class)

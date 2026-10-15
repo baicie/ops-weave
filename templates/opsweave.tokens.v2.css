@@ -8,6 +8,7 @@
   --ow-text: #111827;
   --ow-text-muted: #4b5d73;
   --ow-border: #d6dee8;
+  --ow-control-border: #7b8b9d;
   --ow-accent: #2456b3;
   --ow-accent-on: #ffffff;
   --ow-accent-soft: #eaf1ff;
@@ -43,6 +44,7 @@
   --ow-text: #eef2f6;
   --ow-text-muted: #abb8c7;
   --ow-border: #344455;
+  --ow-control-border: #61758b;
   --ow-accent: #8db6ff;
   --ow-accent-on: #101826;
   --ow-accent-soft: #18335b;

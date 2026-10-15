@@ -160,12 +160,14 @@ public final class InMemorySkillReleaseStore implements SkillReleaseStore {
         visible.sort(Comparator.comparing(SkillDraft::createdAt).thenComparing(d -> d.draftId().toString()).reversed());
         int start = 0;
         if (after != null) {
+            start = -1;
             for (int i = 0; i < visible.size(); i++) {
                 if (visible.get(i).draftId().toString().equals(after)) {
                     start = i + 1;
                     break;
                 }
             }
+            if (start < 0) throw new ToolFailure(ToolFailure.Code.NOT_FOUND);
         }
         var page = new ArrayList<SkillDraft>();
         for (int i = start; i < visible.size() && i < start + limit; i++) page.add(visible.get(i));
@@ -188,12 +190,14 @@ public final class InMemorySkillReleaseStore implements SkillReleaseStore {
             .thenComparing(SkillRelease.Version::version).reversed());
         int start = 0;
         if (after != null) {
+            start = -1;
             for (int i = 0; i < visible.size(); i++) {
                 if (visible.get(i).version().equals(after)) {
                     start = i + 1;
                     break;
                 }
             }
+            if (start < 0) throw new ToolFailure(ToolFailure.Code.NOT_FOUND);
         }
         var page = new ArrayList<SkillRelease.Version>();
         for (int i = start; i < visible.size() && i < start + limit; i++) page.add(visible.get(i));

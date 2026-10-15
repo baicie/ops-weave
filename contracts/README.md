@@ -1,5 +1,7 @@
 # Cross-language contracts
 
+Skill 草稿、有限确定性检查、审核提交、不可变发布、登记指针与显式回退见 [Skill 发布登记协议](skills.md)。登记不是 Runtime 加载；`modelComparison=not-run` 不代表已完成模型评估，公开命令不接受身份或权限覆盖。
+
 显式固定版本[质量阈值](workflow-quality-alerts.md)：本人配置、CAS、原UUID不可变回执与闭合评估使用独立契约，默认未启用。缺失、截断及顺序不明不能推断未触发；本地排队去重，当前任务与历史分开。元数据评估不执行来源、输出、通知或动作。
 
 实测本地 FIFO 入队至出队观察见[调度协议](workflow-dispatch-diagnostics.md)：可选闭合 dispatch 与数值 queueWaitMillis 配对，旧未测量仍为空；同次出队两个窗口共享 UUID，不能累加为两次排队。

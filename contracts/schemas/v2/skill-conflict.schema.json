@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-conflict.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error"
+  ],
+  "properties": {
+    "error": {
+      "enum": [
+        "SKILL_REQUEST_REUSED",
+        "SKILL_STATE_CONFLICT",
+        "SKILL_VERSION_IMMUTABLE",
+        "SKILL_COORDINATE_RESERVED",
+        "SKILL_CHECK_FAILED"
+      ]
+    }
+  }
+}

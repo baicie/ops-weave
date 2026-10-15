@@ -54,6 +54,7 @@ public final class SkillReleaseService {
         Objects.requireNonNull(draftId, "draftId");
         requireRead(p);
         var draft = store.findDraft(p.tenantId(), draftId).orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+        requireRead(p, draft.skillId());
         return SkillCheck.run(draft.skillId(), draft.version(), draft.content());
     }
 
@@ -98,13 +99,17 @@ public final class SkillReleaseService {
     public SkillDraft draft(Principal p, UUID draftId) {
         Objects.requireNonNull(p, "principal");
         requireRead(p);
-        return store.findDraft(p.tenantId(), draftId).orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+        var draft = store.findDraft(p.tenantId(), draftId).orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
+        requireRead(p, draft.skillId());
+        return draft;
     }
 
     /** Bounded draft readback, newest first; reading never advances anything. */
     public List<SkillDraft> drafts(Principal p, String after, Integer limit) {
         Objects.requireNonNull(p, "principal");
-        requireRead(p);
+        // The store pages the whole tenant. Until it can page an authorized subset, only a
+        // tenant-wide Skill reader may enumerate it; filtering after paging would leak cursors.
+        requireRead(p, "*");
         int size = limit == null ? 20 : limit;
         if (size < 1 || size > 50) throw new ToolFailure(ToolFailure.Code.INVALID_REQUEST);
         String cursor = after == null ? null : uuidText(after);
@@ -114,7 +119,7 @@ public final class SkillReleaseService {
     /** Read one published version — the immutable pin an AIRun references. */
     public SkillRelease.Version version(Principal p, String skillId, String version) {
         Objects.requireNonNull(p, "principal");
-        requireRead(p);
+        requireRead(p, skillId);
         return store.findVersion(p.tenantId(), skillId, version)
             .orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
     }
@@ -122,7 +127,7 @@ public final class SkillReleaseService {
     /** Bounded version readback of one Skill; published history is append-only. */
     public List<SkillRelease.Version> versions(Principal p, String skillId, String after, Integer limit) {
         Objects.requireNonNull(p, "principal");
-        requireRead(p);
+        requireRead(p, skillId);
         int size = limit == null ? 20 : limit;
         if (size < 1 || size > 50) throw new ToolFailure(ToolFailure.Code.INVALID_REQUEST);
         String cursor = after == null ? null : versionText(after);
@@ -132,7 +137,7 @@ public final class SkillReleaseService {
     /** The release pointer of one Skill: what new runs pin right now. */
     public SkillRelease.Pointer release(Principal p, String skillId) {
         Objects.requireNonNull(p, "principal");
-        requireRead(p);
+        requireRead(p, skillId);
         return store.pointer(p.tenantId(), skillId).orElseThrow(() -> new ToolFailure(ToolFailure.Code.NOT_FOUND));
     }
 
@@ -145,6 +150,13 @@ public final class SkillReleaseService {
 
     private void requireRead(Principal p) {
         if (!p.has(Permission.SKILL_READ)) throw new ToolFailure(ToolFailure.Code.FORBIDDEN);
+    }
+
+    private void requireRead(Principal p, String skillId) {
+        requireRead(p);
+        if (authorization.authorize(p, new ResourceRef(p.tenantId(), "skill", skillId), Permission.SKILL_READ).denied()) {
+            throw new ToolFailure(ToolFailure.Code.FORBIDDEN);
+        }
     }
 
     private Instant now() {

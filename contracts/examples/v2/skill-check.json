@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "2.0",
+  "skillId": "custom.incident-diagnosis",
+  "version": "1.0.0",
+  "contentDigest": "sha256:811ad7ccbf994e284835e5cabd96636a135b2b81e4fe611e0b7e3f61a54e3731",
+  "result": "PASSED",
+  "cases": [
+    {
+      "id": "missing-data",
+      "result": "PASSED",
+      "detail": "OK"
+    }
+  ],
+  "modelComparison": "not-run"
+}

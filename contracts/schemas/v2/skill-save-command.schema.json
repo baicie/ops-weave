@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opsweave.dev/schemas/v2/skill-save-command.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "skillId",
+    "version",
+    "editVersion",
+    "content"
+  ],
+  "properties": {
+    "requestId": {
+      "$ref": "skill-common.schema.json#/$defs/uuid"
+    },
+    "skillId": {
+      "$ref": "skill-common.schema.json#/$defs/skillId"
+    },
+    "version": {
+      "$ref": "skill-common.schema.json#/$defs/version"
+    },
+    "editVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "content": {
+      "$ref": "skill-content.schema.json"
+    }
+  }
+}
